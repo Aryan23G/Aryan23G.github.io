@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aryan Gupta — IT, Automation & Systems</title>
+<meta name="description" content="Aryan Gupta — Computer Science co-op student at Wilfrid Laurier University. IT infrastructure, identity & access management, and automation.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;600;800&family=Outfit:wght@300;400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#070B14;
+  --void-2:#0B1120;
+  --nebula:#231A45;
+  --ice:#8FD8E8;
+  --amber:#F2B265;
+  --starlight:#E9EDF5;
+  --dust:#8B93A8;
+  --line:rgba(143,216,232,.16);
+  --maxw:1120px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--void);
+  color:var(--starlight);
+  font-family:'Outfit',sans-serif;
+  font-weight:300;
+  line-height:1.65;
+  overflow-x:hidden;
+}
+::selection{background:var(--ice);color:var(--void)}
+
+/* ---------- starfield canvas ---------- */
+#stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+.nebula-glow{
+  position:fixed;z-index:0;pointer-events:none;border-radius:50%;filter:blur(120px);opacity:.5;
+}
+.nebula-glow.a{width:560px;height:560px;top:-180px;right:-140px;background:radial-gradient(circle,#2A1E4F 0%,transparent 70%)}
+.nebula-glow.b{width:480px;height:480px;top:48%;left:-200px;background:radial-gradient(circle,#0E2A38 0%,transparent 70%)}
+
+main, header, footer{position:relative;z-index:1}
+
+/* ---------- typography ---------- */
+h1,h2{font-family:'Unbounded',sans-serif;letter-spacing:-.01em}
+.mono{font-family:'Space Mono',monospace}
+.eyebrow{
+  font-family:'Space Mono',monospace;font-size:.72rem;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--ice);display:flex;align-items:center;gap:.9rem;
+}
+.eyebrow::after{content:"";height:1px;flex:0 0 56px;background:linear-gradient(90deg,var(--ice),transparent)}
+.eyebrow .coord{color:var(--dust);letter-spacing:.08em}
+
+a{color:var(--ice);text-decoration:none}
+a:hover{color:var(--amber)}
+a:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:2px}
+
+/* ---------- nav ---------- */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:10;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:1.1rem clamp(1.2rem,4vw,3rem);
+  background:linear-gradient(180deg,rgba(7,11,20,.92),rgba(7,11,20,0));
+  backdrop-filter:blur(6px);
+}
+nav .logo{font-family:'Space Mono',monospace;font-size:.85rem;letter-spacing:.18em;color:var(--starlight)}
+nav .logo span{color:var(--ice)}
+nav ul{display:flex;gap:2rem;list-style:none}
+nav ul a{font-family:'Space Mono',monospace;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dust)}
+nav ul a:hover{color:var(--ice)}
+@media(max-width:680px){nav ul{display:none}}
+
+/* ---------- hero ---------- */
+.hero{
+  min-height:100svh;display:flex;flex-direction:column;justify-content:center;
+  max-width:var(--maxw);margin:0 auto;padding:7rem clamp(1.2rem,4vw,3rem) 4rem;
+  position:relative;
+}
+.hero .callsign{
+  font-family:'Space Mono',monospace;font-size:.78rem;letter-spacing:.3em;
+  color:var(--ice);text-transform:uppercase;margin-bottom:1.6rem;
+}
+.hero .callsign .blink{animation:blink 1.4s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+.hero h1{
+  font-size:clamp(2.4rem,7.5vw,5.4rem);font-weight:800;line-height:1.04;
+  background:linear-gradient(120deg,var(--starlight) 55%,var(--ice));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  max-width:14ch;
+}
+.hero .sub{
+  margin-top:1.8rem;max-width:54ch;font-size:1.08rem;color:var(--dust);font-weight:300;
+}
+.hero .sub strong{color:var(--starlight);font-weight:500}
+.hero .actions{display:flex;gap:1rem;margin-top:2.6rem;flex-wrap:wrap}
+.btn{
+  font-family:'Space Mono',monospace;font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;
+  padding:.85rem 1.6rem;border:1px solid var(--line);border-radius:999px;color:var(--starlight);
+  transition:border-color .25s,color .25s,background .25s;background:transparent;cursor:pointer;
+}
+.btn:hover{border-color:var(--ice);color:var(--ice)}
+.btn.solid{background:var(--ice);color:var(--void);border-color:var(--ice);font-weight:700}
+.btn.solid:hover{background:var(--amber);border-color:var(--amber);color:var(--void)}
+
+/* orbital ring behind hero */
+.orbit{
+  position:absolute;right:clamp(-160px,-6vw,-40px);top:50%;transform:translateY(-50%);
+  width:min(560px,70vw);aspect-ratio:1;pointer-events:none;opacity:.9;
+}
+.orbit svg{width:100%;height:100%;overflow:visible}
+.ring{fill:none;stroke:var(--line);stroke-width:1}
+.ring.dashed{stroke-dasharray:2 7}
+.orbit .planet{fill:var(--amber);filter:drop-shadow(0 0 10px rgba(242,178,101,.8))}
+.orbit .moon{fill:var(--ice);filter:drop-shadow(0 0 6px rgba(143,216,232,.8))}
+.spin-slow{transform-origin:300px 300px;animation:spin 60s linear infinite}
+.spin-mid{transform-origin:300px 300px;animation:spin 38s linear infinite reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:880px){.orbit{opacity:.35;right:-30vw}}
+
+.scroll-hint{
+  position:absolute;bottom:2rem;left:clamp(1.2rem,4vw,3rem);
+  font-family:'Space Mono',monospace;font-size:.66rem;letter-spacing:.26em;color:var(--dust);
+  text-transform:uppercase;display:flex;align-items:center;gap:.8rem;
+}
+.scroll-hint::after{content:"";width:1px;height:42px;background:linear-gradient(180deg,var(--dust),transparent)}
+
+/* ---------- sections ---------- */
+section{max-width:var(--maxw);margin:0 auto;padding:6.5rem clamp(1.2rem,4vw,3rem)}
+section h2{font-size:clamp(1.5rem,3.4vw,2.3rem);font-weight:600;margin:1.2rem 0 2.8rem}
+section h2 em{font-style:normal;color:var(--ice)}
+
+/* ---------- about ---------- */
+.about-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:3.5rem;align-items:start}
+.about-grid p{color:var(--dust);font-size:1.05rem;margin-bottom:1.1rem}
+.about-grid p strong{color:var(--starlight);font-weight:500}
+.readout{
+  border:1px solid var(--line);border-radius:14px;padding:1.6rem;
+  background:linear-gradient(160deg,rgba(143,216,232,.05),rgba(35,26,69,.18));
+}
+.readout dt{font-family:'Space Mono',monospace;font-size:.64rem;letter-spacing:.2em;color:var(--ice);text-transform:uppercase;margin-top:1.1rem}
+.readout dt:first-child{margin-top:0}
+.readout dd{font-size:.95rem;color:var(--starlight);margin-top:.2rem}
+@media(max-width:780px){.about-grid{grid-template-columns:1fr}}
+
+/* ---------- constellation timeline ---------- */
+.constellation{position:relative;border:1px solid var(--line);border-radius:18px;padding:2.4rem 1rem 1rem;overflow:hidden;background:rgba(11,17,32,.45)}
+.constellation svg{width:100%;height:auto;display:block}
+.const-line{stroke:rgba(143,216,232,.35);stroke-width:1;stroke-dasharray:3 5}
+.const-star{fill:var(--ice);filter:drop-shadow(0 0 6px rgba(143,216,232,.9))}
+.const-star.major{fill:var(--amber);filter:drop-shadow(0 0 9px rgba(242,178,101,.9))}
+.const-label{font-family:'Space Mono',monospace;font-size:11px;fill:var(--dust);letter-spacing:.08em}
+.const-label.bright{fill:var(--starlight)}
+
+.jobs{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;margin-top:2.2rem}
+.job{border:1px solid var(--line);border-radius:14px;padding:1.5rem;transition:border-color .3s,transform .3s;background:rgba(11,17,32,.5)}
+.job:hover{border-color:rgba(143,216,232,.45);transform:translateY(-4px)}
+.job .when{font-family:'Space Mono',monospace;font-size:.66rem;letter-spacing:.18em;color:var(--amber);text-transform:uppercase}
+.job h3{font-weight:600;font-size:1.05rem;margin:.6rem 0 .15rem}
+.job .org{color:var(--ice);font-size:.88rem;margin-bottom:.8rem}
+.job ul{list-style:none}
+.job li{color:var(--dust);font-size:.88rem;padding-left:1rem;position:relative;margin-bottom:.45rem}
+.job li::before{content:"·";position:absolute;left:0;color:var(--ice)}
+@media(max-width:880px){.jobs{grid-template-columns:1fr}}
+
+/* ---------- projects ---------- */
+.proj-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.4rem}
+.proj{
+  border:1px solid var(--line);border-radius:16px;padding:1.8rem;position:relative;overflow:hidden;
+  background:linear-gradient(170deg,rgba(11,17,32,.7),rgba(35,26,69,.25));
+  transition:border-color .3s,transform .3s;display:flex;flex-direction:column;gap:.9rem;
+}
+.proj:hover{border-color:rgba(242,178,101,.5);transform:translateY(-4px)}
+.proj .badge{
+  font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--void);background:var(--ice);border-radius:999px;padding:.25rem .7rem;width:fit-content;font-weight:700;
+}
+.proj .badge.amber{background:var(--amber)}
+.proj h3{font-family:'Unbounded',sans-serif;font-weight:400;font-size:1.15rem}
+.proj p{color:var(--dust);font-size:.92rem;flex:1}
+.proj .stack{display:flex;flex-wrap:wrap;gap:.45rem}
+.proj .stack span{
+  font-family:'Space Mono',monospace;font-size:.62rem;letter-spacing:.1em;color:var(--ice);
+  border:1px solid var(--line);border-radius:999px;padding:.22rem .65rem;
+}
+@media(max-width:780px){.proj-grid{grid-template-columns:1fr}}
+
+/* ---------- skills ---------- */
+.skills-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem}
+.panel{border:1px solid var(--line);border-radius:14px;padding:1.4rem;background:rgba(11,17,32,.5)}
+.panel h4{font-family:'Space Mono',monospace;font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);margin-bottom:.9rem}
+.panel ul{list-style:none}
+.panel li{color:var(--dust);font-size:.9rem;margin-bottom:.4rem}
+@media(max-width:880px){.skills-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.skills-grid{grid-template-columns:1fr}}
+
+/* ---------- contact ---------- */
+.contact{text-align:center;padding-bottom:8rem}
+.contact h2{margin-bottom:1rem}
+.contact p{color:var(--dust);max-width:46ch;margin:0 auto 2.4rem}
+.contact .links{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap}
+
+footer{
+  border-top:1px solid var(--line);padding:2rem clamp(1.2rem,4vw,3rem);
+  display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+  font-family:'Space Mono',monospace;font-size:.66rem;letter-spacing:.16em;color:var(--dust);text-transform:uppercase;
+}
+
+/* reveal on scroll */
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .reveal{opacity:1;transform:none}
+  html{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+
+<canvas id="stars" aria-hidden="true"></canvas>
+<div class="nebula-glow a" aria-hidden="true"></div>
+<div class="nebula-glow b" aria-hidden="true"></div>
+
+<nav>
+  <div class="logo">ARYAN<span>.</span>GUPTA</div>
+  <ul>
+    <li><a href="#about">About</a></li>
+    <li><a href="#experience">Experience</a></li>
+    <li><a href="#projects">Projects</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+</nav>
+
+<header class="hero">
+  <p class="callsign">// GROUND CONTROL TO ARYAN <span class="blink">▍</span></p>
+  <h1>Keeping systems in stable orbit.</h1>
+  <p class="sub">
+    I'm <strong>Aryan Gupta</strong> — a Computer Science co-op student at
+    <strong>Wilfrid Laurier University</strong> working in IT infrastructure,
+    identity &amp; access management, and automation. I've migrated hospital networks,
+    secured thousands of accounts, and scripted away the boring parts.
+  </p>
+  <div class="actions">
+    <a class="btn solid" href="#projects">View projects</a>
+    <a class="btn" href="#contact">Open a channel</a>
+  </div>
+
+  <div class="orbit" aria-hidden="true">
+    <svg viewBox="0 0 600 600">
+      <circle class="ring" cx="300" cy="300" r="120"/>
+      <circle class="ring dashed" cx="300" cy="300" r="195"/>
+      <circle class="ring" cx="300" cy="300" r="270"/>
+      <g class="spin-slow"><circle class="planet" cx="300" cy="30" r="7"/></g>
+      <g class="spin-mid"><circle class="moon" cx="105" cy="300" r="4"/></g>
+      <circle cx="300" cy="300" r="26" fill="url(#core)"/>
+      <defs>
+        <radialGradient id="core">
+          <stop offset="0%" stop-color="#8FD8E8" stop-opacity=".9"/>
+          <stop offset="100%" stop-color="#8FD8E8" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+    </svg>
+  </div>
+
+  <div class="scroll-hint">Scroll to descend</div>
+</header>
+
+<main>
+
+<!-- ABOUT -->
+<section id="about" class="reveal">
+  <p class="eyebrow">Log 01 <span class="coord">// Mission profile</span></p>
+  <h2>The short <em>transmission</em>.</h2>
+  <div class="about-grid">
+    <div>
+      <p>
+        My work lives where <strong>infrastructure meets people</strong>: hospital domain migrations
+        with near-zero downtime, IAM for 3,000+ staff accounts, and reporting pipelines that turn
+        messy operational data into decisions.
+      </p>
+      <p>
+        At <strong>Waterloo Regional Health Network</strong>, I supported Project Unity — a
+        multi-hospital infrastructure consolidation — moving 30+ clinical departments to a new
+        domain while patient systems stayed online. Before that, I built automation and monitoring
+        for 400+ enterprise clients and ran EMR systems for a busy medical clinic.
+      </p>
+      <p>
+        Off-hours, I build local-first tools: retrieval systems, diagnostics scripts,
+        and anything that replaces a repetitive task with a command.
+      </p>
+    </div>
+    <dl class="readout">
+      <dt>Base of operations</dt><dd>Waterloo / Greater Toronto Area, Canada</dd>
+      <dt>Program</dt><dd>Hons. BSc Computer Science (Co-op), Wilfrid Laurier University</dd>
+      <dt>Specialty</dt><dd>IT infrastructure · IAM · Automation</dd>
+      <dt>Status</dt><dd>Open to co-op &amp; internship opportunities</dd>
+    </dl>
+  </div>
+</section>
+
+<!-- EXPERIENCE -->
+<section id="experience" class="reveal">
+  <p class="eyebrow">Log 02 <span class="coord">// Flight history</span></p>
+  <h2>A career, charted as a <em>constellation</em>.</h2>
+
+  <div class="constellation" aria-hidden="true">
+    <svg viewBox="0 0 1000 240">
+      <line class="const-line" x1="120" y1="170" x2="430" y2="90"/>
+      <line class="const-line" x1="430" y1="90" x2="700" y2="150"/>
+      <line class="const-line" x1="700" y1="150" x2="900" y2="60"/>
+      <circle class="const-star" cx="120" cy="170" r="5"/>
+      <circle class="const-star" cx="430" cy="90" r="6"/>
+      <circle class="const-star major" cx="700" cy="150" r="7"/>
+      <circle class="const-star" cx="900" cy="60" r="5.5"/>
+      <text class="const-label" x="120" y="200" text-anchor="middle">2020 · Vaughan Medical</text>
+      <text class="const-label" x="430" y="65" text-anchor="middle">2024 · Eulix Digital</text>
+      <text class="const-label bright" x="700" y="185" text-anchor="middle">2025 · WRHN</text>
+      <text class="const-label" x="900" y="38" text-anchor="middle">Next mission →</text>
+    </svg>
+  </div>
+
+  <div class="jobs">
+    <article class="job">
+      <p class="when">Sep – Dec 2025</p>
+      <h3>IT Support Technician</h3>
+      <p class="org">Waterloo Regional Health Network</p>
+      <ul>
+        <li>Supported Project Unity — infrastructure consolidation across three hospitals.</li>
+        <li>Migrated 30+ clinical departments to a new domain with near-zero downtime.</li>
+        <li>Coordinated secure account migrations for 200+ executives.</li>
+        <li>Administered IAM for 3,000+ staff accounts with least-privilege Group Policy.</li>
+        <li>Resolved 100+ incidents across clinical and administrative systems.</li>
+      </ul>
+    </article>
+    <article class="job">
+      <p class="when">May – Aug 2024</p>
+      <h3>IT Operations Specialist</h3>
+      <p class="org">Eulix Digital Printers</p>
+      <ul>
+        <li>System integration support for 400+ enterprise clients across Canada.</li>
+        <li>Built automated Excel dashboards, cutting asset-tracking errors by 35%.</li>
+        <li>Remediated vulnerabilities, extending equipment lifecycle by 300%.</li>
+        <li>Proactive monitoring reduced emergency escalations by 25%.</li>
+      </ul>
+    </article>
+    <article class="job">
+      <p class="when">Jun 2020 – Aug 2022</p>
+      <h3>Technical Support &amp; Administrator</h3>
+      <p class="org">Vaughan Medical Center</p>
+      <ul>
+        <li>Managed EMR systems (OSCAR, Universal) for 15+ healthcare professionals.</li>
+        <li>Predictive Excel inventory tracking cut supply-ordering errors by 97%.</li>
+        <li>Workflow redesign improved clinic efficiency by 25%.</li>
+        <li>Trained staff on digital workflows, improving adoption of new tools.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<!-- PROJECTS -->
+<section id="projects" class="reveal">
+  <p class="eyebrow">Log 03 <span class="coord">// Payload manifest</span></p>
+  <h2>Things I've <em>launched</em>.</h2>
+  <div class="proj-grid">
+
+    <article class="proj">
+      <span class="badge">Deployed</span>
+      <h3>Mentis</h3>
+      <p>A local, intelligent knowledge-retrieval system. Indexes documents with E5 embeddings and FAISS,
+      then answers questions through a local LLM (Gemma) — fully offline, fully private. Built for
+      environments where data can't leave the machine.</p>
+      <div class="stack"><span>Python</span><span>FAISS</span><span>E5 Embeddings</span><span>Gemma</span><span>CLI</span></div>
+    </article>
+
+    <article class="proj">
+      <span class="badge">Deployed</span>
+      <h3>Pulse</h3>
+      <p>System health check &amp; diagnostics tool for Linux. One command audits CPU, memory, disk,
+      services, and network state, then produces a color-coded report with remediation hints —
+      built from real help-desk pain.</p>
+      <div class="stack"><span>Bash</span><span>Linux</span><span>System Utilities</span></div>
+    </article>
+
+    <article class="proj">
+      <span class="badge amber">In orbit</span>
+      <h3>Provision</h3>
+      <p>Account lifecycle automation for Active Directory. PowerShell module that onboards and
+      offboards users from a CSV manifest — creates accounts, assigns least-privilege groups,
+      sets mailboxes, and logs every change for audit. Inspired by IAM work across 3,000+ hospital accounts.</p>
+      <div class="stack"><span>PowerShell</span><span>Active Directory</span><span>Group Policy</span><span>CSV</span></div>
+    </article>
+
+    <article class="proj">
+      <span class="badge amber">In orbit</span>
+      <h3>Tickeranalytics</h3>
+      <p>Service-desk analytics dashboard. Ingests ticket exports (ServiceDesk Plus / Jira), stores them
+      in SQL, and surfaces trends — busiest categories, SLA breaches, repeat offenders — so IT teams
+      fix root causes instead of symptoms.</p>
+      <div class="stack"><span>Python</span><span>SQL</span><span>Pandas</span><span>Plotly</span></div>
+    </article>
+
+    <article class="proj">
+      <span class="badge amber">In orbit</span>
+      <h3>Sweep</h3>
+      <p>Lightweight network asset-inventory scanner. Discovers devices on a subnet, fingerprints OS
+      and open services, and tracks changes over time — a self-hosted answer to the asset-tracking
+      problems I solved manually with Lansweeper and Excel.</p>
+      <div class="stack"><span>Python</span><span>Nmap</span><span>SQLite</span><span>Linux</span></div>
+    </article>
+
+    <article class="proj">
+      <span class="badge amber">In orbit</span>
+      <h3>Stockroom</h3>
+      <p>Predictive inventory forecaster. Generalizes the Excel model that cut a clinic's supply-ordering
+      errors by 97% into a Python tool: consumption history in, reorder points and forecasts out,
+      with exportable reports for non-technical staff.</p>
+      <div class="stack"><span>Python</span><span>Pandas</span><span>Excel Export</span><span>Forecasting</span></div>
+    </article>
+
+  </div>
+</section>
+
+<!-- SKILLS -->
+<section id="skills" class="reveal">
+  <p class="eyebrow">Log 04 <span class="coord">// Instrument panel</span></p>
+  <h2>Tools on <em>board</em>.</h2>
+  <div class="skills-grid">
+    <div class="panel">
+      <h4>Identity &amp; Access</h4>
+      <ul><li>Active Directory</li><li>Group Policy</li><li>ManageEngine ServiceDesk Plus</li><li>Jira</li><li>Lansweeper</li></ul>
+    </div>
+    <div class="panel">
+      <h4>Scripting &amp; Code</h4>
+      <ul><li>Python · Java · C</li><li>PowerShell · Bash</li><li>SQL · R · Stata</li><li>HTML / CSS</li><li>Git · Linux</li></ul>
+    </div>
+    <div class="panel">
+      <h4>Automation &amp; AI</h4>
+      <ul><li>Workflow automation</li><li>Local LLMs &amp; embeddings</li><li>Reporting pipelines</li><li>Predictive Excel models</li></ul>
+    </div>
+    <div class="panel">
+      <h4>Business &amp; Analytics</h4>
+      <ul><li>Excel · Visio</li><li>SharePoint</li><li>PowerPoint · Canva</li><li>DECA Provincials — financial case competitions</li></ul>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact" class="contact reveal">
+  <p class="eyebrow" style="justify-content:center">Log 05 <span class="coord">// Open channel</span></p>
+  <h2>Send a <em>transmission</em>.</h2>
+  <p>Looking for a co-op student who's already run production hospital infrastructure?
+  Signal received. I usually respond within one Earth day.</p>
+  <div class="links">
+    <a class="btn solid" href="mailto:aryan2005g@gmail.com">aryan2005g@gmail.com</a>
+    <a class="btn" href="https://github.com/Aryan23G" target="_blank" rel="noopener">GitHub</a>
+    <a class="btn" href="http://www.linkedin.com/in/aryangupta05" target="_blank" rel="noopener">LinkedIn</a>
+    <a class="btn" href="tel:+16478709814">(647) 870-9814</a>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <span>© 2026 Aryan Gupta</span>
+  <span>Coordinates: 43.46° N, 80.52° W — Waterloo, ON</span>
+</footer>
+
+<script>
+// ----- starfield -----
+const canvas = document.getElementById('stars');
+const ctx = canvas.getContext('2d');
+let stars = [], W, H;
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  const count = Math.min(220, Math.floor(W * H / 9000));
+  stars = Array.from({length: count}, () => ({
+    x: Math.random() * W,
+    y: Math.random() * H,
+    r: Math.random() * 1.3 + 0.2,
+    tw: Math.random() * Math.PI * 2,
+    sp: Math.random() * 0.015 + 0.004
+  }));
+}
+function draw(t){
+  ctx.clearRect(0, 0, W, H);
+  for (const s of stars){
+    const a = reduced ? 0.7 : 0.45 + 0.45 * Math.sin(s.tw + t * s.sp * 0.06);
+    ctx.globalAlpha = Math.max(0.08, a);
+    ctx.fillStyle = Math.random() > 0.997 ? '#F2B265' : '#E9EDF5';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  if (!reduced) requestAnimationFrame(draw);
+}
+window.addEventListener('resize', resize);
+resize();
+if (reduced) { draw(0); } else { requestAnimationFrame(draw); }
+
+// ----- scroll reveal -----
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+}, { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+</body>
+</html>
