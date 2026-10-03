@@ -152,7 +152,7 @@ section h2 em{font-style:normal;color:var(--ice)}
 .const-label{font-family:'Space Mono',monospace;font-size:11px;fill:var(--dust);letter-spacing:.08em}
 .const-label.bright{fill:var(--starlight)}
 
-.jobs{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;margin-top:2.2rem}
+.jobs{display:grid;grid-template-columns:repeat(2,1fr);gap:1.4rem;margin-top:2.2rem}
 .job{border:1px solid var(--line);border-radius:14px;padding:1.5rem;transition:border-color .3s,transform .3s;background:rgba(11,17,32,.5)}
 .job:hover{border-color:rgba(143,216,232,.45);transform:translateY(-4px)}
 .job .when{font-family:'Space Mono',monospace;font-size:.66rem;letter-spacing:.18em;color:var(--amber);text-transform:uppercase}
@@ -282,6 +282,10 @@ footer{
         messy operational data into decisions.
       </p>
       <p>
+        Most recently at <strong>Kroll</strong>, I worked as an ITSM Developer on the ServiceNow
+        platform — shipping user stories and overhauling the OnePoint service catalog.
+      </p>
+      <p>
         At <strong>Waterloo Regional Health Network</strong>, I supported Project Unity — a
         multi-hospital infrastructure consolidation — moving 30+ clinical departments to a new
         domain while patient systems stayed online. Before that, I built automation and monitoring
@@ -295,7 +299,7 @@ footer{
     <dl class="readout">
       <dt>Base of operations</dt><dd>Waterloo / Greater Toronto Area, Canada</dd>
       <dt>Program</dt><dd>Hons. BSc Computer Science (Co-op), Wilfrid Laurier University</dd>
-      <dt>Specialty</dt><dd>IT infrastructure · IAM · Automation</dd>
+      <dt>Specialty</dt><dd>IT infrastructure · ITSM &amp; ServiceNow · IAM · Automation</dd>
       <dt>Status</dt><dd>Open to co-op &amp; internship opportunities</dd>
     </dl>
   </div>
@@ -308,21 +312,36 @@ footer{
 
   <div class="constellation" aria-hidden="true">
     <svg viewBox="0 0 1000 240">
-      <line class="const-line" x1="120" y1="170" x2="430" y2="90"/>
-      <line class="const-line" x1="430" y1="90" x2="700" y2="150"/>
-      <line class="const-line" x1="700" y1="150" x2="900" y2="60"/>
-      <circle class="const-star" cx="120" cy="170" r="5"/>
-      <circle class="const-star" cx="430" cy="90" r="6"/>
-      <circle class="const-star major" cx="700" cy="150" r="7"/>
-      <circle class="const-star" cx="900" cy="60" r="5.5"/>
-      <text class="const-label" x="120" y="200" text-anchor="middle">2020 · Vaughan Medical</text>
-      <text class="const-label" x="430" y="65" text-anchor="middle">2024 · Eulix Digital</text>
-      <text class="const-label bright" x="700" y="185" text-anchor="middle">2025 · WRHN</text>
-      <text class="const-label" x="900" y="38" text-anchor="middle">Next mission →</text>
+      <line class="const-line" x1="100" y1="170" x2="330" y2="90"/>
+      <line class="const-line" x1="330" y1="90" x2="560" y2="150"/>
+      <line class="const-line" x1="560" y1="150" x2="790" y2="80"/>
+      <line class="const-line" x1="790" y1="80" x2="940" y2="150"/>
+      <circle class="const-star" cx="100" cy="170" r="5"/>
+      <circle class="const-star" cx="330" cy="90" r="6"/>
+      <circle class="const-star" cx="560" cy="150" r="6.5"/>
+      <circle class="const-star major" cx="790" cy="80" r="7.5"/>
+      <circle class="const-star" cx="940" cy="150" r="5"/>
+      <text class="const-label" x="100" y="200" text-anchor="middle">2020 · Vaughan Medical</text>
+      <text class="const-label" x="330" y="65" text-anchor="middle">2024 · Eulix Digital</text>
+      <text class="const-label" x="560" y="185" text-anchor="middle">2025 · WRHN</text>
+      <text class="const-label bright" x="790" y="55" text-anchor="middle">2026 · Kroll</text>
+      <text class="const-label" x="985" y="185" text-anchor="end">Next mission →</text>
     </svg>
   </div>
 
   <div class="jobs">
+    <article class="job">
+      <p class="when">Jun – Aug 2026</p>
+      <h3>ITSM Developer (Co-op)</h3>
+      <p class="org">Kroll · Technology – Service Management</p>
+      <ul>
+        <li>Developed on the ServiceNow platform, implementing user stories across the ITSM backlog.</li>
+        <li>Overhauled the OnePoint service catalog — standardized field labels, added help text, and improved form usability.</li>
+        <li>Modified the OnePoint portal front end and built and tested changes in the Dev instance.</li>
+        <li>Analyzed catalog forms and took ownership of business services records.</li>
+        <li>Supported a ServiceNow–Tanium CMDB integration.</li>
+      </ul>
+    </article>
     <article class="job">
       <p class="when">Sep – Dec 2025</p>
       <h3>IT Support Technician</h3>
@@ -430,7 +449,7 @@ footer{
   <div class="skills-grid">
     <div class="panel">
       <h4>Identity &amp; Access</h4>
-      <ul><li>Active Directory</li><li>Group Policy</li><li>ManageEngine ServiceDesk Plus</li><li>Jira</li><li>Lansweeper</li></ul>
+      <ul><li>Active Directory</li><li>Group Policy</li><li>ServiceNow (ITSM · CMDB · Service Portal)</li><li>ManageEngine ServiceDesk Plus</li><li>Jira</li><li>Lansweeper</li></ul>
     </div>
     <div class="panel">
       <h4>Scripting &amp; Code</h4>
