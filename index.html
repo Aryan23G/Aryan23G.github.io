@@ -190,6 +190,30 @@
       </div>
     </article>
 
+    <article class="proj feature hud tilt reveal">
+      <div style="display:flex;flex-direction:column;gap:1rem">
+        <div class="top"><span class="badge m">Agentic AI</span><span class="tag">2026</span></div>
+        <h3>SentinelDesk<small>Agentic AI Service Desk</small></h3>
+        <ul>
+          <li>Built an <strong>agentic AI analyst</strong> that triages IT tickets through a <strong>Claude tool-calling loop across 5 tools</strong>, logging every tool call so a reviewer can trace how each decision was made.</li>
+          <li>Added <strong>guardrails</strong> for safe use: ticket text handled as untrusted input to block <strong>prompt injection</strong>, a rule-based scanner that overrides the model on high-risk tickets, and <strong>10 automated tests</strong>.</li>
+        </ul>
+        <div class="chips"><span>TypeScript</span><span>Node.js</span><span>Express</span><span>Claude API</span></div>
+        <div class="links"><a class="btn primary magnetic" href="sentineldesk/">Try the live demo →</a></div>
+      </div>
+      <div class="terminal" aria-label="Example SentinelDesk trace for a phishing ticket">
+        <div class="bar"><i></i><i></i><i></i>sentineldesk · trace</div>
+        <div class="body">
+          <div class="line"><span class="k">ticket</span> "URGENT: Mailbox will be deactivated"</div>
+          <div class="line"><span class="a">→ tool</span> scan_security_indicators · <span class="a">risk 100/100</span></div>
+          <div class="line"><span class="a">→ tool</span> check_sender_domain · <span class="a">lookalike domain</span></div>
+          <div class="line"><span class="a">→ tool</span> search_knowledge_base · <span class="k">KB-101, KB-102, KB-201</span></div>
+          <div class="line"><span class="a">→ tool</span> submit_triage · <span class="k">P1 → SOC</span></div>
+          <div class="line"><span class="ok">✓ no reply sent to sender</span> <span class="caret"></span></div>
+        </div>
+      </div>
+    </article>
+
     <article class="proj hud tilt reveal">
       <div class="top"><span class="badge">Local AI</span><span class="tag">2025</span></div>
       <h3>Mentis<small>Local LLM + RAG Memory Pipeline</small></h3>
