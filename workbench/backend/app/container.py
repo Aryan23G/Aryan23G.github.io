@@ -9,6 +9,7 @@ import anthropic
 from sqlalchemy import Engine
 
 from app.agent.graph import build_graph
+from app.agent.history import RunStore
 from app.agent.llm import ClaudeSqlGenerator, SqlGenerator
 from app.agent.nodes import AgentConfig, AgentDeps
 from app.agent.runner import AgentRunner
@@ -73,6 +74,7 @@ def build_container(
         rag_max_fk_expansion=settings.rag_max_fk_expansion, data_window=_data_window(engine, tables))
     deps = AgentDeps(config=config, engine=engine, index=index, tables={t.name: t for t in tables},
                      sqlglot_schema=schema, generator=generator)
-    runner = AgentRunner(build_graph(deps), model=generator.model, dialect=settings.sql_dialect)
+    runner = AgentRunner(build_graph(deps), model=generator.model, dialect=settings.sql_dialect,
+                         store=RunStore(settings.run_history_size))
     return Container(settings=settings, engine=engine, tables=tables, schema=schema, index=index,
                      generator=generator, runner=runner, config=config)

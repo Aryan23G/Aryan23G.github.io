@@ -6,9 +6,10 @@ import asyncio
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from app.agent.history import RunSummary
 from app.agent.runner import RunTrace
 from app.api.schemas import (
     DatabaseInfo,
@@ -73,6 +74,20 @@ async def query_stream(body: QueryRequest, request: Request, c: ContainerDep) ->
     return StreamingResponse(
         events(), media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"})
+
+
+@router.get("/runs", response_model=list[RunSummary])
+async def list_runs(c: ContainerDep) -> list[RunSummary]:
+    """Most recent completed runs, newest first (bounded, in-process)."""
+    return c.runner.store.summaries()
+
+
+@router.get("/runs/{run_id}", response_model=RunTrace)
+async def get_run(run_id: str, c: ContainerDep) -> RunTrace:
+    trace = c.runner.store.get(run_id)
+    if trace is None:
+        raise HTTPException(status_code=404, detail=f"Run {run_id!r} not found (history keeps the last runs only).")
+    return trace
 
 
 @router.post("/execute", response_model=ExecuteResponse)

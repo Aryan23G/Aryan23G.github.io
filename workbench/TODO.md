@@ -24,7 +24,7 @@ and the README matches the code.
 - [x] **2. Committed end-to-end test.** Move the scripted-generator demo server into `backend/tests/e2e_server.py`
   and add a Playwright spec in `frontend/e2e/` that covers: a preset run with one self-correction, the manual
   override, and a blocked `DROP TABLE`. Add an `npm run e2e` script and a CI job.
-- [ ] **3. Run history.** Backend: keep the last 50 `RunTrace`s in a bounded in-memory store; add
+- [x] **3. Run history.** Backend: keep the last 50 `RunTrace`s in a bounded in-memory store; add
   `GET /api/runs` (summaries) and `GET /api/runs/{run_id}` (full trace), with tests. Frontend: a "History" tab in
   the left pane that lists past runs (outcome, question, ms) and reloads a trace into the canvas and trace panel
   when clicked.

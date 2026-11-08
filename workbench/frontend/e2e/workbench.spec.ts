@@ -57,6 +57,26 @@ test("manual override runs edited SQL through the same guard", async ({ page }) 
   await expect(grid(page).locator("tbody tr").first()).toContainText("DHL");
 });
 
+test("history lists completed runs and reopens one", async ({ page }) => {
+  await page.getByRole("button", { name: "Monthly revenue for 2025" }).click();
+  await expect(page.getByText("success", { exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole("button", { name: "Return rate by product category" }).click();
+  await expect(tracker(page)).toContainText("generate_sql #2", { timeout: 20_000 });
+  await expect(page.getByText("success", { exact: true })).toBeVisible({ timeout: 20_000 });
+
+  await page.getByRole("tab", { name: "History" }).click();
+  const history = page.getByRole("list", { name: "Run history" });
+  // Newest first; earlier tests in this file also ran, so look for these two specifically.
+  const revenue = history.getByRole("button", { name: /Monthly revenue for 2025/ }).first();
+  await expect(history.getByRole("button").first()).toContainText("Return rate by product category");
+  await expect(history.getByRole("button").first()).toContainText("1 retry");
+
+  await revenue.click();
+  await expect(grid(page).locator("tbody tr")).toHaveCount(12);
+  await expect(tracker(page)).not.toContainText("generate_sql #2");
+  await expect(page.getByText(/loaded from history/)).toBeVisible();
+});
+
 test("write statements are blocked by the static compiler", async ({ page }) => {
   await replaceSql(page, "DROP TABLE orders");
   await page.getByRole("button", { name: "Execute Edit" }).click();

@@ -4,11 +4,13 @@ import { Activity, Cpu, Database, TerminalSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAgentRun } from "@/hooks/use-agent-run";
 import { API_URL, api } from "@/lib/api";
-import type { HealthResponse, RetrievedTable, SchemaResponse } from "@/lib/types";
+import type { HealthResponse, RetrievedTable, RunSummary, SchemaResponse } from "@/lib/types";
 import { fmt } from "@/lib/utils";
+import { HistoryList } from "./history-list";
 import { QueryInput } from "./query-input";
 import { type ResultSet, ResultsTable } from "./results-table";
 import { SchemaBrowser } from "./schema-browser";
@@ -17,7 +19,41 @@ import { StepTracker } from "./step-tracker";
 import { TracePanel } from "./trace-panel";
 
 export function Workbench() {
-  const { state, run, cancel, executeOverride, editSql, resetSql } = useAgentRun();
+  const { state, run, cancel, executeOverride, loadTrace, editSql, resetSql } = useAgentRun();
+  const [leftTab, setLeftTab] = useState<"schema" | "history">("schema");
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [loadingRunId, setLoadingRunId] = useState<string | null>(null);
+
+  const refreshRuns = useCallback(() => {
+    api.runs().then(
+      (r) => {
+        setRuns(r);
+        setHistoryError(null);
+      },
+      (e: Error) => setHistoryError(e.message),
+    );
+  }, []);
+
+  // Refresh history on load and whenever a run completes.
+  const completedRunId = state.trace?.run_id;
+  useEffect(() => {
+    refreshRuns();
+  }, [refreshRuns, completedRunId]);
+
+  const openRun = useCallback(
+    async (runId: string) => {
+      setLoadingRunId(runId);
+      try {
+        loadTrace(await api.run(runId));
+      } catch (e) {
+        setHistoryError((e as Error).message);
+      } finally {
+        setLoadingRunId(null);
+      }
+    },
+    [loadTrace],
+  );
   const [schema, setSchema] = useState<SchemaResponse | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [backendError, setBackendError] = useState<string | null>(null);
@@ -116,7 +152,32 @@ export function Workbench() {
 
         <ResizablePanelGroup direction="horizontal" autoSaveId="qp-workbench-h" className="min-h-0 flex-1">
           <ResizablePanel defaultSize={18} minSize={12} maxSize={32}>
-            <SchemaBrowser schema={schema} injected={injected} error={backendError} onInsert={insert} />
+            <Tabs value={leftTab} onValueChange={(v) => setLeftTab(v as "schema" | "history")} className="flex h-full flex-col bg-panel">
+              <TabsContent value="schema" className="min-h-0 flex-1 data-[state=inactive]:hidden">
+                <SchemaBrowser
+                  schema={schema}
+                  injected={injected}
+                  error={backendError}
+                  onInsert={insert}
+                  title={<LeftTabs />}
+                />
+              </TabsContent>
+              <TabsContent value="history" className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden">
+                <div className="pane-header">
+                  <LeftTabs />
+                </div>
+                <div className="min-h-0 flex-1">
+                  <HistoryList
+                    runs={runs}
+                    activeRunId={state.runId}
+                    loadingRunId={loadingRunId}
+                    error={historyError}
+                    onOpen={openRun}
+                    onRefresh={refreshRuns}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
           </ResizablePanel>
           <ResizableHandle />
 
@@ -199,5 +260,14 @@ export function Workbench() {
         </footer>
       </div>
     </TooltipProvider>
+  );
+}
+
+function LeftTabs() {
+  return (
+    <TabsList className="-ml-1 h-7">
+      <TabsTrigger value="schema">Schema</TabsTrigger>
+      <TabsTrigger value="history">History</TabsTrigger>
+    </TabsList>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, Database, KeyRound, Link2, Search, Table2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,9 +21,11 @@ interface Props {
   injected: Map<string, RetrievedTable>;
   error: string | null;
   onInsert: (text: string) => void;
+  /** Replaces the "Schema" title (the workbench passes the Schema/History tab list). */
+  title?: ReactNode;
 }
 
-export function SchemaBrowser({ schema, injected, error, onInsert }: Props) {
+export function SchemaBrowser({ schema, injected, error, onInsert, title }: Props) {
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set());
   const db = schema?.databases[0];
@@ -53,7 +55,7 @@ export function SchemaBrowser({ schema, injected, error, onInsert }: Props) {
   return (
     <div className="flex h-full flex-col bg-panel">
       <div className="pane-header">
-        <span>Schema</span>
+        {title ?? <span>Schema</span>}
         {db && (
           <span className="font-mono normal-case tracking-normal">
             {injected.size > 0 ? `${injected.size}/${db.tables.length} in context` : `${db.tables.length} tables`}
