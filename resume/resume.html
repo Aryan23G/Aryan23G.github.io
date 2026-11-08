@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Aryan Gupta - Resume</title>
+<meta name="author" content="Aryan Gupta">
+<!--
+  Source for resume/Aryan_Gupta_Resume.pdf (US Letter, one page).
+  Regenerate with:  node resume/build-pdf.cjs
+-->
+<style>
+  @page { size: letter; margin: 0.42in 0.55in 0.4in; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Liberation Serif", "Times New Roman", Times, serif; font-size: 10.5pt; line-height: 1.18; color: #000; }
+  h1 { text-align: center; font-size: 17pt; letter-spacing: .02em; margin-bottom: 2pt; }
+  .contact { text-align: center; font-size: 9pt; margin-bottom: 7pt; }
+  .contact a { color: inherit; text-decoration: none; }
+  h2 { font-size: 10.5pt; text-transform: uppercase; border-bottom: .75pt solid #000; padding-bottom: 1pt; margin: 7pt 0 3pt; }
+  .entry { margin-bottom: 4pt; }
+  .row { display: flex; justify-content: space-between; gap: 12pt; }
+  .row .r { white-space: nowrap; text-align: right; }
+  .sub { font-style: italic; }
+  ul { margin: 1pt 0 0 14pt; padding-left: 6pt; }
+  li { margin-bottom: .6pt; }
+  li::marker { font-size: 9pt; }
+  .skills p { margin-bottom: 1pt; }
+</style>
+</head>
+<body>
+<h1>ARYAN GUPTA</h1>
+<p class="contact">647-870-9814 | <a href="mailto:aryangupta.build@gmail.com">aryangupta.build@gmail.com</a> | <a href="https://linkedin.com/in/aryangupta05">linkedin.com/in/aryangupta05</a> | <a href="https://github.com/Aryan23G">github.com/Aryan23G</a> | <a href="https://aryan23g.github.io">aryan23g.github.io</a></p>
+
+<h2>Education</h2>
+<div class="entry">
+  <div class="row"><b>Wilfrid Laurier University</b><span class="r">Waterloo, ON</span></div>
+  <div class="row"><span class="sub">Honours Bachelor of Science in Computer Science, Co-op</span><span class="r">Sep 2023 – Dec 2027 (Expected)</span></div>
+  <ul><li><b>Relevant Coursework:</b> Software Engineering, Database Systems, Algorithms, Computer Networks</li></ul>
+</div>
+
+<h2>Projects</h2>
+<div class="entry">
+  <div class="row"><span><b>QueryPilot – Text-to-SQL Analytics Agent</b> | <i>TypeScript, Claude API, SQLite (WASM), Chart.js</i></span><span class="r">2026</span></div>
+  <ul>
+    <li>Built an <b>agentic text-to-SQL analyst</b> that turns plain-English questions into SQL via a <b>Claude tool-calling loop</b>, grounding queries in the schema and real column values and <b>self-correcting from SQL errors</b></li>
+    <li>Enforced <b>read-only access with 5 defence layers</b>, incl. a tokenizer-based SQL guard and <b>SQLite bytecode (EXPLAIN) checks</b>, and a <b>PII shield</b> that keeps customer names and emails from the LLM; <b>137 tests</b> and a 20-question eval</li>
+  </ul>
+</div>
+<div class="entry">
+  <div class="row"><span><b>Mentis – Local LLM + RAG Memory Pipeline</b> | <i>Python, E5 Embeddings, Vector Database</i></span><span class="r">2025</span></div>
+  <ul>
+    <li>Forked and worked through an open-source, <b>local-first RAG pipeline</b> in Python that parses PDF, Markdown and text notes, chunks them, embeds them with <b>E5 models</b> and retrieves matching passages from a <b>vector database</b></li>
+    <li>Studied its <b>modular, low-abstraction design</b> (ingestion, chunking, embedding, retrieval) and privacy-first approach, where all data stays on the local machine with <b>no cloud APIs</b></li>
+  </ul>
+</div>
+
+<h2>Experience</h2>
+<div class="entry">
+  <div class="row"><b>Kroll</b><span class="r">Toronto, ON (Hybrid)</span></div>
+  <div class="row"><span class="sub">IT Service Management Developer Co-op</span><span class="r">Jun 2026 – Aug 2026</span></div>
+  <ul>
+    <li>Applied <b>Microsoft 365 Copilot</b> and other LLM-assisted workflows to a review of <b>80+ service catalog forms</b>, turning a manual, one-by-one audit into a repeatable process and standardizing labels, help text and descriptions across Kroll’s OnePoint portal</li>
+    <li>Identified automation and consolidation opportunities across the catalog and presented findings from <b>4 workstreams</b> to Technology leadership</li>
+    <li>Delivered <b>15+ Agile user stories</b> on ServiceNow, building catalog logic and front-end changes for the global self-service portal</li>
+  </ul>
+</div>
+<div class="entry">
+  <div class="row"><b>Waterloo Regional Health Network</b><span class="r">Waterloo, ON</span></div>
+  <div class="row"><span class="sub">IT and Infrastructure Technician</span><span class="r">Sep 2025 – Dec 2025</span></div>
+  <ul>
+    <li>Managed <b>identity and access</b> for <b>5,000+ healthcare professionals</b> in Active Directory, improving security and efficiency</li>
+    <li>Led the migration of <b>30+ medical departments</b> and <b>200+ executives</b> to a new hospital-wide domain with <b>100% system uptime</b>, training staff through the change</li>
+  </ul>
+</div>
+<div class="entry">
+  <div class="row"><b>Eulix Digital Printers</b><span class="r">Mississauga, ON</span></div>
+  <div class="row"><span class="sub">IT Operations Specialist</span><span class="r">May 2024 – Aug 2024</span></div>
+  <ul>
+    <li>Replaced a manual asset-tracking process with an automated one covering <b>400+ client accounts</b>, cutting manual oversight by <b>30%</b> and speeding up technician response times</li>
+    <li>Deployed and configured networked printing systems for <b>400+ organizations</b> across Ontario, integrating devices with client networks and print servers</li>
+  </ul>
+</div>
+<div class="entry">
+  <div class="row"><b>Vaughan Medical Centre</b><span class="r">Vaughan, ON</span></div>
+  <div class="row"><span class="sub">Technical Support and Administrator (Part-time)</span><span class="r">Jun 2020 – Aug 2022</span></div>
+  <ul>
+    <li>Developed <b>NLP-based automation</b> to categorize incoming support tickets, decreasing resolution times by <b>40%</b></li>
+    <li>Implemented <b>AI-driven inventory optimization</b> in Excel, reducing supply order errors by <b>97%</b> and saving <b>50+ hours per month</b> for non-technical staff</li>
+  </ul>
+</div>
+
+<h2>Technical Skills</h2>
+<div class="skills">
+  <p><b>AI Engineering</b>: Agentic AI, LLM Tool Calling (Claude &amp; OpenAI APIs), Text-to-SQL, Guardrails, Prompt-Injection Defence, Prompt Engineering, LLM Evaluation, Microsoft 365 Copilot</p>
+  <p><b>Languages &amp; Tools</b>: Python, TypeScript/JavaScript, SQL, SQLite, PostgreSQL, Node.js, Express, React, ServiceNow</p>
+  <p><b>Other</b>: Use-Case Discovery, Documentation, Stakeholder Communication, Executive Presentations</p>
+</div>
+</body>
+</html>

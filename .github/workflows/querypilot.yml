@@ -1,0 +1,28 @@
+name: QueryPilot CI
+
+on:
+  push:
+    paths: ["querypilot/**", ".github/workflows/querypilot.yml"]
+  pull_request:
+    paths: ["querypilot/**", ".github/workflows/querypilot.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: querypilot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: querypilot/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Built bundle is up to date
+        run: |
+          npm run build
+          git diff --exit-code -- dist || (echo "dist/ is stale: run 'npm run build' and commit" && exit 1)

@@ -8,8 +8,8 @@ Static site, no build step needed to deploy:
 - `css/site.css`: deep-space HUD theme
 - `js/site.js`: Three.js planet, tsParticles starfield, Motion micro-interactions
 - `vendor/libs.js`: tree-shaken bundle of three, motion, @tsparticles (source in `vendor/libs.src.js`)
-- `resume/Aryan_Gupta_Resume.pdf`
-- `sentineldesk/`: SentinelDesk live demo
+- `resume/Aryan_Gupta_Resume.pdf`, built from `resume/resume.html` with `node resume/build-pdf.cjs`
+- `querypilot/`: QueryPilot, a text-to-SQL analytics agent (live demo + source, tests and eval; see its README)
 
 To rebuild the vendor bundle after changing `vendor/libs.src.js`:
 
