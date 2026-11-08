@@ -98,6 +98,16 @@ test("exports the recorded run trace as JSON", async ({ page }) => {
   ]);
 });
 
+test("API rejects requests without the bearer token", async ({ request }) => {
+  // The UI tests above pass only because the browser sends NEXT_PUBLIC_API_TOKEN.
+  expect((await request.get("http://127.0.0.1:8000/api/health")).status()).toBe(200);
+  const denied = await request.get("http://127.0.0.1:8000/api/schema");
+  expect(denied.status()).toBe(401);
+  expect(denied.headers()["www-authenticate"]).toBe("Bearer");
+  const allowed = await request.get("http://127.0.0.1:8000/api/schema", { headers: { Authorization: "Bearer e2e-token" } });
+  expect(allowed.status()).toBe(200);
+});
+
 test("write statements are blocked by the static compiler", async ({ page }) => {
   await replaceSql(page, "DROP TABLE orders");
   await page.getByRole("button", { name: "Execute Edit" }).click();

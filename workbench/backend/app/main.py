@@ -12,7 +12,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import router
+from app.api.routes import protected, router
+from app.api.security import Guards
 from app.config import Settings, get_settings
 from app.container import Container, build_container
 from app.db import seed
@@ -35,8 +36,11 @@ def create_app(settings: Settings | None = None, container: Container | None = N
 
     app = FastAPI(title="QueryPilot Workbench API", version="1.0.0", lifespan=lifespan)
     app.add_middleware(
-        CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["GET", "POST"], allow_headers=["*"])
+        CORSMiddleware, allow_origins=settings.cors_origins, allow_methods=["GET", "POST"],
+        allow_headers=["Authorization", "Content-Type", "Accept"])
+    app.state.guards = Guards(settings)
     app.include_router(router)
+    app.include_router(protected)
     return app
 
 

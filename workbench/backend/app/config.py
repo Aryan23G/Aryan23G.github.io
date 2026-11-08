@@ -57,6 +57,10 @@ class Settings(BaseSettings):
 
     # --- API -----------------------------------------------------------------
     cors_origins: list[str] = ["http://localhost:3000"]
+    # Optional shared bearer token for every endpoint except /api/health. Unset = no auth.
+    api_token: str | None = None
+    rate_limit_per_min: int = 30   # per client on /query, /query/stream, /execute; 0 disables
+    max_concurrent_runs: int = 4   # concurrent agent runs; extra requests get 503 + Retry-After
 
 
 @lru_cache(maxsize=1)

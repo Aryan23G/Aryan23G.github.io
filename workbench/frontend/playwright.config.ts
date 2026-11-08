@@ -16,6 +16,8 @@ export default defineConfig({
     {
       command: `${python} -m tests.e2e_server`,
       cwd: "../backend",
+      // The e2e stack runs with auth on, so the browser must send the bearer token on every call.
+      env: { QP_E2E_API_TOKEN: "e2e-token" },
       url: "http://127.0.0.1:8000/api/health",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
@@ -24,7 +26,7 @@ export default defineConfig({
       // Production build: exercises the same bundle that ships.
       command: "npm run build && npm run start",
       url: "http://localhost:3000",
-      env: { NEXT_PUBLIC_API_URL: "http://localhost:8000", NEXT_TELEMETRY_DISABLED: "1" },
+      env: { NEXT_PUBLIC_API_URL: "http://localhost:8000", NEXT_PUBLIC_API_TOKEN: "e2e-token", NEXT_TELEMETRY_DISABLED: "1" },
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     },

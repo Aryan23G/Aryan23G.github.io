@@ -30,7 +30,7 @@ and the README matches the code.
   when clicked.
 - [x] **4. Export trace.** "Export JSON" button in the trace panel that downloads the full `RunTrace`. Backend:
   `GET /api/runs/{run_id}` is the source. Test the download content in the e2e spec.
-- [ ] **5. API hardening.** Optional bearer-token auth (`QP_API_TOKEN`; disabled when unset), an in-memory
+- [x] **5. API hardening.** Optional bearer-token auth (`QP_API_TOKEN`; disabled when unset), an in-memory
   per-client rate limit on the query endpoints (`QP_RATE_LIMIT_PER_MIN`, 429 with `Retry-After`), and a cap on
   concurrent agent runs. Frontend sends the token from `NEXT_PUBLIC_API_TOKEN` if set. Tests for 401/429.
 - [ ] **6. Large-result rendering.** Virtualize the result grid rows with `@tanstack/react-virtual` so 1,000 rows

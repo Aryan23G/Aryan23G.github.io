@@ -72,6 +72,7 @@ def main() -> None:
     seed.build(db)
     settings = Settings(
         database_url=f"sqlite:///{db}", embedder="hashing", qdrant_path=None, otel_exporter="none",
+        rate_limit_per_min=600, api_token=os.environ.get("QP_E2E_API_TOKEN") or None,
         cors_origins=[os.environ.get("QP_E2E_WEB_ORIGIN", "http://localhost:3000")])
     app = create_app(settings=settings, container=build_container(settings, generator=ScriptedGenerator()))
     uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("QP_E2E_PORT", "8000")), log_level="warning")

@@ -15,6 +15,7 @@ services:
       QP_OTEL_EXPORTER: ${QP_OTEL_EXPORTER:-none}
       QP_OTEL_ENDPOINT: ${QP_OTEL_ENDPOINT:-}
       QP_OTEL_HEADERS: ${QP_OTEL_HEADERS:-}
+      QP_API_TOKEN: ${QP_API_TOKEN:-}
     ports: ["8000:8000"]
     depends_on: [qdrant]
 
@@ -23,6 +24,7 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_API_TOKEN: ${QP_API_TOKEN:-}
     ports: ["3000:3000"]
     depends_on: [api]
 
