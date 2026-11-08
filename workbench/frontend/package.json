@@ -8,7 +8,8 @@
     "start": "next start -p 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@codemirror/lang-sql": "6.10.0",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@headlessui/tailwindcss": "0.2.2",
+    "@playwright/test": "^1.63.0",
     "@types/node": "22.10.2",
     "@types/react": "18.3.18",
     "@types/react-dom": "18.3.5",

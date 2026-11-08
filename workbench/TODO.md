@@ -21,7 +21,7 @@ and the README matches the code.
 - [x] **1. Frontend unit tests.** Add Vitest. Cover the `use-agent-run` reducer (step start/complete matching,
   retries, live payloads, override flow), the SSE frame parser in `lib/api.ts` (split frames, multi-line data),
   `toCsv` (quoting, formula injection) and `fmt`. Add `npm test`; add it to CI.
-- [ ] **2. Committed end-to-end test.** Move the scripted-generator demo server into `backend/tests/e2e_server.py`
+- [x] **2. Committed end-to-end test.** Move the scripted-generator demo server into `backend/tests/e2e_server.py`
   and add a Playwright spec in `frontend/e2e/` that covers: a preset run with one self-correction, the manual
   override, and a blocked `DROP TABLE`. Add an `npm run e2e` script and a CI job.
 - [ ] **3. Run history.** Backend: keep the last 50 `RunTrace`s in a bounded in-memory store; add
