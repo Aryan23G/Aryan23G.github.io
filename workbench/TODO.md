@@ -18,7 +18,7 @@ and the README matches the code.
 
 ## Items
 
-- [ ] **1. Frontend unit tests.** Add Vitest. Cover the `use-agent-run` reducer (step start/complete matching,
+- [x] **1. Frontend unit tests.** Add Vitest. Cover the `use-agent-run` reducer (step start/complete matching,
   retries, live payloads, override flow), the SSE frame parser in `lib/api.ts` (split frames, multi-line data),
   `toCsv` (quoting, formula injection) and `fmt`. Add `npm test`; add it to CI.
 - [ ] **2. Committed end-to-end test.** Move the scripted-generator demo server into `backend/tests/e2e_server.py`
