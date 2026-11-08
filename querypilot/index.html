@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QueryPilot · Text-to-SQL Analytics Agent · Aryan Gupta</title>
+<meta name="description" content="QueryPilot turns plain-English questions into safe, read-only SQL with a Claude tool-calling agent, then charts the results. Runs entirely in your browser.">
+<meta name="theme-color" content="#02030A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Outfit:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="nebula" aria-hidden="true"></div>
+<div class="wrap">
+  <div class="top">
+    <a class="back" href="../">← Aryan Gupta</a>
+    <div class="top-right">
+      <a class="back" href="https://github.com/Aryan23G/Aryan23G.github.io/tree/main/querypilot" target="_blank" rel="noopener">Source ↗</a>
+      <span id="mode" class="mode">Demo mode</span>
+    </div>
+  </div>
+
+  <header class="hero">
+    <p class="kicker">Text-to-SQL analytics agent</p>
+    <h1>Query<em>Pilot</em></h1>
+    <p class="lede">Ask a business question in plain English. A Claude agent explores the schema, writes SQL, checks its own results and draws the chart. Every query passes a five-layer read-only guard before it reaches the database.</p>
+    <ul class="pipeline" aria-label="How a question is answered">
+      <li><b>1</b>Question</li>
+      <li><b>2</b>Agent writes SQL</li>
+      <li><b>3</b>Guard + bytecode check</li>
+      <li><b>4</b>SQLite in a worker</li>
+      <li><b>5</b>Validated chart</li>
+    </ul>
+  </header>
+
+  <div class="layout">
+    <main>
+      <form id="ask" class="ask hud">
+        <label for="question" class="sr-only">Your question</label>
+        <textarea id="question" rows="2" placeholder="Ask a question about the store's data…"></textarea>
+        <button id="ask-btn" class="btn primary" type="submit">Ask</button>
+      </form>
+      <div class="examples-head">
+        <span class="label">Sample questions</span>
+        <button id="reset" type="button" class="ghost small">New conversation</button>
+      </div>
+      <div id="examples" class="chips"></div>
+
+      <div id="feed" class="feed" aria-live="polite">
+        <div class="empty hud">
+          <p><b>Orbit Outfitters</b> is a made-up online outdoor-gear store with two years of orders (2024 to 2025): customers, products, orders, line items and reviews.</p>
+          <p class="muted">Pick a sample question to see the full pipeline run on real queries. Add your own Anthropic API key in Settings to ask anything, including follow-ups like "now split that by channel".</p>
+        </div>
+      </div>
+    </main>
+
+    <aside>
+      <section class="panel hud">
+        <h2>Settings</h2>
+        <label for="api-key" class="label">Anthropic API key</label>
+        <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+        <p id="key-status" class="small muted"></p>
+        <label for="model" class="label">Model</label>
+        <select id="model"></select>
+        <p class="small muted">Your key stays in this browser tab (sessionStorage) and is sent only to api.anthropic.com. There is no backend.</p>
+      </section>
+
+      <section class="panel hud">
+        <h2>Safety layers</h2>
+        <ol class="layers">
+          <li><b>Static guard</b><span>Tokenizer-based: one statement, SELECT/WITH only, no write or DDL keywords, no risky functions, table allowlist.</span></li>
+          <li><b>Bytecode check</b><span>Compiles with <code>EXPLAIN</code> and inspects SQLite's VDBE program: no write opcodes or write transactions, and reads only from allowlisted b-trees.</span></li>
+          <li><b>Read-only connection</b><span><code>PRAGMA query_only</code> makes SQLite itself refuse writes.</span></li>
+          <li><b>Resource limits</b><span>Row cap while stepping, and a 4s timeout that kills and restarts the worker.</span></li>
+          <li><b>Sandbox</b><span>In-memory database rebuilt from a fixed seed. Query results go to the model as data, never as instructions.</span></li>
+        </ol>
+        <p class="pii-note"><b>PII shield.</b> Customer names and emails are swapped for placeholders (<code>CUSTOMER_NAME_12</code>) in everything sent to Claude, then mapped back to real values just before the SQL runs and before you see the answer.</p>
+      </section>
+
+      <section class="panel hud">
+        <h2>SQL console</h2>
+        <p class="small muted">Run SQL by hand through the same pipeline. Try to break it:</p>
+        <div id="attacks" class="chips small-chips"></div>
+        <label for="console-sql" class="sr-only">SQL</label>
+        <textarea id="console-sql" rows="4" spellcheck="false" class="mono">SELECT category, COUNT(*) AS products, ROUND(AVG(unit_price), 2) AS avg_price
+FROM products GROUP BY category ORDER BY avg_price DESC</textarea>
+        <button id="console-run" type="button" class="btn">Run query</button>
+        <div id="console-out" class="console-out"></div>
+      </section>
+
+      <section class="panel hud">
+        <h2>Schema</h2>
+        <p id="db-status" class="small mono db-status">Loading SQLite (WASM)…</p>
+        <div id="schema" class="schema"></div>
+      </section>
+    </aside>
+  </div>
+
+  <footer>
+    <p>Built by <a href="../">Aryan Gupta</a> · TypeScript, Claude API (tool use), SQLite/WASM, Web Workers, Chart.js · <a href="https://github.com/Aryan23G/Aryan23G.github.io/tree/main/querypilot" target="_blank" rel="noopener">Source &amp; tests</a></p>
+  </footer>
+</div>
+<script type="module" src="dist/app.js"></script>
+</body>
+</html>
