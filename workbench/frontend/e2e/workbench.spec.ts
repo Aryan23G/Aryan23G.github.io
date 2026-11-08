@@ -77,6 +77,27 @@ test("history lists completed runs and reopens one", async ({ page }) => {
   await expect(page.getByText(/loaded from history/)).toBeVisible();
 });
 
+test("exports the recorded run trace as JSON", async ({ page }) => {
+  await page.getByRole("button", { name: "Return rate by product category" }).click();
+  await expect(page.getByText("success", { exact: true })).toBeVisible({ timeout: 20_000 });
+
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Export JSON" }).click()]);
+  expect(download.suggestedFilename()).toMatch(/^querypilot-run-[0-9a-f]+\.json$/);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(chunk as Buffer);
+  const trace = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+
+  expect(download.suggestedFilename()).toContain(trace.run_id);
+  expect(trace.outcome).toBe("success");
+  expect(trace.static_retries).toBe(1);
+  expect(trace.feedback[0].log).toContain("UNKNOWN_COLUMN");
+  expect(trace.result.row_count).toBe(8);
+  expect(trace.steps.map((s: { node: string }) => s.node)).toEqual([
+    "retrieve_context", "generate_sql", "validate_sql", "generate_sql", "validate_sql", "execute_sql", "format_response",
+  ]);
+});
+
 test("write statements are blocked by the static compiler", async ({ page }) => {
   await replaceSql(page, "DROP TABLE orders");
   await page.getByRole("button", { name: "Execute Edit" }).click();
