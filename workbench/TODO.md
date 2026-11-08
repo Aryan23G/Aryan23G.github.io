@@ -28,7 +28,7 @@ and the README matches the code.
   `GET /api/runs` (summaries) and `GET /api/runs/{run_id}` (full trace), with tests. Frontend: a "History" tab in
   the left pane that lists past runs (outcome, question, ms) and reloads a trace into the canvas and trace panel
   when clicked.
-- [ ] **4. Export trace.** "Export JSON" button in the trace panel that downloads the full `RunTrace`. Backend:
+- [x] **4. Export trace.** "Export JSON" button in the trace panel that downloads the full `RunTrace`. Backend:
   `GET /api/runs/{run_id}` is the source. Test the download content in the e2e spec.
 - [ ] **5. API hardening.** Optional bearer-token auth (`QP_API_TOKEN`; disabled when unset), an in-memory
   per-client rate limit on the query endpoints (`QP_RATE_LIMIT_PER_MIN`, 429 with `Retry-After`), and a cap on

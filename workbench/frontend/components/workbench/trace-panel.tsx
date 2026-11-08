@@ -1,12 +1,15 @@
 "use client";
 
 import { BarList, Card, Metric, Text } from "@tremor/react";
-import type { ReactNode } from "react";
+import { FileJson } from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { LogLine, RunState } from "@/hooks/use-agent-run";
+import { api } from "@/lib/api";
 import type { RunTrace } from "@/lib/types";
-import { cn, fmt } from "@/lib/utils";
+import { cn, download, fmt } from "@/lib/utils";
 
 function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (
@@ -127,17 +130,40 @@ function EventLog({ lines }: { lines: LogLine[] }) {
   );
 }
 
+/** Download the server's recorded RunTrace (GET /api/runs/{id}) - the audit record, not client state. */
+function ExportButton({ runId }: { runId: string }) {
+  const [status, setStatus] = useState<"idle" | "busy" | "error">("idle");
+  const exportTrace = async () => {
+    setStatus("busy");
+    try {
+      const trace = await api.run(runId);
+      download(`querypilot-run-${runId}.json`, JSON.stringify(trace, null, 2), "application/json");
+      setStatus("idle");
+    } catch {
+      setStatus("error");
+    }
+  };
+  return (
+    <Button size="sm" variant="ghost" onClick={exportTrace} disabled={status === "busy"} title={status === "error" ? "Export failed: run no longer in server history" : undefined}>
+      <FileJson /> {status === "error" ? "Export failed" : "Export JSON"}
+    </Button>
+  );
+}
+
 export function TracePanel({ state }: { state: RunState }) {
   const t = state.trace;
   return (
     <div className="flex h-full flex-col bg-panel">
       <div className="pane-header">
         <span>Execution trace</span>
-        {t && (
-          <Badge variant={t.outcome === "success" ? "success" : t.outcome === "failed" ? "danger" : "warning"}>
-            {t.outcome}
-          </Badge>
-        )}
+        <span className="flex items-center gap-1 normal-case tracking-normal">
+          {t && <ExportButton runId={t.run_id} />}
+          {t && (
+            <Badge variant={t.outcome === "success" ? "success" : t.outcome === "failed" ? "danger" : "warning"}>
+              {t.outcome}
+            </Badge>
+          )}
+        </span>
         {state.status === "running" && <Badge variant="info">running</Badge>}
       </div>
       <ScrollArea className="min-h-0 flex-1">
