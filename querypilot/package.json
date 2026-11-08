@@ -1,0 +1,27 @@
+{
+  "name": "querypilot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Text-to-SQL analytics agent: natural language -> guarded, read-only SQL -> charts.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "eval": "tsx eval/run.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
+    "chart.js": "^4.5.1",
+    "sql.js": "^1.14.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/sql.js": "^1.4.11",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}
