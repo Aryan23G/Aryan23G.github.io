@@ -17,6 +17,7 @@ from typing import Any, Literal
 from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, Field
 
+from app.agent.history import RunStore
 from app.agent.state import (
     AgentState,
     CorrectionFeedback,
@@ -51,6 +52,7 @@ class RunTrace(BaseModel):
     static_retries: int = 0
     runtime_retries: int = 0
     total_ms: float = 0.0
+    started_at: float = Field(default=0.0, description="Unix epoch seconds when the run started.")
     result: FormattedResult | None = None
 
 
@@ -89,10 +91,12 @@ _DONE = object()
 
 
 class AgentRunner:
-    def __init__(self, graph: CompiledStateGraph, *, model: str, dialect: str) -> None:  # type: ignore[type-arg]
+    def __init__(self, graph: CompiledStateGraph, *, model: str, dialect: str,  # type: ignore[type-arg]
+                 store: RunStore | None = None) -> None:
         self.graph = graph
         self.model = model
         self.dialect = dialect
+        self.store = store if store is not None else RunStore()
 
     def _initial_state(self, question: str, run_id: str) -> AgentState:
         return {"run_id": run_id, "question": question.strip(), "started_at": time.time(),
@@ -109,6 +113,7 @@ class AgentRunner:
         sql = executed.sql if executed is not None else (draft.sql_query if draft else None)
         return RunTrace(
             run_id=run_id, question=state.get("question", ""), model=self.model, dialect=self.dialect,
+            started_at=state.get("started_at", 0.0),
             outcome=state.get("outcome", "failed"), error=state.get("error"), sql=sql,
             reasoning_chain=draft.reasoning_chain if draft else [],
             clarification=(draft.clarification or None) if draft else None,
@@ -148,6 +153,7 @@ class AgentRunner:
                 span.set_attribute("agent.runtime_retries", trace.runtime_retries)
                 span.set_attribute("gen_ai.usage.input_tokens", trace.usage.input_tokens)
                 span.set_attribute("gen_ai.usage.output_tokens", trace.usage.output_tokens)
+                self.store.add(trace)
                 await queue.put(RunCompleted(trace=trace))
             except Exception as exc:  # surface unexpected failures as a terminal event
                 span.record_exception(exc)

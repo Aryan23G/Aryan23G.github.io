@@ -104,6 +104,14 @@ export interface StepRecord {
   started_at_ms: number;
   duration_ms: number;
   detail: string | null;
+  data: StepData | null;
+}
+
+/** Small live payload on step events: the draft SQL (generate_sql) or injected tables (retrieve_context). */
+export interface StepData {
+  sql?: string;
+  attempt?: number;
+  tables?: RetrievedTable[];
 }
 
 export interface RetrievedTable {
@@ -148,7 +156,19 @@ export interface RunTrace {
   static_retries: number;
   runtime_retries: number;
   total_ms: number;
+  started_at: number;
   result: FormattedResult | null;
+}
+
+export interface RunSummary {
+  run_id: string;
+  question: string;
+  outcome: Outcome;
+  started_at: number;
+  total_ms: number;
+  llm_calls: number;
+  retries: number;
+  row_count: number | null;
 }
 
 export type AgentEvent =
@@ -161,7 +181,7 @@ export type AgentEvent =
       started_at_ms: number | null;
       duration_ms: number | null;
       detail: string | null;
-      data: { sql?: string; attempt?: number; tables?: RetrievedTable[] } | null;
+      data: StepData | null;
     }
   | { type: "run_completed"; trace: RunTrace }
   | { type: "run_error"; run_id: string; message: string };

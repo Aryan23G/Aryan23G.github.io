@@ -42,6 +42,7 @@ export type Action =
   | { type: "start"; question: string }
   | { type: "event"; event: AgentEvent }
   | { type: "fail"; message: string }
+  | { type: "load_trace"; trace: RunTrace }
   | { type: "edit"; sql: string }
   | { type: "reset_sql" }
   | { type: "override_start" }
@@ -129,6 +130,27 @@ export function reducer(state: RunState, action: Action): RunState {
     }
     case "fail":
       return { ...state, status: "error", error: action.message, log: log(state, "error", action.message) };
+    case "load_trace": {
+      // Re-open a past run from history: rebuild the tracker from the recorded steps.
+      const t = action.trace;
+      const sql = t.sql ?? "";
+      return {
+        ...initialRunState,
+        status: "done",
+        question: t.question,
+        runId: t.run_id,
+        model: t.model,
+        trace: t,
+        steps: t.steps.map((s) => ({
+          id: nextId++, node: s.node, status: s.status, label: s.label, detail: s.detail,
+          durationMs: s.duration_ms, startedAtMs: s.started_at_ms,
+        })),
+        error: t.outcome === "failed" ? t.error : null,
+        editorSql: sql,
+        generatedSql: sql,
+        log: [{ t: 0, level: "info", text: `GET /api/runs/${t.run_id} (loaded from history, ${t.outcome})` }],
+      };
+    }
     case "edit":
       return { ...state, editorSql: action.sql };
     case "reset_sql":
@@ -185,6 +207,7 @@ export function useAgentRun() {
     run,
     cancel,
     executeOverride,
+    loadTrace: (trace: RunTrace) => dispatch({ type: "load_trace", trace }),
     editSql: (sql: string) => dispatch({ type: "edit", sql }),
     resetSql: () => dispatch({ type: "reset_sql" }),
   };

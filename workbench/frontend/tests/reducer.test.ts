@@ -12,7 +12,7 @@ const trace = (over: Partial<RunTrace> = {}): RunTrace => ({
   run_id: "r1", question: "q", model: "m", dialect: "sqlite", outcome: "success", error: null,
   sql: "SELECT 1", reasoning_chain: [], clarification: null, retrieval: null, generations: [], feedback: [],
   diagnostics: [], steps: [], usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
-  llm_calls: 1, static_retries: 0, runtime_retries: 0, total_ms: 10, result: null, ...over,
+  llm_calls: 1, static_retries: 0, runtime_retries: 0, total_ms: 10, started_at: 1, result: null, ...over,
 });
 
 describe("run lifecycle", () => {
@@ -67,6 +67,26 @@ describe("run lifecycle", () => {
   it("run_error and fail move to the error state", () => {
     expect(run({ type: "start", question: "q" }, ev({ type: "run_error", run_id: "r", message: "x" })).status).toBe("error");
     expect(run({ type: "start", question: "q" }, { type: "fail", message: "cancelled" }).error).toBe("cancelled");
+  });
+});
+
+describe("load_trace (history)", () => {
+  it("rebuilds tracker, editor and trace from a stored run, replacing the current one", () => {
+    const stored = trace({
+      run_id: "old", question: "past question", sql: "SELECT 9", outcome: "failed", error: "budget",
+      steps: [
+        { node: "retrieve_context", label: "Injected", status: "done", started_at_ms: 0, duration_ms: 3, detail: null, data: null },
+        { node: "fail", label: "Run failed", status: "error", started_at_ms: 9, duration_ms: 0, detail: "budget", data: null },
+      ],
+    });
+    const s = reducer(run({ type: "start", question: "current" }), { type: "load_trace", trace: stored });
+    expect(s.status).toBe("done");
+    expect(s.runId).toBe("old");
+    expect(s.question).toBe("past question");
+    expect(s.steps.map((x) => `${x.node}:${x.status}`)).toEqual(["retrieve_context:done", "fail:error"]);
+    expect(s.editorSql).toBe("SELECT 9");
+    expect(s.error).toBe("budget");
+    expect(s.log).toHaveLength(1);
   });
 });
 

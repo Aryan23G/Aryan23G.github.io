@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # --- Agent loop ----------------------------------------------------------
     max_static_retries: int = 2   # SQLGlot compile failures routed back to generation
     max_runtime_retries: int = 2  # database runtime errors routed back to generation
+    run_history_size: int = 50    # completed traces kept in memory for GET /api/runs
 
     # --- Schema RAG ----------------------------------------------------------
     qdrant_url: str | None = None  # e.g. http://localhost:6333 ; None = embedded local mode

@@ -1,5 +1,5 @@
 import { parseSseBuffer } from "./sse";
-import type { AgentEvent, ExecuteResponse, HealthResponse, SchemaResponse } from "./types";
+import type { AgentEvent, ExecuteResponse, HealthResponse, RunSummary, RunTrace, SchemaResponse } from "./types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
 
@@ -27,6 +27,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   health: () => request<HealthResponse>("/api/health"),
   schema: () => request<SchemaResponse>("/api/schema"),
+  runs: () => request<RunSummary[]>("/api/runs"),
+  run: (runId: string) => request<RunTrace>(`/api/runs/${encodeURIComponent(runId)}`),
   execute: (sql: string) => request<ExecuteResponse>("/api/execute", { method: "POST", body: JSON.stringify({ sql }) }),
 };
 
