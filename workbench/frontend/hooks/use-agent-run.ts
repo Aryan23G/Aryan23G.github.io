@@ -38,7 +38,7 @@ export interface RunState {
   override: { status: "idle" | "running" | "done"; response: ExecuteResponse | null; error: string | null };
 }
 
-type Action =
+export type Action =
   | { type: "start"; question: string }
   | { type: "event"; event: AgentEvent }
   | { type: "fail"; message: string }
@@ -48,7 +48,7 @@ type Action =
   | { type: "override_done"; response: ExecuteResponse }
   | { type: "override_fail"; message: string };
 
-const initial: RunState = {
+export const initialRunState: RunState = {
   status: "idle",
   question: "",
   runId: null,
@@ -71,11 +71,12 @@ function log(state: RunState, level: LogLine["level"], text: string): LogLine[] 
   return [...state.log, { t, level, text }];
 }
 
-function reducer(state: RunState, action: Action): RunState {
+/** Pure state transition for one agent run. Exported for unit tests. */
+export function reducer(state: RunState, action: Action): RunState {
   switch (action.type) {
     case "start":
       return {
-        ...initial,
+        ...initialRunState,
         status: "running",
         question: action.question,
         clientStartedAt: performance.now(),
@@ -150,7 +151,7 @@ function reducer(state: RunState, action: Action): RunState {
 }
 
 export function useAgentRun() {
-  const [state, dispatch] = useReducer(reducer, initial);
+  const [state, dispatch] = useReducer(reducer, initialRunState);
   const abortRef = useRef<AbortController | null>(null);
 
   const run = useCallback(async (question: string) => {

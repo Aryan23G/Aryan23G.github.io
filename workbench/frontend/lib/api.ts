@@ -1,3 +1,4 @@
+import { parseSseBuffer } from "./sse";
 import type { AgentEvent, ExecuteResponse, HealthResponse, SchemaResponse } from "./types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
@@ -48,17 +49,8 @@ export async function* streamQuery(question: string, signal: AbortSignal): Async
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
-    buffer += value;
-    let boundary: number;
-    while ((boundary = buffer.indexOf("\n\n")) !== -1) {
-      const frame = buffer.slice(0, boundary);
-      buffer = buffer.slice(boundary + 2);
-      const data = frame
-        .split("\n")
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.slice(5).trimStart())
-        .join("\n");
-      if (data) yield JSON.parse(data) as AgentEvent;
-    }
+    const parsed = parseSseBuffer(buffer + value);
+    buffer = parsed.rest;
+    yield* parsed.events;
   }
 }
