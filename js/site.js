@@ -298,14 +298,14 @@ document.querySelectorAll('.module').forEach(m => {
   });
 });
 
-// terminal trace types in line by line
-const trace = document.querySelectorAll('.terminal .line');
-if (trace.length) {
-  if (reduced) trace.forEach(l => (l.style.opacity = 1));
-  else inView('.terminal', () => {
-    animate(trace, { opacity: [0, 1], x: [-10, 0] }, { delay: stagger(0.35, { startDelay: 0.3 }), duration: 0.4, ease: 'easeOut' });
+// terminal traces type in line by line, each when it scrolls into view
+document.querySelectorAll('.terminal').forEach(term => {
+  const lines = term.querySelectorAll('.line');
+  if (reduced) { lines.forEach(l => (l.style.opacity = 1)); return; }
+  inView(term, () => {
+    animate(lines, { opacity: [0, 1], x: [-10, 0] }, { delay: stagger(0.35, { startDelay: 0.3 }), duration: 0.4, ease: 'easeOut' });
   });
-}
+});
 
 // scroll progress bar (uses ScrollTimeline when the browser supports it)
 const bar = document.querySelector('.progress');
