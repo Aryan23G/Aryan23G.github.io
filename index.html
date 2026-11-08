@@ -5,334 +5,74 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aryan Gupta — ITSM, Identity &amp; Agentic AI</title>
 <meta name="description" content="Aryan Gupta — Computer Science co-op student at Wilfrid Laurier University working across IT service management, identity & access management, and agentic AI.">
-<meta name="theme-color" content="#02030A">
+<meta name="theme-color" content="#04050A">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@300;400;600;800&family=Outfit:wght@300;400;500;600&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-<style>
-:root{
-  --void:#02030A;
-  --deep:#060918;
-  --violet:#2B1758;
-  --teal:#0B3445;
-  --rose:#3A1240;
-  --ice:#9BE3F0;
-  --amber:#F5B76B;
-  --starlight:#E8ECF7;
-  --dust:#8B93AC;
-  --line:rgba(155,227,240,.14);
-  --line-hi:rgba(155,227,240,.42);
-  --glass:rgba(8,12,28,.62);
-  --maxw:1140px;
-  --ease:cubic-bezier(.16,1,.3,1);
-}
-*{margin:0;padding:0;box-sizing:border-box}
-html{background:var(--void);overflow-x:clip;scroll-behavior:smooth}
-body{
-  background:var(--void);
-  color:var(--starlight);
-  font-family:'Outfit',sans-serif;
-  font-weight:300;
-  line-height:1.65;
-  overflow-x:clip;
-  -webkit-font-smoothing:antialiased;
-}
-::selection{background:var(--ice);color:var(--void)}
-
-/* ---------- deep space backdrop ---------- */
-#stars{position:fixed;inset:0;z-index:0;pointer-events:none;width:100%;height:100%}
-.nebula{position:fixed;inset:-20vmax;z-index:0;pointer-events:none;will-change:transform}
-.nebula span{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;mix-blend-mode:screen}
-.nebula .n1{width:62vmax;height:48vmax;top:2%;right:4%;background:radial-gradient(closest-side,var(--violet),transparent);animation:drift1 46s ease-in-out infinite alternate}
-.nebula .n2{width:54vmax;height:54vmax;top:46%;left:0;background:radial-gradient(closest-side,var(--teal),transparent);animation:drift2 58s ease-in-out infinite alternate}
-.nebula .n3{width:38vmax;height:30vmax;top:72%;right:16%;background:radial-gradient(closest-side,var(--rose),transparent);opacity:.4;animation:drift1 64s ease-in-out infinite alternate-reverse}
-@keyframes drift1{to{transform:translate3d(-6vmax,4vmax,0) scale(1.08)}}
-@keyframes drift2{to{transform:translate3d(7vmax,-5vmax,0) scale(1.12)}}
-.grain{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.05;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-.vignette{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.65) 100%)}
-
-main,header,footer,nav{position:relative;z-index:2}
-
-/* ---------- typography ---------- */
-h1,h2,h3{font-family:'Unbounded',sans-serif;letter-spacing:-.01em}
-.eyebrow{
-  font-family:'Space Mono',monospace;font-size:.72rem;letter-spacing:.24em;
-  text-transform:uppercase;color:var(--ice);display:flex;align-items:center;gap:.9rem;
-}
-.eyebrow::after{content:"";height:1px;flex:0 0 64px;background:linear-gradient(90deg,var(--ice),transparent)}
-.eyebrow .coord{color:var(--dust);letter-spacing:.1em}
-a{color:var(--ice);text-decoration:none;transition:color .3s var(--ease)}
-a:hover{color:var(--amber)}
-a:focus-visible,button:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:4px}
-
-/* ---------- nav ---------- */
-.progress{position:fixed;top:0;left:0;height:2px;width:100%;z-index:20;transform-origin:0 50%;transform:scaleX(0);
-  background:linear-gradient(90deg,var(--ice),var(--amber));box-shadow:0 0 12px rgba(155,227,240,.6)}
-nav{
-  position:fixed;top:0;left:0;right:0;z-index:15;
-  display:flex;justify-content:space-between;align-items:center;
-  padding:1.1rem clamp(1rem,4vw,3rem);
-  transition:background .5s var(--ease),padding .5s var(--ease),border-color .5s var(--ease);
-  border-bottom:1px solid transparent;
-}
-nav.scrolled{background:rgba(3,5,14,.62);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);border-bottom-color:var(--line);padding-top:.8rem;padding-bottom:.8rem}
-nav .logo{font-family:'Space Mono',monospace;font-size:.85rem;letter-spacing:.2em;color:var(--starlight)}
-nav .logo span{color:var(--ice)}
-nav ul{display:flex;gap:2rem;list-style:none}
-nav ul a{font-family:'Space Mono',monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dust);position:relative;padding:.3rem 0}
-nav ul a::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:1px;background:var(--ice);transform:scaleX(0);transform-origin:left;transition:transform .5s var(--ease)}
-nav ul a:hover,nav ul a.active{color:var(--starlight)}
-nav ul a.active::after,nav ul a:hover::after{transform:scaleX(1)}
-@media(max-width:720px){nav ul{display:none}}
-
-/* ---------- hero ---------- */
-.hero{
-  min-height:100svh;display:flex;flex-direction:column;justify-content:center;
-  max-width:var(--maxw);margin:0 auto;padding:7rem clamp(1rem,4vw,3rem) 5rem;position:relative;
-}
-.hero-inner{position:relative;z-index:2}
-.callsign{font-family:'Space Mono',monospace;font-size:.76rem;letter-spacing:.3em;color:var(--ice);text-transform:uppercase;margin-bottom:1.8rem}
-.callsign .blink{animation:blink 1.4s step-end infinite}
-@keyframes blink{50%{opacity:0}}
-.hero h1{
-  font-size:clamp(2.4rem,7.2vw,5.6rem);font-weight:800;line-height:1.02;max-width:14ch;color:var(--starlight);
-}
-.hero h1 .line{display:block;overflow:hidden;padding-bottom:.06em}
-.hero h1 .line > span{display:inline-block;transform:translateY(110%);animation:rise 1.4s var(--ease) forwards;
-  background:linear-gradient(120deg,var(--starlight) 40%,var(--ice) 85%,var(--amber));-webkit-background-clip:text;background-clip:text;color:transparent}
-.hero h1 .line:nth-child(2) > span{animation-delay:.12s}
-@keyframes rise{to{transform:none}}
-.hero .sub{margin-top:1.9rem;max-width:56ch;font-size:1.1rem;color:var(--dust);opacity:0;animation:fadeUp 1.4s var(--ease) .45s forwards}
-.hero .sub strong{color:var(--starlight);font-weight:500}
-.hero .actions{display:flex;gap:1rem;margin-top:2.6rem;flex-wrap:wrap;opacity:0;animation:fadeUp 1.4s var(--ease) .65s forwards}
-@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
-.btn{
-  font-family:'Space Mono',monospace;font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;
-  padding:.9rem 1.7rem;border:1px solid var(--line);border-radius:999px;color:var(--starlight);
-  transition:border-color .4s var(--ease),color .4s var(--ease),background .4s var(--ease),box-shadow .4s var(--ease),transform .4s var(--ease);
-  background:rgba(8,12,28,.35);backdrop-filter:blur(6px);cursor:pointer;display:inline-block;
-}
-.btn:hover{border-color:var(--ice);color:var(--ice);box-shadow:0 0 28px rgba(155,227,240,.18);transform:translateY(-2px)}
-.btn.solid{background:var(--ice);color:var(--void);border-color:var(--ice);font-weight:700}
-.btn.solid:hover{background:var(--amber);border-color:var(--amber);color:var(--void);box-shadow:0 0 34px rgba(245,183,107,.35)}
-
-/* planet + orbits */
-.planet-wrap{position:absolute;right:clamp(-260px,-14vw,-80px);top:50%;width:min(620px,74vw);aspect-ratio:1;transform:translateY(-50%);pointer-events:none;z-index:1;will-change:transform}
-.planet{
-  position:absolute;inset:18%;border-radius:50%;
-  background:
-    radial-gradient(circle at 30% 28%,rgba(232,236,247,.22),transparent 38%),
-    radial-gradient(circle at 34% 34%,#1C2D52 0%,#0C1430 42%,#050816 70%);
-  box-shadow:
-    inset -38px -26px 80px rgba(0,0,0,.85),
-    inset 14px 10px 40px rgba(155,227,240,.18),
-    0 0 90px rgba(155,227,240,.12),
-    0 0 220px rgba(43,23,88,.55);
-  opacity:0;animation:fadeIn 2.4s var(--ease) .2s forwards;
-}
-.planet::after{content:"";position:absolute;inset:-2px;border-radius:50%;
-  background:radial-gradient(circle at 28% 26%,transparent 58%,rgba(155,227,240,.35) 66%,transparent 72%);mix-blend-mode:screen}
-@keyframes fadeIn{to{opacity:1}}
-.orbits{position:absolute;inset:0;transform:rotateX(72deg) rotateZ(-18deg);transform-style:preserve-3d}
-.orbits svg{width:100%;height:100%;overflow:visible}
-.ring{fill:none;stroke:rgba(155,227,240,.18);stroke-width:1.2}
-.ring.dashed{stroke-dasharray:2 8;stroke:rgba(245,183,107,.25)}
-.spin-slow{transform-origin:300px 300px;animation:spin 70s linear infinite}
-.spin-mid{transform-origin:300px 300px;animation:spin 42s linear infinite reverse}
-.sat{fill:var(--amber);filter:drop-shadow(0 0 10px rgba(245,183,107,.9))}
-.moon{fill:var(--ice);filter:drop-shadow(0 0 8px rgba(155,227,240,.9))}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:880px){.planet-wrap{opacity:.4;right:-40vw}}
-
-.scroll-hint{position:absolute;bottom:2.2rem;left:clamp(1rem,4vw,3rem);font-family:'Space Mono',monospace;font-size:.64rem;letter-spacing:.28em;color:var(--dust);text-transform:uppercase;display:flex;align-items:center;gap:.9rem}
-.scroll-hint i{display:block;width:1px;height:46px;background:linear-gradient(180deg,var(--ice),transparent);transform-origin:top;animation:pulse 2.4s var(--ease) infinite}
-@keyframes pulse{0%{transform:scaleY(0);opacity:1}70%{transform:scaleY(1);opacity:1}100%{transform:scaleY(1);opacity:0}}
-
-/* ---------- sections ---------- */
-section{max-width:var(--maxw);margin:0 auto;padding:7rem clamp(1rem,4vw,3rem)}
-section h2{font-size:clamp(1.55rem,3.4vw,2.4rem);font-weight:600;margin:1.2rem 0 3rem;line-height:1.2}
-section h2 em{font-style:normal;color:var(--ice)}
-
-/* glass card base + cursor glow */
-.glass{
-  position:relative;border:1px solid var(--line);border-radius:18px;background:var(--glass);
-  overflow:hidden;
-  transition:border-color .6s var(--ease),transform .6s var(--ease),box-shadow .6s var(--ease);
-}
-.glass::before{
-  content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .5s var(--ease);
-  background:radial-gradient(420px circle at var(--mx,50%) var(--my,50%),rgba(155,227,240,.10),transparent 60%);
-}
-.glass:hover{border-color:var(--line-hi);transform:translateY(-5px);box-shadow:0 24px 60px -30px rgba(155,227,240,.25)}
-.glass:hover::before{opacity:1}
-
-/* ---------- about ---------- */
-.about-grid{display:grid;grid-template-columns:1.45fr 1fr;gap:3.5rem;align-items:start}
-.about-grid p{color:var(--dust);font-size:1.06rem;margin-bottom:1.2rem}
-.about-grid p strong{color:var(--starlight);font-weight:500}
-.readout{padding:1.8rem}
-.readout dt{font-family:'Space Mono',monospace;font-size:.62rem;letter-spacing:.22em;color:var(--ice);text-transform:uppercase;margin-top:1.2rem}
-.readout dt:first-of-type{margin-top:0}
-.readout dd{font-size:.95rem;color:var(--starlight);margin-top:.25rem}
-.readout dd small{display:block;color:var(--dust);font-size:.84rem;margin-top:.2rem}
-.status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7CF0B0;box-shadow:0 0 10px #7CF0B0;margin-right:.5rem;vertical-align:middle;animation:breathe 2.6s ease-in-out infinite}
-@keyframes breathe{50%{opacity:.35}}
-@media(max-width:800px){.about-grid{grid-template-columns:1fr;gap:2rem}}
-
-/* ---------- constellation ---------- */
-.constellation{padding:2.4rem 1rem 1.2rem}
-.constellation svg{width:100%;height:auto;display:block}
-.const-line{stroke:rgba(155,227,240,.4);stroke-width:1;stroke-dasharray:3 6;stroke-dashoffset:400;transition:stroke-dashoffset 2.6s var(--ease)}
-.in .const-line{stroke-dashoffset:0}
-.const-star{fill:var(--ice);filter:drop-shadow(0 0 6px rgba(155,227,240,.95));animation:twinkle 3.2s ease-in-out infinite}
-.const-star:nth-of-type(2n){animation-delay:1.1s}
-.const-star.major{fill:var(--amber);filter:drop-shadow(0 0 12px rgba(245,183,107,.95))}
-@keyframes twinkle{50%{opacity:.55}}
-.const-label{font-family:'Space Mono',monospace;font-size:11px;fill:var(--dust);letter-spacing:.08em}
-.const-label.bright{fill:var(--starlight)}
-
-/* ---------- jobs ---------- */
-.jobs{display:grid;grid-template-columns:repeat(2,1fr);gap:1.4rem;margin-top:2.2rem}
-.job{padding:1.7rem}
-.job .when{font-family:'Space Mono',monospace;font-size:.64rem;letter-spacing:.18em;color:var(--amber);text-transform:uppercase;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
-.job .when span:last-child{color:var(--dust)}
-.job h3{font-family:'Outfit',sans-serif;font-weight:600;font-size:1.12rem;margin:.7rem 0 .15rem;letter-spacing:0}
-.job .org{color:var(--ice);font-size:.9rem;margin-bottom:.95rem}
-.job ul{list-style:none}
-.job li{color:var(--dust);font-size:.9rem;padding-left:1.1rem;position:relative;margin-bottom:.55rem}
-.job li::before{content:"";position:absolute;left:0;top:.62em;width:4px;height:4px;border-radius:50%;background:var(--ice);box-shadow:0 0 6px var(--ice)}
-.job li strong{color:var(--starlight);font-weight:500}
-@media(max-width:880px){.jobs{grid-template-columns:1fr}}
-
-/* ---------- projects ---------- */
-.proj-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.4rem}
-.proj{padding:2rem;display:flex;flex-direction:column;gap:1rem;background:linear-gradient(165deg,rgba(8,12,28,.7),rgba(43,23,88,.22))}
-.proj.feature{grid-column:1/-1;display:grid;grid-template-columns:1.3fr 1fr;gap:2.4rem;align-items:center;padding:2.4rem}
-.proj .top{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
-.badge{font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--void);background:var(--ice);border-radius:999px;padding:.28rem .75rem;font-weight:700}
-.badge.amber{background:var(--amber)}
-.year{font-family:'Space Mono',monospace;font-size:.66rem;letter-spacing:.18em;color:var(--dust)}
-.proj h3{font-weight:400;font-size:1.25rem}
-.proj h3 small{display:block;font-family:'Outfit',sans-serif;font-size:.9rem;color:var(--ice);font-weight:400;margin-top:.3rem;letter-spacing:0}
-.proj p{color:var(--dust);font-size:.94rem}
-.proj ul{list-style:none;display:grid;gap:.6rem}
-.proj li{color:var(--dust);font-size:.92rem;padding-left:1.1rem;position:relative}
-.proj li::before{content:"";position:absolute;left:0;top:.62em;width:4px;height:4px;border-radius:50%;background:var(--amber);box-shadow:0 0 6px var(--amber)}
-.stack{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:auto}
-.stack span{font-family:'Space Mono',monospace;font-size:.62rem;letter-spacing:.1em;color:var(--ice);border:1px solid var(--line);border-radius:999px;padding:.24rem .7rem}
-.proj .link{font-family:'Space Mono',monospace;font-size:.7rem;letter-spacing:.16em;text-transform:uppercase}
-/* agent trace visual */
-.trace{font-family:'Space Mono',monospace;font-size:.72rem;line-height:1.9;border:1px solid var(--line);border-radius:14px;padding:1.2rem 1.3rem;background:rgba(2,3,10,.6);color:var(--dust)}
-.trace .k{color:var(--ice)}
-.trace .a{color:var(--amber)}
-.trace .ok{color:#7CF0B0}
-.trace div{opacity:0;transform:translateX(-8px);transition:opacity .6s var(--ease),transform .6s var(--ease)}
-.in .trace div{opacity:1;transform:none}
-.in .trace div:nth-child(2){transition-delay:.25s}
-.in .trace div:nth-child(3){transition-delay:.5s}
-.in .trace div:nth-child(4){transition-delay:.75s}
-.in .trace div:nth-child(5){transition-delay:1s}
-.in .trace div:nth-child(6){transition-delay:1.25s}
-@media(max-width:820px){.proj-grid{grid-template-columns:1fr}.proj.feature{grid-template-columns:1fr;padding:2rem}}
-
-/* ---------- skills ---------- */
-.skills-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem}
-.panel{padding:1.5rem}
-.panel h4{font-family:'Space Mono',monospace;font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);margin-bottom:1rem}
-.panel ul{list-style:none}
-.panel li{color:var(--dust);font-size:.9rem;margin-bottom:.45rem}
-@media(max-width:900px){.skills-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:520px){.skills-grid{grid-template-columns:1fr}}
-
-/* ---------- contact ---------- */
-.contact{text-align:center;padding-bottom:9rem}
-.contact .eyebrow{justify-content:center}
-.contact .eyebrow::before{content:"";height:1px;flex:0 0 64px;background:linear-gradient(270deg,var(--ice),transparent)}
-.contact h2{margin-bottom:1rem}
-.contact p{color:var(--dust);max-width:48ch;margin:0 auto 2.6rem}
-.contact .links{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap}
-
-footer{
-  border-top:1px solid var(--line);padding:2rem clamp(1rem,4vw,3rem);
-  display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
-  font-family:'Space Mono',monospace;font-size:.64rem;letter-spacing:.16em;color:var(--dust);text-transform:uppercase;
-  background:rgba(2,3,10,.6);
-}
-
-/* ---------- reveal ---------- */
-.reveal{opacity:0;transform:translateY(34px);filter:blur(6px);transition:opacity 1.2s var(--ease),transform 1.2s var(--ease),filter 1.2s var(--ease);transition-delay:var(--d,0s)}
-.reveal.in{opacity:1;transform:none;filter:none}
-
-@media (prefers-reduced-motion: reduce){
-  *,*::before,*::after{animation:none!important;transition:none!important}
-  .reveal{opacity:1;transform:none;filter:none}
-  .hero h1 .line > span{transform:none}
-  .hero .sub,.hero .actions,.planet{opacity:1}
-  .trace div{opacity:1;transform:none}
-  .const-line{stroke-dashoffset:0}
-  html{scroll-behavior:auto}
-}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;800&family=Outfit:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/site.css">
+<link rel="modulepreload" href="vendor/libs.js">
+<script>
+  // hide reveal targets only while JS is expected to animate them; show everything if the module fails
+  document.documentElement.classList.add('js');
+  setTimeout(function(){ if(!window.__siteReady) document.documentElement.classList.remove('js'); }, 4000);
+</script>
 </head>
 <body>
 
-<canvas id="stars" aria-hidden="true"></canvas>
-<div class="nebula" aria-hidden="true"><span class="n1"></span><span class="n2"></span><span class="n3"></span></div>
-<div class="grain" aria-hidden="true"></div>
+<div class="nebula" aria-hidden="true"></div>
+<div id="starfield" aria-hidden="true"></div>
 <div class="vignette" aria-hidden="true"></div>
 <div class="progress" aria-hidden="true"></div>
+<div class="hud-frame" aria-hidden="true"><i></i><i></i><i></i><i></i>
+  <div class="hud-readout"><span>Sector <b id="hud-sector">Orbit</b></span><span>Descent <b id="hud-pct">000</b>%</span></div>
+</div>
+<div class="reticle" aria-hidden="true"></div>
 
 <nav>
-  <div class="logo">ARYAN<span>.</span>GUPTA</div>
-  <ul>
+  <a class="logo" href="#top">ARYAN<span>.</span>GUPTA</a>
+  <ul class="navlinks">
     <li><a href="#about">About</a></li>
-    <li><a href="#experience">Experience</a></li>
+    <li><a href="#experience">Missions</a></li>
     <li><a href="#projects">Projects</a></li>
     <li><a href="#skills">Skills</a></li>
     <li><a href="#contact">Contact</a></li>
+    <li class="nav-pill" aria-hidden="true"></li>
   </ul>
 </nav>
 
-<header class="hero">
+<header class="hero" id="top">
+  <canvas id="planet" aria-label="Interactive 3D planet. Drag to spin it." role="img"></canvas>
   <div class="hero-inner">
-    <p class="callsign">// GROUND CONTROL TO ARYAN <span class="blink">▍</span></p>
-    <h1><span class="line"><span>Keeping systems</span></span><span class="line"><span>in stable orbit.</span></span></h1>
-    <p class="sub">
+    <p class="callsign reveal">// Ground control to Aryan <span class="live">Signal live</span></p>
+    <h1 aria-label="Keeping systems in stable orbit."><span class="split">Keeping systems in stable <span class="glow">orbit.</span></span></h1>
+    <p class="sub reveal">
       I'm <strong>Aryan Gupta</strong>, a Computer Science co-op student at
       <strong>Wilfrid Laurier University</strong> working across IT service management,
       identity &amp; access, and agentic AI. I've shipped ServiceNow features for a global portal,
       led a hospital-wide domain migration, and built AI agents with guardrails people can trust.
     </p>
-    <div class="actions">
-      <a class="btn solid" href="#projects">View projects</a>
-      <a class="btn" href="#contact">Open a channel</a>
+    <div class="actions reveal">
+      <a class="btn primary magnetic" href="#projects">View projects</a>
+      <a class="btn magnetic" href="resume/Aryan_Gupta_Resume.pdf" target="_blank" rel="noopener">Résumé (PDF)</a>
+      <a class="btn magnetic" href="#contact">Open a channel</a>
+    </div>
+    <div class="telemetry reveal" aria-label="Highlights">
+      <div><b data-count="5000" data-suffix="+">5,000+</b><span>Identities managed</span></div>
+      <div><b data-count="80" data-suffix="+">80+</b><span>Catalog forms reviewed</span></div>
+      <div><b data-count="100" data-suffix="%">100%</b><span>Uptime through migration</span></div>
     </div>
   </div>
-
-  <div class="planet-wrap" aria-hidden="true">
-    <div class="orbits">
-      <svg viewBox="0 0 600 600">
-        <circle class="ring" cx="300" cy="300" r="290"/>
-        <circle class="ring dashed" cx="300" cy="300" r="250"/>
-        <g class="spin-slow"><circle class="sat" cx="300" cy="10" r="6"/></g>
-        <g class="spin-mid"><circle class="moon" cx="50" cy="300" r="4"/></g>
-      </svg>
-    </div>
-    <div class="planet"></div>
-  </div>
-
-  <div class="scroll-hint"><i></i>Scroll to descend</div>
+  <p class="drag-hint"><b>◀ Drag ▶</b> to spin the planet</p>
 </header>
 
 <main>
 
 <!-- ABOUT -->
 <section id="about">
-  <p class="eyebrow reveal">Log 01 <span class="coord">// Mission profile</span></p>
+  <p class="eyebrow reveal">Log 01 <span class="dim">// Mission profile</span></p>
   <h2 class="reveal">The short <em>transmission</em>.</h2>
   <div class="about-grid">
-    <div class="reveal" style="--d:.1s">
+    <div class="reveal">
       <p>
         My work sits where <strong>IT operations meet AI</strong>: finding the manual, repetitive
         parts of a process and turning them into something repeatable, documented and safe to hand off.
@@ -346,127 +86,127 @@ footer{
         Before that, at <strong>Waterloo Regional Health Network</strong>, I led the migration of 30+ medical
         departments to a new hospital-wide domain with 100% uptime and managed access for 5,000+ healthcare
         professionals. Outside of work, I build agentic AI tools, like an IT service desk analyst
-        that shows its reasoning at every step.
+        that logs every tool call so a reviewer can trace how each decision was made, and I dig into
+        local-first RAG pipelines that keep data on the machine.
       </p>
     </div>
-    <dl class="readout glass reveal" style="--d:.2s">
+    <dl class="readout hud reveal">
       <dt>Base of operations</dt><dd>Waterloo / Greater Toronto Area, Canada</dd>
-      <dt>Program</dt><dd>Hons. BSc Computer Science, Co-op — Wilfrid Laurier University<small>Sep 2023 – May 2027 (expected)</small></dd>
-      <dt>Coursework</dt><dd>Software Engineering · Database Systems · Algorithms · Computer Networks · Assembly</dd>
+      <dt>Program</dt><dd>Hons. BSc Computer Science, Co-op — Wilfrid Laurier University<small>Sep 2023 – Dec 2027 (expected)</small></dd>
+      <dt>Coursework</dt><dd>Software Engineering · Database Systems · Algorithms · Computer Networks</dd>
       <dt>Focus</dt><dd>IT Service Management · IAM · Agentic AI</dd>
-      <dt>Status</dt><dd><span class="status-dot"></span>Open to co-op &amp; internship opportunities</dd>
+      <dt>Status</dt><dd><span class="status"></span>Open to co-op &amp; internship opportunities</dd>
     </dl>
   </div>
 </section>
 
 <!-- EXPERIENCE -->
 <section id="experience">
-  <p class="eyebrow reveal">Log 02 <span class="coord">// Flight history</span></p>
-  <h2 class="reveal">A career, charted as a <em>constellation</em>.</h2>
+  <p class="eyebrow reveal">Log 02 <span class="dim">// Flight history</span></p>
+  <h2 class="reveal">Select a <em>mission</em>.</h2>
 
-  <div class="constellation glass reveal" aria-hidden="true">
-    <svg viewBox="0 0 1000 240">
-      <line class="const-line" x1="100" y1="170" x2="330" y2="90"/>
-      <line class="const-line" x1="330" y1="90" x2="560" y2="150"/>
-      <line class="const-line" x1="560" y1="150" x2="790" y2="80"/>
-      <line class="const-line" x1="790" y1="80" x2="940" y2="150"/>
-      <circle class="const-star" cx="100" cy="170" r="5"/>
-      <circle class="const-star" cx="330" cy="90" r="6"/>
-      <circle class="const-star" cx="560" cy="150" r="6.5"/>
-      <circle class="const-star major" cx="790" cy="80" r="7.5"/>
-      <circle class="const-star" cx="940" cy="150" r="5"/>
-      <text class="const-label" x="100" y="200" text-anchor="middle">2020 · Vaughan Medical</text>
-      <text class="const-label" x="330" y="65" text-anchor="middle">2024 · Eulix Digital</text>
-      <text class="const-label" x="560" y="185" text-anchor="middle">2025 · WRHN</text>
-      <text class="const-label bright" x="790" y="55" text-anchor="middle">2026 · Kroll</text>
-      <text class="const-label" x="985" y="185" text-anchor="end">Next mission →</text>
-    </svg>
-  </div>
+  <div class="missions reveal">
+    <div class="mission-list" role="tablist" aria-label="Work experience">
+      <button class="mission-tab" role="tab" id="t-kroll" aria-controls="p-kroll" aria-selected="true"><span class="d">Jun – Aug 2026</span><span class="o">Kroll</span></button>
+      <button class="mission-tab" role="tab" id="t-wrhn" aria-controls="p-wrhn" aria-selected="false" tabindex="-1"><span class="d">Sep – Dec 2025</span><span class="o">Waterloo Regional Health Network</span></button>
+      <button class="mission-tab" role="tab" id="t-eulix" aria-controls="p-eulix" aria-selected="false" tabindex="-1"><span class="d">May – Aug 2024</span><span class="o">Eulix Digital Printers</span></button>
+      <button class="mission-tab" role="tab" id="t-vmc" aria-controls="p-vmc" aria-selected="false" tabindex="-1"><span class="d">Jun 2020 – Aug 2022</span><span class="o">Vaughan Medical Centre</span></button>
+    </div>
 
-  <div class="jobs">
-    <article class="job glass reveal">
-      <p class="when"><span>Jun – Aug 2026</span><span>Toronto · Hybrid</span></p>
-      <h3>IT Service Management Developer Co-op</h3>
-      <p class="org">Kroll</p>
-      <ul>
-        <li>Applied <strong>Microsoft 365 Copilot</strong> and LLM-assisted workflows to a review of <strong>80+ service catalog forms</strong>, turning a manual audit into a repeatable process and standardizing labels, help text and descriptions across the OnePoint portal.</li>
-        <li>Delivered <strong>15+ Agile user stories</strong> on ServiceNow, building catalog logic and front-end changes for the global self-service portal.</li>
-        <li>Identified automation and consolidation opportunities and presented findings from <strong>4 workstreams</strong> to Technology leadership.</li>
-        <li>Documented new processes and standards so the team could keep applying them after the term.</li>
-      </ul>
-    </article>
-    <article class="job glass reveal" style="--d:.1s">
-      <p class="when"><span>Sep – Dec 2025</span><span>Waterloo, ON</span></p>
-      <h3>IT and Infrastructure Technician</h3>
-      <p class="org">Waterloo Regional Health Network</p>
-      <ul>
-        <li>Led the migration of <strong>30+ medical departments</strong> and <strong>200+ executives</strong> to a new hospital-wide domain with <strong>100% system uptime</strong>, training staff through the change.</li>
-        <li>Managed identity and access for <strong>5,000+ healthcare professionals</strong> in Active Directory, improving security and efficiency.</li>
-      </ul>
-    </article>
-    <article class="job glass reveal">
-      <p class="when"><span>May – Aug 2024</span><span>Mississauga, ON</span></p>
-      <h3>IT Operations Specialist</h3>
-      <p class="org">Eulix Digital Printers</p>
-      <ul>
-        <li>Deployed and configured networked printing systems for <strong>400+ organizations</strong> across Ontario, integrating devices with client networks and print servers.</li>
-        <li>Replaced a manual asset-tracking process with an automated one covering 400+ client accounts, cutting manual oversight by <strong>30%</strong> and speeding up technician response times.</li>
-      </ul>
-    </article>
-    <article class="job glass reveal" style="--d:.1s">
-      <p class="when"><span>Jun 2020 – Aug 2022</span><span>Vaughan, ON</span></p>
-      <h3>Technical Support and Administrator</h3>
-      <p class="org">Vaughan Medical Centre · Part-time</p>
-      <ul>
-        <li>Developed NLP-based automation to categorize incoming support tickets, decreasing resolution times by <strong>40%</strong>.</li>
-        <li>Implemented AI-driven inventory optimization in Excel, reducing supply order errors by <strong>97%</strong> and saving <strong>50+ hours per month</strong> for non-technical staff.</li>
-      </ul>
-    </article>
+    <div class="mission-panels">
+      <article class="mission-panel hud" role="tabpanel" id="p-kroll" aria-labelledby="t-kroll">
+        <p class="meta"><span>Jun – Aug 2026</span><span>Toronto, ON · Hybrid</span></p>
+        <h3>IT Service Management Developer Co-op</h3>
+        <p class="org">Kroll</p>
+        <ul>
+          <li>Applied <strong>Microsoft 365 Copilot</strong> and other LLM-assisted workflows to a review of <strong>80+ service catalog forms</strong>, turning a manual, one-by-one audit into a repeatable process and standardizing labels, help text and descriptions across Kroll's OnePoint portal.</li>
+          <li>Identified automation and consolidation opportunities across the catalog and presented findings from <strong>4 workstreams</strong> to Technology leadership.</li>
+          <li>Delivered <strong>15+ Agile user stories</strong> on ServiceNow, building catalog logic and front-end changes for the global self-service portal.</li>
+          <li>Documented new processes and standards so the team could keep applying them after the term.</li>
+        </ul>
+        <div class="stats"><div><b>80+</b><span>Forms reviewed</span></div><div><b>15+</b><span>User stories</span></div><div><b>4</b><span>Workstreams</span></div></div>
+      </article>
+      <article class="mission-panel hud" role="tabpanel" id="p-wrhn" aria-labelledby="t-wrhn" hidden>
+        <p class="meta"><span>Sep – Dec 2025</span><span>Waterloo, ON</span></p>
+        <h3>IT and Infrastructure Technician</h3>
+        <p class="org">Waterloo Regional Health Network</p>
+        <ul>
+          <li>Managed <strong>identity and access</strong> for <strong>5,000+ healthcare professionals</strong> in Active Directory, improving security and efficiency.</li>
+          <li>Led the migration of <strong>30+ medical departments</strong> and <strong>200+ executives</strong> to a new hospital-wide domain with <strong>100% system uptime</strong>, training staff through the change.</li>
+        </ul>
+        <div class="stats"><div><b>5,000+</b><span>Identities</span></div><div><b>30+</b><span>Departments migrated</span></div><div><b>100%</b><span>Uptime</span></div></div>
+      </article>
+      <article class="mission-panel hud" role="tabpanel" id="p-eulix" aria-labelledby="t-eulix" hidden>
+        <p class="meta"><span>May – Aug 2024</span><span>Mississauga, ON</span></p>
+        <h3>IT Operations Specialist</h3>
+        <p class="org">Eulix Digital Printers</p>
+        <ul>
+          <li>Replaced a manual asset-tracking process with an automated one covering <strong>400+ client accounts</strong>, cutting manual oversight by <strong>30%</strong> and speeding up technician response times.</li>
+          <li>Deployed and configured networked printing systems for <strong>400+ organizations</strong> across Ontario, integrating devices with client networks and print servers.</li>
+        </ul>
+        <div class="stats"><div><b>400+</b><span>Client accounts</span></div><div><b>30%</b><span>Less manual oversight</span></div></div>
+      </article>
+      <article class="mission-panel hud" role="tabpanel" id="p-vmc" aria-labelledby="t-vmc" hidden>
+        <p class="meta"><span>Jun 2020 – Aug 2022</span><span>Vaughan, ON</span></p>
+        <h3>Technical Support and Administrator</h3>
+        <p class="org">Vaughan Medical Centre · Part-time</p>
+        <ul>
+          <li>Developed <strong>NLP-based automation</strong> to categorize incoming support tickets, decreasing resolution times by <strong>40%</strong>.</li>
+          <li>Implemented <strong>AI-driven inventory optimization</strong> in Excel, reducing supply order errors by <strong>97%</strong> and saving <strong>50+ hours per month</strong> for non-technical staff.</li>
+        </ul>
+        <div class="stats"><div><b>40%</b><span>Faster resolution</span></div><div><b>97%</b><span>Fewer order errors</span></div><div><b>50+ h</b><span>Saved monthly</span></div></div>
+      </article>
+    </div>
   </div>
 </section>
 
 <!-- PROJECTS -->
 <section id="projects">
-  <p class="eyebrow reveal">Log 03 <span class="coord">// Payload manifest</span></p>
+  <p class="eyebrow reveal">Log 03 <span class="dim">// Payload manifest</span></p>
   <h2 class="reveal">Things I've <em>launched</em>.</h2>
   <div class="proj-grid">
 
-    <article class="proj feature glass reveal">
+    <article class="proj feature hud tilt reveal">
       <div style="display:flex;flex-direction:column;gap:1rem">
-        <div class="top"><span class="badge amber">Agentic AI</span><span class="year">2026</span></div>
+        <div class="top"><span class="badge m">Agentic AI</span><span class="tag">2026</span></div>
         <h3>SentinelDesk<small>Agentic AI Service Desk</small></h3>
         <ul>
-          <li>An agentic AI analyst that triages IT tickets with a Claude tool-use loop across <strong style="color:var(--starlight);font-weight:500">5 tools</strong>, showing every tool call so a human reviewer can see how each decision was reached.</li>
-          <li>Guardrails that make it safe to adopt: ticket text treated as untrusted data against prompt injection, a rule-based scanner that overrides the model on high-risk tickets, and <strong style="color:var(--starlight);font-weight:500">10 automated tests</strong>.</li>
+          <li>Built an <strong>agentic AI analyst</strong> that triages IT tickets through a <strong>Claude tool-calling loop across 5 tools</strong>, logging every tool call so a reviewer can trace how each decision was made.</li>
+          <li>Added <strong>guardrails</strong> for safe use: ticket text handled as untrusted input to block <strong>prompt injection</strong>, a rule-based scanner that overrides the model on high-risk tickets, and <strong>10 automated tests</strong>.</li>
         </ul>
-        <div class="stack"><span>TypeScript</span><span>Node.js</span><span>Express</span><span>Claude API</span></div>
-        <a class="btn solid" href="sentineldesk/" style="width:fit-content;margin-top:.4rem">Try the live demo →</a>
+        <div class="chips"><span>TypeScript</span><span>Node.js</span><span>Express</span><span>Claude API</span></div>
+        <div class="links"><a class="btn primary magnetic" href="sentineldesk/">Try the live demo →</a></div>
       </div>
-      <div class="trace" aria-label="Real SentinelDesk trace for a phishing ticket">
-        <div><span class="k">ticket</span> "URGENT: Mailbox will be deactivated"</div>
-        <div><span class="a">→ tool</span> scan_security_indicators · <span class="a">risk 100/100</span></div>
-        <div><span class="a">→ tool</span> check_sender_domain · <span class="a">lookalike domain</span></div>
-        <div><span class="a">→ tool</span> search_knowledge_base · <span class="k">KB-101, KB-102, KB-201</span></div>
-        <div><span class="a">→ tool</span> submit_triage · <span class="k">P1 → SOC</span></div>
-        <div><span class="ok">✓ no reply sent to sender</span></div>
+      <div class="terminal" aria-label="Example SentinelDesk trace for a phishing ticket">
+        <div class="bar"><i></i><i></i><i></i>sentineldesk · trace</div>
+        <div class="body">
+          <div class="line"><span class="k">ticket</span> "URGENT: Mailbox will be deactivated"</div>
+          <div class="line"><span class="a">→ tool</span> scan_security_indicators · <span class="a">risk 100/100</span></div>
+          <div class="line"><span class="a">→ tool</span> check_sender_domain · <span class="a">lookalike domain</span></div>
+          <div class="line"><span class="a">→ tool</span> search_knowledge_base · <span class="k">KB-101, KB-102, KB-201</span></div>
+          <div class="line"><span class="a">→ tool</span> submit_triage · <span class="k">P1 → SOC</span></div>
+          <div class="line"><span class="ok">✓ no reply sent to sender</span> <span class="caret"></span></div>
+        </div>
       </div>
     </article>
 
-    <article class="proj glass reveal">
-      <div class="top"><span class="badge">Team of 6</span><span class="year">2026</span></div>
+    <article class="proj hud tilt reveal">
+      <div class="top"><span class="badge">Local AI</span><span class="tag">2025</span></div>
+      <h3>Mentis<small>Local LLM + RAG Memory Pipeline</small></h3>
+      <ul>
+        <li>Forked and worked through an open-source, <strong>local-first RAG pipeline</strong> in Python that parses PDF, Markdown and text notes, chunks them, embeds them with <strong>E5 models</strong> and retrieves matching passages from a <strong>vector database</strong>.</li>
+        <li>Studied its <strong>modular, low-abstraction design</strong> (ingestion, chunking, embedding, retrieval) and privacy-first approach, where all data stays on the local machine with <strong>no cloud APIs</strong>.</li>
+      </ul>
+      <div class="chips"><span>Python</span><span>E5 Embeddings</span><span>Vector Database</span><span>RAG</span></div>
+      <div class="links"><a class="textlink" href="https://github.com/Aryan23G/mentis-local" target="_blank" rel="noopener">View on GitHub →</a></div>
+    </article>
+
+    <article class="proj hud tilt reveal">
+      <div class="top"><span class="badge">Team of 6</span><span class="tag">2026</span></div>
       <h3>Hawk's Path<small>Course Planner</small></h3>
       <p>A full-stack academic course planner built with a team of six. It uses the OpenAI API to help
       Laurier students plan their degree requirements across terms.</p>
-      <div class="stack"><span>React</span><span>TypeScript</span><span>Express</span><span>PostgreSQL</span><span>OpenAI API</span></div>
-    </article>
-
-    <article class="proj glass reveal" style="--d:.1s">
-      <div class="top"><span class="badge">Local AI</span><span class="year">2025</span></div>
-      <h3>Mentis<small>Local LLM + RAG pipeline</small></h3>
-      <p>A fully offline knowledge-retrieval system. It indexes documents with E5 embeddings and FAISS, then
-      answers questions through a local LLM, so the data never leaves the machine.</p>
-      <div class="stack"><span>Python</span><span>FAISS</span><span>E5 Embeddings</span><span>Local LLM</span></div>
-      <a class="link" href="https://github.com/Aryan23G/mentis-local" target="_blank" rel="noopener">View on GitHub →</a>
+      <div class="chips"><span>React</span><span>TypeScript</span><span>Express</span><span>PostgreSQL</span><span>OpenAI API</span></div>
     </article>
 
   </div>
@@ -474,23 +214,23 @@ footer{
 
 <!-- SKILLS -->
 <section id="skills">
-  <p class="eyebrow reveal">Log 04 <span class="coord">// Instrument panel</span></p>
+  <p class="eyebrow reveal">Log 04 <span class="dim">// Instrument panel</span></p>
   <h2 class="reveal">Tools on <em>board</em>.</h2>
   <div class="skills-grid">
-    <div class="panel glass reveal">
-      <h4>AI Enablement</h4>
-      <ul><li>Agentic AI</li><li>LLM tool use (Claude &amp; OpenAI APIs)</li><li>Microsoft 365 Copilot</li><li>Prompt engineering</li><li>Use-case discovery</li><li>Guardrails</li></ul>
+    <div class="module hud reveal">
+      <h3>AI Engineering</h3><div class="meter"><i></i></div>
+      <ul><li>Agentic AI</li><li>LLM tool calling (Claude &amp; OpenAI APIs)</li><li>Guardrails</li><li>Prompt-injection defence</li><li>Prompt engineering</li><li>Microsoft 365 Copilot</li></ul>
     </div>
-    <div class="panel glass reveal" style="--d:.08s">
-      <h4>Technical</h4>
-      <ul><li>Python</li><li>JavaScript / TypeScript</li><li>SQL</li><li>Node.js · Express</li><li>React</li><li>ServiceNow</li><li>Excel</li></ul>
+    <div class="module hud reveal">
+      <h3>Languages &amp; Tools</h3><div class="meter"><i></i></div>
+      <ul><li>Python</li><li>TypeScript / JavaScript</li><li>SQL</li><li>PostgreSQL</li><li>Node.js</li><li>Express</li><li>React</li><li>ServiceNow</li><li>Excel</li></ul>
     </div>
-    <div class="panel glass reveal" style="--d:.16s">
-      <h4>Enablement</h4>
-      <ul><li>Documentation</li><li>Training &amp; change management</li><li>Stakeholder communication</li><li>Executive presentations</li></ul>
+    <div class="module hud reveal">
+      <h3>Other</h3><div class="meter"><i></i></div>
+      <ul><li>Use-case discovery</li><li>Documentation</li><li>Training &amp; change management</li><li>Stakeholder communication</li><li>Executive presentations</li></ul>
     </div>
-    <div class="panel glass reveal" style="--d:.24s">
-      <h4>Domains</h4>
+    <div class="module hud reveal">
+      <h3>Domains</h3><div class="meter"><i></i></div>
       <ul><li>IT Service Management</li><li>Identity &amp; Access Management</li><li>Healthcare IT</li></ul>
     </div>
   </div>
@@ -498,15 +238,18 @@ footer{
 
 <!-- CONTACT -->
 <section id="contact" class="contact">
-  <p class="eyebrow reveal">Log 05 <span class="coord">// Open channel</span></p>
-  <h2 class="reveal">Send a <em>transmission</em>.</h2>
-  <p class="reveal">Looking for a co-op student who can run infrastructure, ship on ServiceNow, and put AI
-  to work safely? Signal received. I usually respond within one Earth day.</p>
-  <div class="links reveal">
-    <a class="btn solid" href="mailto:aryangupta.build@gmail.com">aryangupta.build@gmail.com</a>
-    <a class="btn" href="https://github.com/Aryan23G" target="_blank" rel="noopener">GitHub</a>
-    <a class="btn" href="https://www.linkedin.com/in/aryangupta05" target="_blank" rel="noopener">LinkedIn</a>
-    <a class="btn" href="tel:+16478709814">(647) 870-9814</a>
+  <div class="console hud reveal">
+    <p class="eyebrow">Log 05 <span class="dim">// Open channel</span></p>
+    <h2>Send a <em>transmission</em>.</h2>
+    <p>Looking for a co-op student who can run infrastructure, ship on ServiceNow, and put AI
+    to work safely? Signal received. I usually respond within one Earth day.</p>
+    <div class="links">
+      <a class="btn primary magnetic" href="mailto:aryangupta.build@gmail.com">aryangupta.build@gmail.com</a>
+      <a class="btn magnetic" href="https://github.com/Aryan23G" target="_blank" rel="noopener">GitHub</a>
+      <a class="btn magnetic" href="https://www.linkedin.com/in/aryangupta05" target="_blank" rel="noopener">LinkedIn</a>
+      <a class="btn magnetic" href="tel:+16478709814">(647) 870-9814</a>
+      <a class="btn magnetic" href="resume/Aryan_Gupta_Resume.pdf" target="_blank" rel="noopener">Résumé (PDF)</a>
+    </div>
   </div>
 </section>
 
@@ -517,145 +260,6 @@ footer{
   <span>Coordinates: 43.46° N, 80.52° W — Waterloo, ON</span>
 </footer>
 
-<script>
-(() => {
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // ----- deep-space starfield: 3 parallax layers + shooting stars -----
-  const canvas = document.getElementById('stars');
-  const ctx = canvas.getContext('2d');
-  let W = 0, H = 0, DPR = 1, layers = [], shooters = [];
-  let scrollY = window.scrollY, mx = 0, my = 0, tmx = 0, tmy = 0;
-  const LAYERS = [
-    { density: 1 / 5200, size: [0.2, 0.7], depth: 0.04, alpha: 0.55 },
-    { density: 1 / 12000, size: [0.6, 1.2], depth: 0.12, alpha: 0.8 },
-    { density: 1 / 42000, size: [1.1, 1.9], depth: 0.26, alpha: 1 }
-  ];
-  const TINTS = ['232,236,247', '232,236,247', '232,236,247', '155,227,240', '245,183,107', '200,190,255'];
-
-  function resize() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = W * DPR; canvas.height = H * DPR;
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    const area = W * H * 1.6;
-    layers = LAYERS.map(L => ({
-      ...L,
-      stars: Array.from({ length: Math.min(600, Math.floor(area * L.density)) }, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H * 1.6,
-        r: L.size[0] + Math.random() * (L.size[1] - L.size[0]),
-        tw: Math.random() * Math.PI * 2,
-        sp: 0.4 + Math.random() * 1.4,
-        c: TINTS[Math.floor(Math.random() * TINTS.length)]
-      }))
-    }));
-  }
-
-  function spawnShooter() {
-    const fromLeft = Math.random() > 0.5;
-    shooters.push({
-      x: fromLeft ? Math.random() * W * 0.5 : W * 0.5 + Math.random() * W * 0.5,
-      y: Math.random() * H * 0.45,
-      vx: (fromLeft ? 1 : -1) * (7 + Math.random() * 5),
-      vy: 2.5 + Math.random() * 2.5,
-      life: 0, max: 55 + Math.random() * 35
-    });
-  }
-
-  function draw(t) {
-    ctx.clearRect(0, 0, W, H);
-    mx += (tmx - mx) * 0.04; my += (tmy - my) * 0.04;
-    const time = t / 1000;
-    for (const L of layers) {
-      const span = H * 1.6;
-      const oy = -(scrollY * L.depth) % span;
-      const ox = mx * L.depth * 60, oyM = my * L.depth * 60;
-      for (const s of L.stars) {
-        let y = s.y + oy + oyM; if (y < -4) y += span; if (y > H + 4) continue;
-        const x = s.x + ox;
-        const a = reduced ? L.alpha * 0.8 : L.alpha * (0.55 + 0.45 * Math.sin(s.tw + time * s.sp));
-        ctx.fillStyle = `rgba(${s.c},${Math.max(0.06, a)})`;
-        ctx.beginPath(); ctx.arc(x, y, s.r, 0, Math.PI * 2); ctx.fill();
-        if (s.r > 1.5) { // soft halo for the nearest stars
-          ctx.fillStyle = `rgba(${s.c},${a * 0.12})`;
-          ctx.beginPath(); ctx.arc(x, y, s.r * 3.2, 0, Math.PI * 2); ctx.fill();
-        }
-      }
-    }
-    if (!reduced) {
-      if (Math.random() < 0.004 && shooters.length < 2) spawnShooter();
-      shooters = shooters.filter(s => s.life < s.max);
-      for (const s of shooters) {
-        s.life++; s.x += s.vx; s.y += s.vy;
-        const p = s.life / s.max, fade = Math.sin(p * Math.PI);
-        const g = ctx.createLinearGradient(s.x, s.y, s.x - s.vx * 12, s.y - s.vy * 12);
-        g.addColorStop(0, `rgba(232,236,247,${0.9 * fade})`);
-        g.addColorStop(1, 'rgba(155,227,240,0)');
-        ctx.strokeStyle = g; ctx.lineWidth = 1.4; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * 12, s.y - s.vy * 12); ctx.stroke();
-      }
-      requestAnimationFrame(draw);
-    }
-  }
-  window.addEventListener('resize', () => { resize(); if (reduced) draw(0); });
-  window.addEventListener('pointermove', e => {
-    tmx = (e.clientX / W - 0.5) * -1; tmy = (e.clientY / H - 0.5) * -1;
-  }, { passive: true });
-  resize();
-  requestAnimationFrame(draw);
-
-  // ----- scroll-linked: progress bar, nav state, planet + nebula parallax -----
-  const bar = document.querySelector('.progress');
-  const nav = document.querySelector('nav');
-  const planet = document.querySelector('.planet-wrap');
-  const nebula = document.querySelector('.nebula');
-  let ticking = false;
-  function onScroll() {
-    scrollY = window.scrollY;
-    if (ticking) return; ticking = true;
-    requestAnimationFrame(() => {
-      const max = document.documentElement.scrollHeight - window.innerHeight;
-      bar.style.transform = `scaleX(${max > 0 ? scrollY / max : 0})`;
-      nav.classList.toggle('scrolled', scrollY > 40);
-      if (!reduced) {
-        planet.style.transform = `translate3d(0, calc(-50% + ${scrollY * 0.35}px), 0) rotate(${scrollY * 0.01}deg)`;
-        nebula.style.transform = `translate3d(0, ${scrollY * -0.06}px, 0)`;
-      }
-      ticking = false;
-    });
-  }
-  window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll();
-
-  // ----- reveal on scroll -----
-  const io = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-  }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
-  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
-
-  // ----- active nav link -----
-  const links = [...document.querySelectorAll('nav ul a')];
-  const sections = [...document.querySelectorAll('main section[id]')];
-  function spy() {
-    const mid = window.innerHeight * 0.4;
-    let current = '';
-    for (const s of sections) if (s.getBoundingClientRect().top <= mid) current = s.id;
-    links.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + current));
-  }
-  window.addEventListener('scroll', () => requestAnimationFrame(spy), { passive: true });
-  spy();
-
-  // ----- cursor glow on glass cards -----
-  document.querySelectorAll('.glass').forEach(el => {
-    el.addEventListener('pointermove', e => {
-      const r = el.getBoundingClientRect();
-      el.style.setProperty('--mx', `${e.clientX - r.left}px`);
-      el.style.setProperty('--my', `${e.clientY - r.top}px`);
-    });
-  });
-
-})();
-</script>
+<script type="module" src="js/site.js"></script>
 </body>
 </html>
