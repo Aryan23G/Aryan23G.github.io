@@ -10,7 +10,8 @@ import {
 } from "@tanstack/react-table";
 import { BarChart, LineChart } from "@tremor/react";
 import { ArrowDown, ArrowUp, Download } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +28,9 @@ export interface ResultSet {
 }
 
 type Row = Record<string, JsonScalar>;
+
+/** Every grid row is one line (cells truncate), so a fixed row height makes virtualization exact. */
+const ROW_HEIGHT = 23;
 
 function Cell({ value, type }: { value: JsonScalar; type: ColumnMeta["type"] }) {
   if (value === null) return <span className="italic text-zinc-600">NULL</span>;
@@ -75,6 +79,20 @@ export function ResultsTable({ result, emptyHint }: { result: ResultSet | null; 
   });
   const spec = result ? chartSpec(result.columns, result.rowCount) : null;
 
+  // Render only the rows in view (+ overscan); spacer rows keep the scroll height and sticky header intact.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rows = table.getRowModel().rows;
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 20,
+  });
+  const items = virtualizer.getVirtualItems();
+  const padTop = items[0]?.start ?? 0;
+  const padBottom = items.length ? virtualizer.getTotalSize() - (items[items.length - 1]?.end ?? 0) : 0;
+  const colSpan = table.getVisibleLeafColumns().length;
+
   return (
     <Tabs defaultValue="grid" className="flex h-full min-h-0 flex-col">
       <div className="pane-header">
@@ -107,11 +125,11 @@ export function ResultsTable({ result, emptyHint }: { result: ResultSet | null; 
         )}
       </div>
 
-      <TabsContent value="grid" className="min-h-0 flex-1 overflow-auto data-[state=inactive]:hidden">
+      <TabsContent ref={scrollRef} value="grid" className="min-h-0 flex-1 overflow-auto data-[state=inactive]:hidden">
         {!result ? (
           <p className="p-4 font-mono text-2xs text-muted-foreground">{emptyHint}</p>
         ) : (
-          <table className="w-max min-w-full border-collapse font-mono text-2xs">
+          <table className="w-max min-w-full border-collapse font-mono text-2xs" aria-rowcount={result.rowCount + 1}>
             <thead className="sticky top-0 z-10 bg-panel">
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id}>
@@ -143,8 +161,21 @@ export function ResultsTable({ result, emptyHint }: { result: ResultSet | null; 
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="odd:bg-white/[0.015] hover:bg-accent">
+              {padTop > 0 && (
+                <tr aria-hidden="true">
+                  <td colSpan={colSpan} style={{ height: padTop, padding: 0, border: 0 }} />
+                </tr>
+              )}
+              {items.map((vi) => {
+                const row = rows[vi.index]!;
+                return (
+                <tr
+                  key={row.id}
+                  data-row={vi.index}
+                  aria-rowindex={vi.index + 2}
+                  style={{ height: ROW_HEIGHT }}
+                  className={cn("hover:bg-accent", vi.index % 2 === 1 && "bg-white/[0.015]")}
+                >
                   {row.getVisibleCells().map((cell) => {
                     const type = (cell.column.columnDef.meta as { type?: string } | undefined)?.type;
                     return (
@@ -160,7 +191,13 @@ export function ResultsTable({ result, emptyHint }: { result: ResultSet | null; 
                     );
                   })}
                 </tr>
-              ))}
+                );
+              })}
+              {padBottom > 0 && (
+                <tr aria-hidden="true">
+                  <td colSpan={colSpan} style={{ height: padBottom, padding: 0, border: 0 }} />
+                </tr>
+              )}
             </tbody>
           </table>
         )}
