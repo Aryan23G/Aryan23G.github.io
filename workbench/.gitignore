@@ -15,3 +15,5 @@ frontend/next-env.d.ts
 .env.local
 frontend/tsconfig.tsbuildinfo
 *.egg-info/
+test-results/
+playwright-report/
