@@ -83,7 +83,7 @@ export function SchemaBrowser({ schema, injected, error, onInsert, title }: Prop
         </div>
       )}
       <ScrollArea className="min-h-0 flex-1">
-        <ul className="py-1" role="tree" aria-label="Database schema">
+        <ul className="py-1" aria-label="Database schema">
           {tables.map((t) => (
             <TableNode
               key={t.name}
@@ -122,10 +122,17 @@ function TableNode({
   onInsert: (text: string) => void;
 }) {
   return (
-    <li role="treeitem" aria-expanded={open} aria-selected={false}>
+    <li>
       <Collapsible open={open} onOpenChange={onToggle}>
-        <div className={cn("group flex items-center", dimmed && "opacity-45")}>
-          <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1 text-left font-mono text-xs hover:bg-accent">
+        <div className="group flex items-center">
+          {/* Collapsible trigger = disclosure button (aria-expanded/aria-controls set by Radix). */}
+          <CollapsibleTrigger
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-1.5 px-2 py-1 text-left font-mono text-xs hover:bg-accent",
+              dimmed && "text-muted-foreground",
+            )}
+            aria-label={`${table.name}, ${table.row_count} rows${retrieved ? `, in context (${retrieved.reason})` : ""}`}
+          >
             <ChevronRight className={cn("size-3 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
             <Table2 className={cn("size-3.5 shrink-0", retrieved ? "text-cyan-400" : "text-muted-foreground")} />
             <span className="truncate">{table.name}</span>
@@ -148,9 +155,9 @@ function TableNode({
         </div>
         <CollapsibleContent>
           {table.description && <p className="py-0.5 pl-9 pr-3 text-2xs text-muted-foreground">{table.description}</p>}
-          <ul role="group">
+          <ul aria-label={`${table.name} columns`}>
             {table.columns.map((c) => (
-              <li key={c.name} role="treeitem" aria-selected={false}>
+              <li key={c.name}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button

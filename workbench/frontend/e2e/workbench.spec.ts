@@ -14,7 +14,7 @@ async function replaceSql(page: Page, sql: string) {
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("api ok")).toBeVisible();
-  await expect(page.getByRole("tree", { name: "Database schema" }).getByText("support_tickets")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Database schema" }).getByText("support_tickets")).toBeVisible();
 });
 
 test("preset run self-corrects after a static compilation error", async ({ page }) => {

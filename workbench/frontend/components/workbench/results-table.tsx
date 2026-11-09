@@ -29,7 +29,7 @@ export interface ResultSet {
 type Row = Record<string, JsonScalar>;
 
 function Cell({ value, type }: { value: JsonScalar; type: ColumnMeta["type"] }) {
-  if (value === null) return <span className="italic text-zinc-600">NULL</span>;
+  if (value === null) return <span className="italic text-muted-foreground">NULL</span>;
   if (type === "number" && typeof value === "number") return <>{fmt.num(value)}</>;
   if (typeof value === "boolean") return <>{value ? "true" : "false"}</>;
   return <>{String(value)}</>;
@@ -50,7 +50,7 @@ export function ResultsTable({ result, emptyHint }: { result: ResultSet | null; 
       {
         id: "__row",
         header: "#",
-        cell: (ctx) => <span className="text-zinc-600">{ctx.row.index + 1}</span>,
+        cell: (ctx) => <span className="text-muted-foreground">{ctx.row.index + 1}</span>,
         enableSorting: false,
         size: 44,
       },
@@ -107,7 +107,12 @@ export function ResultsTable({ result, emptyHint }: { result: ResultSet | null; 
         )}
       </div>
 
-      <TabsContent value="grid" className="min-h-0 flex-1 overflow-auto data-[state=inactive]:hidden">
+      <TabsContent
+        value="grid"
+        tabIndex={0}
+        aria-label="Result grid"
+        className="min-h-0 flex-1 overflow-auto data-[state=inactive]:hidden"
+      >
         {!result ? (
           <p className="p-4 font-mono text-2xs text-muted-foreground">{emptyHint}</p>
         ) : (
@@ -134,7 +139,7 @@ export function ResultsTable({ result, emptyHint }: { result: ResultSet | null; 
                           {flexRender(h.column.columnDef.header, h.getContext())}
                           {sorted === "asc" && <ArrowUp className="size-3" />}
                           {sorted === "desc" && <ArrowDown className="size-3" />}
-                          {type && <span className="font-normal text-zinc-600">{type.slice(0, 3)}</span>}
+                          {type && <span className="font-normal text-muted-foreground">{type.slice(0, 3)}</span>}
                         </span>
                       </th>
                     );

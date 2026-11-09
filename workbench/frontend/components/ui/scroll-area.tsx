@@ -9,7 +9,10 @@ export const ScrollArea = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
 >(({ className, children, ...props }, ref) => (
   <ScrollAreaPrimitive.Root ref={ref} className={cn("relative overflow-hidden", className)} {...props}>
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] [&>div]:!block">{children}</ScrollAreaPrimitive.Viewport>
+    {/* tabIndex: keyboard users can scroll the region (WCAG 2.1.1); focus ring comes from :focus-visible. */}
+    <ScrollAreaPrimitive.Viewport tabIndex={0} className="h-full w-full rounded-[inherit] [&>div]:!block">
+      {children}
+    </ScrollAreaPrimitive.Viewport>
     <ScrollBar />
     <ScrollBar orientation="horizontal" />
     <ScrollAreaPrimitive.Corner />

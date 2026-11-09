@@ -13,11 +13,11 @@ const PIPELINE: { node: NodeName; label: string }[] = [
 ];
 
 const MARK: Record<StepEntry["status"] | "pending", { glyph: string; cls: string }> = {
-  pending: { glyph: "[ ]", cls: "text-zinc-600" },
+  pending: { glyph: "[ ]", cls: "text-muted-foreground" },
   running: { glyph: "[⚙]", cls: "text-cyan-400" },
   done: { glyph: "[✓]", cls: "text-emerald-400" },
   error: { glyph: "[✗]", cls: "text-rose-400" },
-  skipped: { glyph: "[–]", cls: "text-zinc-500" },
+  skipped: { glyph: "[–]", cls: "text-muted-foreground" },
 };
 
 interface Props {
@@ -60,7 +60,7 @@ export function StepTracker({ steps, status }: Props) {
         );
       })}
       {pending.map((p) => (
-        <li key={p.node} className="flex items-baseline gap-2 text-zinc-600">
+        <li key={p.node} className="flex items-baseline gap-2 italic text-muted-foreground">
           <span className="w-7 shrink-0">{MARK.pending.glyph}</span>
           <span className="w-36 shrink-0">{p.node}</span>
           <span className="flex-1 truncate">{p.label}</span>
