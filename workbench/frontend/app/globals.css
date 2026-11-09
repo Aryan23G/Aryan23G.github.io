@@ -33,6 +33,11 @@
     font-feature-settings: "tnum" 1, "cv11" 1;
   }
 
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: -2px;
+  }
+
   ::selection {
     background: hsl(var(--primary) / 0.3);
   }

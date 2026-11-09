@@ -151,7 +151,7 @@ export function Workbench() {
         )}
 
         <ResizablePanelGroup direction="horizontal" autoSaveId="qp-workbench-h" className="min-h-0 flex-1">
-          <ResizablePanel defaultSize={18} minSize={12} maxSize={32}>
+          <ResizablePanel defaultSize={18} minSize={12} maxSize={32} tagName="aside" aria-label="Schema and run history">
             <Tabs value={leftTab} onValueChange={(v) => setLeftTab(v as "schema" | "history")} className="flex h-full flex-col bg-panel">
               <TabsContent value="schema" className="min-h-0 flex-1 data-[state=inactive]:hidden">
                 <SchemaBrowser
@@ -181,7 +181,7 @@ export function Workbench() {
           </ResizablePanel>
           <ResizableHandle />
 
-          <ResizablePanel defaultSize={56} minSize={35}>
+          <ResizablePanel defaultSize={56} minSize={35} tagName="main" aria-label="Analytical canvas">
             <div className="flex h-full min-h-0 flex-col">
               <QueryInput
                 ref={inputRef}
@@ -238,7 +238,7 @@ export function Workbench() {
           </ResizablePanel>
           <ResizableHandle />
 
-          <ResizablePanel defaultSize={26} minSize={18} maxSize={40}>
+          <ResizablePanel defaultSize={26} minSize={18} maxSize={40} tagName="aside" aria-label="Execution trace">
             <TracePanel state={state} />
           </ResizablePanel>
         </ResizablePanelGroup>

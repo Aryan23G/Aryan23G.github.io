@@ -59,6 +59,7 @@ export function SqlEditor({ value, generated, phase, dialect, tables, disabled, 
       }),
       paneTheme,
       EditorView.lineWrapping,
+      EditorView.contentAttributes.of({ "aria-label": "SQL editor", "aria-multiline": "true" }),
       keymap.of([{ key: "Mod-Enter", run: (view) => (onExecute(view.state.doc.toString()), true) }]),
     ],
     [dialect, tables, onExecute],
@@ -103,7 +104,6 @@ export function SqlEditor({ value, generated, phase, dialect, tables, disabled, 
           editable={!disabled}
           basicSetup={{ foldGutter: false, highlightActiveLine: true, autocompletion: true }}
           placeholder="-- Generated SQL appears here. Edit it and press Execute Edit (Ctrl/⌘+Enter) to run it through the same guard."
-          aria-label="SQL editor"
           height="100%"
         />
       </div>

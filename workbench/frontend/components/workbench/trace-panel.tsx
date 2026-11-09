@@ -1,6 +1,6 @@
 "use client";
 
-import { BarList, Card, Metric, Text } from "@tremor/react";
+import { Card, Metric, Text } from "@tremor/react";
 import { FileJson } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -14,10 +14,10 @@ import { cn, download, fmt } from "@/lib/utils";
 function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (
     <section className="border-b px-3 py-2.5">
-      <h3 className="mb-2 flex items-center justify-between text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <h2 className="mb-2 flex items-center justify-between text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
         {aside}
-      </h3>
+      </h2>
       {children}
     </section>
   );
@@ -70,14 +70,28 @@ function Telemetry({ trace }: { trace: RunTrace }) {
 }
 
 function NodeTimings({ trace }: { trace: RunTrace }) {
+  // Timeline in execution order; bar width relative to the slowest node.
   const seen: Record<string, number> = {};
-  const data = trace.steps.map((s) => {
-    seen[s.node] = (seen[s.node] ?? 0) + 1;
-    return { name: `${s.node}${seen[s.node]! > 1 ? ` #${seen[s.node]}` : ""}`, value: s.duration_ms, color: s.status === "error" ? "rose" : "cyan" };
-  });
-  // sortOrder="none": keep execution order, so the bar list reads as a timeline.
+  const max = Math.max(...trace.steps.map((s) => s.duration_ms), 0.0001);
   return (
-    <BarList data={data} sortOrder="none" valueFormatter={(v: number) => fmt.ms(v)} className="font-mono [&_p]:!text-2xs" showAnimation={false} />
+    <ol className="space-y-1 font-mono text-2xs" aria-label="Node latency in execution order">
+      {trace.steps.map((s, i) => {
+        seen[s.node] = (seen[s.node] ?? 0) + 1;
+        const name = `${s.node}${seen[s.node]! > 1 ? ` #${seen[s.node]}` : ""}`;
+        return (
+          <li key={i} className="flex items-center gap-2">
+            <span className="w-32 shrink-0 truncate text-foreground">{name}</span>
+            <span className="h-2 flex-1 overflow-hidden rounded-sm bg-muted" aria-hidden="true">
+              <span
+                className={cn("block h-full", s.status === "error" ? "bg-rose-400/80" : "bg-cyan-400/70")}
+                style={{ width: `${Math.max(2, (s.duration_ms / max) * 100)}%` }}
+              />
+            </span>
+            <span className="w-16 shrink-0 text-right tabular-nums text-muted-foreground">{fmt.ms(s.duration_ms)}</span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -103,7 +117,7 @@ function Context({ trace }: { trace: RunTrace }) {
             </Badge>
           </div>
           {(t.via.length > 0 || t.matched_columns.length > 0) && (
-            <div className="pl-[8.5rem] text-zinc-500">
+            <div className="pl-[8.5rem] text-muted-foreground">
               {t.via.length > 0 ? `via ${t.via.join(" ↔ ")}` : `matched ${t.matched_columns.slice(0, 4).join(", ")}`}
             </div>
           )}
@@ -122,7 +136,7 @@ function EventLog({ lines }: { lines: LogLine[] }) {
     <div className="space-y-px font-mono text-2xs">
       {lines.map((l, i) => (
         <div key={i} className="flex gap-2">
-          <span className="w-12 shrink-0 text-right tabular-nums text-zinc-600">{l.t}ms</span>
+          <span className="w-12 shrink-0 text-right tabular-nums text-muted-foreground">{l.t}ms</span>
           <span className={cn("min-w-0 break-words", color[l.level])}>{l.text}</span>
         </div>
       ))}
