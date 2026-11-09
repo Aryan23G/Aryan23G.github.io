@@ -33,8 +33,13 @@ and the README matches the code.
 - [x] **5. API hardening.** Optional bearer-token auth (`QP_API_TOKEN`; disabled when unset), an in-memory
   per-client rate limit on the query endpoints (`QP_RATE_LIMIT_PER_MIN`, 429 with `Retry-After`), and a cap on
   concurrent agent runs. Frontend sends the token from `NEXT_PUBLIC_API_TOKEN` if set. Tests for 401/429.
-- [ ] **6. Large-result rendering.** Virtualize the result grid rows with `@tanstack/react-virtual` so 1,000 rows
-  render smoothly; keep sticky headers and sorting. Verify in the e2e test with a 1,000-row override query.
+- [~] **6. Large-result rendering.** *Blocked after two attempts; grid left non-virtualized (renders up to the
+  1,000-row cap, which works but is heavier).* Both `@tanstack/react-virtual` (3.13 and 3.14) and a minimal
+  scroll-listener windowing hook froze the page as soon as the user typed in the SQL editor. A DevTools pause
+  showed an endless synchronous React render (`renderWithHooksAgain`) inside Radix `Tabs`/`TabsContent` under the
+  React 19 runtime that the Next.js 14 App Router bundles - triggered whenever the results component re-renders
+  from its own state. Moving the ref off `TabsContent` did not help. Next step: replace the Radix Tabs in the
+  results pane with plain buttons + conditional rendering (or upgrade Radix/Next together), then re-apply windowing.
 - [ ] **7. Workbench evaluation harness.** Port a 20-question benchmark with gold SQL for the 14-table warehouse
   (`backend/eval/questions.json`), an execution-accuracy comparator, and `python -m eval.run` that runs the real
   agent (needs `ANTHROPIC_API_KEY`) and writes a JSON report. Unit-test the comparator and verify every gold query
