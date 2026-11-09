@@ -19,6 +19,8 @@ const paneTheme = EditorView.theme(
     ".cm-activeLine": { backgroundColor: "hsl(240 4% 11% / 0.6)" },
     ".cm-activeLineGutter": { backgroundColor: "transparent", color: "hsl(240 5% 70%)" },
     ".cm-content": { padding: "8px 0" },
+    // Placeholder at the muted-foreground token (>= 4.5:1), not CodeMirror's low-contrast default.
+    ".cm-placeholder": { color: "hsl(240 4% 62%)" },
     ".cm-tooltip": { backgroundColor: "hsl(240 5% 8%)", border: "1px solid hsl(240 4% 16%)" },
   },
   { dark: true },
