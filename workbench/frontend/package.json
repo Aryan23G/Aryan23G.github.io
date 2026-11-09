@@ -33,6 +33,7 @@
     "tailwind-merge": "2.6.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
     "@headlessui/tailwindcss": "0.2.2",
     "@playwright/test": "^1.63.0",
     "@types/node": "22.10.2",
