@@ -18,7 +18,8 @@ workbench/
 │   │   ├── config.py                typed settings (QP_* env vars)
 │   │   ├── container.py             composition root: engine, index, generator, graph, runner
 │   │   ├── api/
-│   │   │   ├── routes.py            /api/health · /api/schema · /api/query · /api/query/stream (SSE) · /api/execute
+│   │   │   ├── routes.py            public /api/health + protected routes (see API)
+│   │   │   ├── security.py          bearer auth, sliding-window rate limit, concurrent-run cap
 │   │   │   └── schemas.py           request/response contracts
 │   │   ├── agent/
 │   │   │   ├── state.py             AgentState (TypedDict + reducers), SqlDraft, telemetry models
@@ -26,7 +27,8 @@ workbench/
 │   │   │   ├── nodes.py             States 1-5 + fail node (spans, live step events)
 │   │   │   ├── llm.py               SqlGenerator protocol + ClaudeSqlGenerator (structured outputs)
 │   │   │   ├── prompts.py           cached system prompt, bounded per-attempt user prompt
-│   │   │   └── runner.py            runs the graph in a task, streams events, builds RunTrace
+│   │   │   ├── runner.py            runs the graph in a task, streams events, builds RunTrace
+│   │   │   └── history.py           bounded in-memory store of recent RunTraces
 │   │   ├── rag/
 │   │   │   ├── documents.py         introspection → TableMeta → table/column documents
 │   │   │   ├── embeddings.py        FastEmbed (bge-small) + offline hashing/IDF embedder
@@ -39,21 +41,29 @@ workbench/
 │   │   └── db/
 │   │       ├── catalog.py           semantic data dictionary for the sample warehouse
 │   │       └── seed.py              deterministic 14-table sample warehouse
-│   └── tests/                       71 tests: guard, executor, RAG, graph routing, API/SSE, LLM request shape, tracing
+│   ├── eval/
+│   │   ├── questions.json           20 questions (easy/medium/hard) with gold SQL
+│   │   ├── compare.py               execution-accuracy comparator
+│   │   └── run.py                   `python -m eval.run`: live evaluation (needs ANTHROPIC_API_KEY)
+│   └── tests/                       103 tests (pytest) + e2e_server.py (real API, scripted generator)
 └── frontend/                        Next.js 14 (App Router) · Tailwind · shadcn/ui · Tremor · CodeMirror 6
     ├── app/                         layout.tsx, page.tsx, globals.css (dark IDE tokens)
     ├── components/
     │   ├── ui/                      shadcn primitives: button, badge, tabs, collapsible, resizable, scroll-area, tooltip, textarea
     │   └── workbench/
     │       ├── workbench.tsx        3-pane resizable layout, title bar, status bar
-    │       ├── schema-browser.tsx   left: schema tree, RAG-injected tables marked with reason/score
+    │       ├── schema-browser.tsx   left: schema browser, RAG-injected tables marked with reason/score
+    │       ├── history-list.tsx     left: recent runs, reopen into canvas + trace
     │       ├── query-input.tsx      center: fixed request input + presets
     │       ├── step-tracker.tsx     center: linear [✓]/[⚙]/[✗]/[ ] state-machine tracker
     │       ├── sql-editor.tsx       center: CodeMirror SQL canvas + "Execute Edit" manual override
     │       ├── results-table.tsx    center: TanStack grid (sortable, typed) + Tremor chart + CSV
-    │       └── trace-panel.tsx      right: tokens, latency, RAG context, reasoning chain, corrections, event log
-    ├── hooks/use-agent-run.ts       SSE event reducer + manual override
-    └── lib/                         api.ts (typed client + POST SSE reader), types.ts, utils.ts
+    │       └── trace-panel.tsx      right: tokens, latency, RAG context, reasoning chain, corrections, JSON export, event log
+    ├── hooks/use-agent-run.ts       run-state reducer (SSE events, history reload, manual override)
+    ├── lib/                         api.ts (typed client + auth), sse.ts (frame parser), types.ts, utils.ts
+    ├── tests/                       16 unit tests (Vitest): reducer, SSE parser, CSV/formatting, auth header
+    ├── e2e/                         Playwright: workflow (6) + accessibility (2 + 1 tracked fixme) against the real API
+    └── playwright.config.ts         starts tests/e2e_server.py + a production Next build
 ```
 
 ## Architecture
@@ -89,6 +99,20 @@ Control flow is decided only by pure routing functions over typed state (`agent/
 
 **Manual override.** `/api/execute` sends user-edited SQL through exactly the same SQLGlot compiler and read-only executor. No LLM is involved, and the guard is never bypassed.
 
+## API
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| GET | `/api/health` | public | model, dialect, table count, active embedder, index collection |
+| GET | `/api/schema` | token | databases, tables, columns, keys, sample values |
+| POST | `/api/query` | token, rate-limited, run slot | run to completion, returns `RunTrace` |
+| POST | `/api/query/stream` | token, rate-limited, run slot | Server-Sent Events: `run_started`, `step`, `run_completed`, `run_error` |
+| POST | `/api/execute` | token, rate-limited | manual override through the guard + read-only executor (no LLM) |
+| GET | `/api/runs` | token | recent run summaries, newest first |
+| GET | `/api/runs/{run_id}` | token | full `RunTrace` (404 once evicted); the UI's JSON export uses this |
+
+"token" applies only when `QP_API_TOKEN` is set (401 + `WWW-Authenticate: Bearer` otherwise). Rate limit: 429 + `Retry-After`. Run slots: 503 + `Retry-After` when `QP_MAX_CONCURRENT_RUNS` runs are in flight. A streaming run holds its slot until the stream ends. Rate limits, run slots and history are in-process: with several workers, enforce limits at the gateway and swap `RunStore` for a shared store.
+
 ## Observability
 
 Every run produces one trace:
@@ -121,7 +145,7 @@ The same data is returned to the UI in `RunTrace`: token usage (including cache 
 cd workbench/backend
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev,fastembed]"
-cp .env.example .env    # set ANTHROPIC_API_KEY
+cp .env.example .env    # set ANTHROPIC_API_KEY (all QP_* settings are listed there)
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -145,9 +169,12 @@ ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
 ## Tests and quality gates
 
 ```bash
-cd backend  && ruff check app tests && mypy app && pytest -q      # 71 tests, mypy --strict
-cd frontend && npm run typecheck && npm run lint && npm run build
+cd backend  && ruff check app tests eval && mypy app eval && pytest -q    # 103 tests, mypy --strict
+cd frontend && npm run typecheck && npm run lint && npm test && npm run build
+cd frontend && npm run e2e    # Playwright: starts the API (scripted generator, auth on) + a production build
 ```
+
+Set `E2E_PYTHON` to the backend's Python interpreter if it isn't on `PATH` as `python`.
 
 The test suite needs no network. A scripted `SqlGenerator` replaces Claude, so every routing path is exercised deterministically: happy path, static retry (with the compiler log in the next prompt), static budget exhaustion, runtime retry (with the stack trace), runtime budget, write attempts that never reach the DB, unanswerable questions, and refusals. Separate tests cover:
 - the exact Claude request (structured-output schema, effort, cache control, refusal-fallback beta) against a mocked HTTP transport,
@@ -155,7 +182,13 @@ The test suite needs no network. A scripted `SqlGenerator` replaces Claude, so e
 - the statement timeout,
 - retrieval quality and FK join-path closure,
 - SSE framing,
-- the OpenTelemetry span tree.
+- the OpenTelemetry span tree,
+- auth (401), rate limiting (429), the concurrency cap (503) and slot release after streaming,
+- run history and the eval set (every gold query compiles through the guard and returns rows).
+
+The browser suite covers a self-correcting run, the manual override, a blocked `DROP TABLE`, run history and JSON export, the unauthenticated-request check, landmarks/labels, and a keyboard-only run.
+
+**Evaluation.** `ANTHROPIC_API_KEY=... python -m eval.run [--model ...] [--only h]` runs the 20-question benchmark through the real agent and writes an accuracy report (by difficulty, latency, self-corrections, tokens) to `eval/results/`. It costs real API tokens and has not been run in this repository yet, so no accuracy figure is claimed.
 
 CI: `.github/workflows/workbench.yml`.
 
@@ -166,3 +199,5 @@ CI: `.github/workflows/workbench.yml`.
 - **Retries** are bounded separately for static (`QP_MAX_STATIC_RETRIES`, default 2) and runtime (`QP_MAX_RUNTIME_RETRIES`, default 2) failures.
 - **Embedded Qdrant** is single-process. Run Qdrant as a server (`QP_QDRANT_URL`) for multiple API workers.
 - The read-only guarantees are layered: SQLGlot guard, then the read-only connection/transaction, then the timeout and row cap. For production, also connect with a database role that only has `SELECT` grants.
+- **Auth** is a single shared bearer token. `NEXT_PUBLIC_API_TOKEN` is compiled into the browser bundle, so it suits an internal tool; put SSO or another user-auth proxy in front for anything wider.
+- **Known gaps** (see `TODO.md`): the result grid is not virtualized (item 6: virtualization conflicted with Radix Tabs under the React 19 runtime that Next 14 bundles), and two axe findings remain open (item 8: CodeMirror theme token contrast, and the editor wrapper's scroll region).

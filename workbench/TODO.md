@@ -53,5 +53,5 @@ and the README matches the code.
   **Open:** (1) CodeMirror's built-in dark theme colours some SQL tokens below 4.5:1 - needs a custom
   `HighlightStyle`; (2) the SQL editor's wrapper div is a non-focusable scroll region - let CodeMirror's own
   scroller own scrolling. The full-state axe test is `test.fixme` in `e2e/a11y.spec.ts` until both are fixed.
-- [ ] **9. Docs final pass.** README reflects every feature above (endpoints, env vars, scripts, test counts), and
+- [x] **9. Docs final pass.** README reflects every feature above (endpoints, env vars, scripts, test counts), and
   the file tree matches the repository.
