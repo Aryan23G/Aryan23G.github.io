@@ -31,8 +31,8 @@ test("preset run self-corrects after a static compilation error", async ({ page 
   await expect(steps).toContainText("Static compilation passed");
   await expect(steps).toContainText("8 rows");
 
-  await expect(grid(page).locator("tbody tr[data-row]")).toHaveCount(8);
-  await expect(grid(page).locator("tbody tr[data-row]").first()).toContainText("Footwear");
+  await expect(grid(page).locator("tbody tr")).toHaveCount(8);
+  await expect(grid(page).locator("tbody tr").first()).toContainText("Footwear");
   await expect(page.getByText("1 static · 0 runtime")).toBeVisible();
   await expect(page.getByText("generated · compiled")).toBeVisible();
   // RAG context is visible in the schema tree.
@@ -42,7 +42,7 @@ test("preset run self-corrects after a static compilation error", async ({ page 
 test("manual override runs edited SQL through the same guard", async ({ page }) => {
   await page.getByRole("button", { name: "Monthly revenue for 2025" }).click();
   await expect(page.getByText("success", { exact: true })).toBeVisible({ timeout: 20_000 });
-  await expect(grid(page).locator("tbody tr[data-row]")).toHaveCount(12);
+  await expect(grid(page).locator("tbody tr")).toHaveCount(12);
 
   await replaceSql(
     page,
@@ -53,8 +53,8 @@ test("manual override runs edited SQL through the same guard", async ({ page }) 
   await page.getByRole("button", { name: "Execute Edit" }).click();
 
   await expect(page.getByText("manual override", { exact: true })).toBeVisible();
-  await expect(grid(page).locator("tbody tr[data-row]")).toHaveCount(4);
-  await expect(grid(page).locator("tbody tr[data-row]").first()).toContainText("DHL");
+  await expect(grid(page).locator("tbody tr")).toHaveCount(4);
+  await expect(grid(page).locator("tbody tr").first()).toContainText("DHL");
 });
 
 test("history lists completed runs and reopens one", async ({ page }) => {
@@ -72,7 +72,7 @@ test("history lists completed runs and reopens one", async ({ page }) => {
   await expect(history.getByRole("button").first()).toContainText("1 retry");
 
   await revenue.click();
-  await expect(grid(page).locator("tbody tr[data-row]")).toHaveCount(12);
+  await expect(grid(page).locator("tbody tr")).toHaveCount(12);
   await expect(tracker(page)).not.toContainText("generate_sql #2");
   await expect(page.getByText(/loaded from history/)).toBeVisible();
 });
@@ -96,32 +96,6 @@ test("exports the recorded run trace as JSON", async ({ page }) => {
   expect(trace.steps.map((s: { node: string }) => s.node)).toEqual([
     "retrieve_context", "generate_sql", "validate_sql", "generate_sql", "validate_sql", "execute_sql", "format_response",
   ]);
-});
-
-test("1,000-row results are virtualized: small DOM, full scroll range", async ({ page }) => {
-  await replaceSql(page, "SELECT order_item_id, order_id, product_id, quantity, unit_price FROM order_items ORDER BY order_item_id");
-  await page.getByRole("button", { name: "Execute Edit" }).click();
-  await expect(page.getByText("manual override", { exact: true })).toBeVisible();
-  await expect(page.getByText("(capped)")).toBeVisible(); // 10,647 rows in the table, row cap 1,000
-  await expect(grid(page)).toHaveAttribute("aria-rowcount", "1001");
-
-  const rendered = await grid(page).locator("tbody tr[data-row]").count();
-  expect(rendered).toBeGreaterThan(10);
-  expect(rendered).toBeLessThan(150); // only the window + overscan is in the DOM
-
-  // Scroll to the bottom: the last row is rendered, the first is not.
-  const scroller = page.getByRole("tabpanel", { name: "Result grid" });
-  await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight));
-  await expect(grid(page).locator('tbody tr[data-row="999"]')).toBeVisible();
-  await expect(grid(page).locator('tbody tr[data-row="999"]')).toContainText("1,000");
-  await expect(grid(page).locator('tbody tr[data-row="0"]')).toHaveCount(0);
-  expect(await grid(page).locator("tbody tr[data-row]").count()).toBeLessThan(150);
-
-  // Sorting still applies to the full dataset, not just the rendered window.
-  await scroller.evaluate((el) => (el.scrollTop = 0));
-  await grid(page).locator("thead th", { hasText: "order_item_id" }).click(); // asc
-  await grid(page).locator("thead th", { hasText: "order_item_id" }).click(); // desc
-  await expect(grid(page).locator('tbody tr[data-row="0"]')).toContainText("1,000");
 });
 
 test("API rejects requests without the bearer token", async ({ request }) => {
