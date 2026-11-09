@@ -44,8 +44,14 @@ and the README matches the code.
   (`backend/eval/questions.json`), an execution-accuracy comparator, and `python -m eval.run` that runs the real
   agent (needs `ANTHROPIC_API_KEY`) and writes a JSON report. Unit-test the comparator and verify every gold query
   compiles through the SQLGlot guard and returns rows. Running against the live API is out of scope here.
-- [ ] **8. Accessibility and keyboard pass.** All controls reachable by keyboard with visible focus; tree uses
-  correct ARIA roles; step tracker announced politely; contrast of muted text ≥ 4.5:1. Add an axe-core check to
-  the e2e spec with zero serious/critical violations.
+- [~] **8. Accessibility and keyboard pass.** *Mostly done; marked [~] after two gate runs.* An axe audit found
+  1 critical, 4 serious and 3 moderate issues; fixed: Tremor BarList `aria-sort` on a div (replaced with a
+  semantic list), 46 low-contrast nodes (muted token instead of zinc-600/opacity), unlabelled CodeMirror textbox,
+  non-focusable scroll regions in the grid/trace panel, missing landmarks, heading order; the schema browser now
+  uses the disclosure pattern instead of an incomplete ARIA tree; global `:focus-visible` outline. Passing tests:
+  landmarks/labels/disclosure state, and a keyboard-only run (Tab to the input, Ctrl/⌘+Enter, visible focus).
+  **Open:** (1) CodeMirror's built-in dark theme colours some SQL tokens below 4.5:1 - needs a custom
+  `HighlightStyle`; (2) the SQL editor's wrapper div is a non-focusable scroll region - let CodeMirror's own
+  scroller own scrolling. The full-state axe test is `test.fixme` in `e2e/a11y.spec.ts` until both are fixed.
 - [ ] **9. Docs final pass.** README reflects every feature above (endpoints, env vars, scripts, test counts), and
   the file tree matches the repository.
