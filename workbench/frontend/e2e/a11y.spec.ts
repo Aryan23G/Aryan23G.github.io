@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
   await expect(page.getByText("api ok")).toBeVisible();
 });
 
-// Known open findings (workbench/TODO.md item 8, marked [~]): after a run, CodeMirror's built-in dark theme
+// Known open findings (README "Roadmap": Accessibility): after a run, CodeMirror's built-in dark theme
 // highlights some SQL tokens below 4.5:1, and the editor's wrapper div is a non-focusable scroll region.
 // Un-fixme once a custom HighlightStyle is in place and the wrapper no longer scrolls.
 test.fixme("no serious or critical axe violations across workbench states", async ({ page }) => {

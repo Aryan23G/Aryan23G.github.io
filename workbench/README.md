@@ -1,8 +1,41 @@
 # QueryPilot Workbench
 
-A deterministic Text-to-SQL agent system: **LangGraph** state machine + **Claude** structured generation + **SQLGlot** static compilation + read-only **SQLAlchemy** execution + **Qdrant** schema RAG, behind a **FastAPI** service, with a dense three-pane **Next.js** workbench for auditing every step.
+[![Workbench CI](https://github.com/Aryan23G/Aryan23G.github.io/actions/workflows/workbench.yml/badge.svg?branch=main)](https://github.com/Aryan23G/Aryan23G.github.io/actions/workflows/workbench.yml)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![mypy strict](https://img.shields.io/badge/mypy-strict-2a6db2)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-> The static, in-browser [QueryPilot demo](../querypilot/) is a separate, lighter project. This directory is the self-hosted, production-shaped system.
+**Ask a business question in plain English and get back validated, read-only SQL, the result set, and a full audit trail of how the agent got there.**
+
+A deterministic Text-to-SQL agent: a **LangGraph** state machine drives **Claude** structured generation, a **SQLGlot** static compiler checks every query against the real schema before it runs, **SQLAlchemy** executes on a connection that cannot write, and **Qdrant** retrieves only the tables a question needs. A dense three-pane **Next.js** workbench shows every step live.
+
+![QueryPilot Workbench: a request that fails static compilation, self-corrects and returns results](docs/demo.gif)
+
+<sub>Captured from the real UI and API with the scripted test generator standing in for Claude (`tests/e2e_server.py`). Its first draft deliberately references a non-existent column so the self-correction loop is visible.</sub>
+
+## Features
+
+- **Deterministic agent loop.** Five states (retrieve, generate, compile, execute, format) with pure routing functions. The model never decides control flow.
+- **Self-correction with budgets.** Compiler errors and database errors go back to the model with the exact log or stack trace: at most 2 static and 2 runtime retries.
+- **Static SQL compiler.** One read-only statement, AST-wide write/DDL denylist, table allowlist, and column binding against the live schema, so hallucinated columns fail before the database sees them.
+- **Read-only by construction.** Read-only connection/transaction, statement timeout, row cap, and the guard. The manual-override editor goes through the same path.
+- **Schema RAG.** Table- and column-level vectors in Qdrant, lexical pinning, and foreign-key join-path closure, so the prompt carries 4-7 of 14 tables instead of all of them.
+- **Observability.** OpenTelemetry span per node (Langfuse/OTLP or OpenLLMetry), plus the same trace in the UI: tokens and cache hits, per-node latency, injected tables with scores, reasoning chain, every correction, JSON export.
+- **Operable API.** SSE streaming, run history, optional bearer auth, per-client rate limiting and a concurrent-run cap.
+- **Tested.** 103 backend tests (mypy strict), 16 frontend unit tests, and Playwright end-to-end and accessibility suites against the real API. A 20-question execution-accuracy benchmark is included.
+
+<p align="center"><img src="docs/override.png" alt="Manual SQL override with the run history tab open" width="900"></p>
+
+## Quick start
+
+```bash
+cd workbench
+cp backend/.env.example backend/.env      # add ANTHROPIC_API_KEY
+docker compose --env-file backend/.env up --build   # UI on http://localhost:3000, API on :8000
+```
+
+Running without Docker, the test commands, and every setting are covered in [Running it](#running-it) and [`backend/.env.example`](backend/.env.example).
 
 ## File tree
 
@@ -200,4 +233,15 @@ CI: `.github/workflows/workbench.yml`.
 - **Embedded Qdrant** is single-process. Run Qdrant as a server (`QP_QDRANT_URL`) for multiple API workers.
 - The read-only guarantees are layered: SQLGlot guard, then the read-only connection/transaction, then the timeout and row cap. For production, also connect with a database role that only has `SELECT` grants.
 - **Auth** is a single shared bearer token. `NEXT_PUBLIC_API_TOKEN` is compiled into the browser bundle, so it suits an internal tool; put SSO or another user-auth proxy in front for anything wider.
-- **Known gaps** (see `TODO.md`): the result grid is not virtualized (item 6: virtualization conflicted with Radix Tabs under the React 19 runtime that Next 14 bundles), and two axe findings remain open (item 8: CodeMirror theme token contrast, and the editor wrapper's scroll region).
+
+## Roadmap
+
+- **Accuracy report.** Run `python -m eval.run` against Claude and publish execution accuracy by difficulty, plus a model comparison (Opus / Sonnet / Haiku).
+- **Grid virtualization.** Replace the Radix tabs in the results pane with plain controls, then window the rows. Virtualizing inside Radix Tabs re-rendered endlessly under the React 19 runtime that Next 14 bundles.
+- **Accessibility.** A custom CodeMirror `HighlightStyle` with AA contrast for every SQL token, and editor-owned scrolling. Then enable the all-states axe test (currently `test.fixme` in `frontend/e2e/a11y.spec.ts`).
+- **Conversation.** Follow-up questions that carry the previous question and SQL into the next run, and clarifying questions for ambiguous metrics.
+- **Scale-out.** Run history in a database and limits enforced at the gateway, so several API workers share state. CI coverage on Postgres.
+
+## License
+
+[MIT](LICENSE) © Aryan Gupta
