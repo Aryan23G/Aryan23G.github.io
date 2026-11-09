@@ -4,7 +4,7 @@ Worked top to bottom by an autonomous loop. One item per iteration. An item is c
 own acceptance criteria hold **and** every quality gate below passes.
 
 **Quality gates (every iteration):**
-- `cd backend && ruff check app tests && mypy app && pytest -q`
+- `cd backend && ruff check app tests eval && mypy app eval && pytest -q`
 - `cd frontend && npm run typecheck && npm run lint && npm run build` (plus `npm test` once it exists)
 
 **Definition of done:** every item below is `[x]` (or `[~]` blocked with a stated reason), all gates are green,
@@ -40,7 +40,7 @@ and the README matches the code.
   React 19 runtime that the Next.js 14 App Router bundles - triggered whenever the results component re-renders
   from its own state. Moving the ref off `TabsContent` did not help. Next step: replace the Radix Tabs in the
   results pane with plain buttons + conditional rendering (or upgrade Radix/Next together), then re-apply windowing.
-- [ ] **7. Workbench evaluation harness.** Port a 20-question benchmark with gold SQL for the 14-table warehouse
+- [x] **7. Workbench evaluation harness.** Port a 20-question benchmark with gold SQL for the 14-table warehouse
   (`backend/eval/questions.json`), an execution-accuracy comparator, and `python -m eval.run` that runs the real
   agent (needs `ANTHROPIC_API_KEY`) and writes a JSON report. Unit-test the comparator and verify every gold query
   compiles through the SQLGlot guard and returns rows. Running against the live API is out of scope here.

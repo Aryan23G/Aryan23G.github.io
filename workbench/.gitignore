@@ -17,3 +17,4 @@ frontend/tsconfig.tsbuildinfo
 *.egg-info/
 test-results/
 playwright-report/
+eval/results/
