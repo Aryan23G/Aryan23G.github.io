@@ -94,3 +94,14 @@ class Settings:
         from .profile import demo_profile, load_profile
 
         return load_profile(self.config_path) if self.config_path else demo_profile()
+
+    def load_jira(self):
+        """The [jira] table of the config file as a JiraConfig, or None when not enabled."""
+        if not self.config_path:
+            return None
+        import tomllib
+
+        from .jira import JiraConfig
+
+        data = tomllib.loads(self.config_path.read_text(encoding="utf-8"))
+        return JiraConfig.from_dict(data.get("jira") or {}, self.load_profile().team_names)

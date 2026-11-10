@@ -77,7 +77,9 @@ dir = "kb-example"
 enabled = false
 deployment = "cloud"                          # "cloud" or "datacenter"
 base_url = "https://acme.atlassian.net"
-jql = 'project = "IT" AND statusCategory = "To Do"'
+# Which requests to watch: name the project(s) and request types, but do NOT filter on status.
+# Resolved requests are needed for the accuracy import and for reading what analysts decided.
+jql = 'project = "IT"'
 poll_interval_s = 60
 # "shadow": post the triage as an INTERNAL comment (customers never see it), change nothing else.
 # "read-only": triage and record in SentinelDesk only; write nothing to Jira.

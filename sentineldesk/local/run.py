@@ -89,6 +89,38 @@ def check_ollama(settings, pull: bool) -> None:
         say("warn", f"Model {model} not installed. Run: ollama pull {model}  (or: python run.py --pull). Rules fallback until then.")
 
 
+def check_profile_and_jira(settings) -> bool:
+    from sentineldesk_local.config import LocalOnlyError
+    from sentineldesk_local.jira import JiraClient, JiraCredentials, JiraError
+    from sentineldesk_local.profile import ProfileError
+
+    try:
+        profile = settings.load_profile()
+        jira_cfg = settings.load_jira()
+    except (ProfileError, ValueError) as exc:
+        say("err", f"Configuration: {exc}")
+        return False
+    say("ok", f"Profile: {profile.name} ({', '.join(profile.internal_domains)}; {len(profile.teams)} teams, {len(profile.kb)} KB articles)"
+        + ("" if settings.config_path else "  [demo profile; set SENTINEL_CONFIG for a real desk]"))
+    if jira_cfg is None:
+        say("info", "Jira connector off (enable it in the [jira] section of your config).")
+        return True
+    try:
+        client = JiraClient(jira_cfg, JiraCredentials.from_env(dict(os.environ)))
+        me = client.myself()
+        client.search(jira_cfg.jql, 1)
+    except LocalOnlyError as exc:
+        say("err", f"Jira: {exc}")
+        return False
+    except JiraError as exc:
+        say("err", f"Jira: {exc}")
+        return False
+    say("ok", f"Jira {jira_cfg.deployment} at {jira_cfg.base_url} as {me.get('displayName', 'unknown')}; JQL works; mode {jira_cfg.mode}")
+    if jira_cfg.mode == "shadow":
+        say("info", "Shadow mode: triage is posted as INTERNAL comments only; no fields are changed.")
+    return True
+
+
 def wait_healthy(url: str, procs: list[subprocess.Popen], timeout_s: float = 30) -> bool:
     import requests
 
@@ -148,6 +180,8 @@ def main() -> int:
     counts = db.counts()
     say("ok", f"Database {settings.db_path.resolve()} {'ready' if existed else 'created'} ({sum(counts.values())} ticket(s) logged)")
     check_ollama(settings, args.pull)
+    if not check_profile_and_jira(settings):
+        return 1
 
     if not port_free(settings.host, settings.port):
         say("err", f"Port {settings.port} on {settings.host} is in use. Stop the other process or set SENTINEL_PORT.")

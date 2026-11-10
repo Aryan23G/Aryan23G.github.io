@@ -33,3 +33,9 @@ Each entry: what went wrong → the rule that prevents it. Newest last.
 
 11. **A shutdown test was a no-op.** `pkill -f "a\|b"` uses extended regex, where `\|` is a literal pipe, so nothing matched and the "graceful stop" was never exercised.
     → After sending a signal in a test script, assert that the process is gone (`pgrep` returns nothing) before checking anything else.
+
+12. **A pagination test never paginated.** The page size was `min(50, limit)`, so 7 fake issues always fit on one page and the `nextPageToken` path was untested.
+    → Any paging, batching or chunking code takes the page size as a parameter, and its test forces several pages and asserts the exact sequence of cursors sent.
+
+13. **A config template contradicted the feature it enables.** The example JQL filtered to `statusCategory = "To Do"`, which would silently hide the resolved historical requests that the accuracy import and outcome capture need.
+    → When a feature reads data under a user-supplied filter, document in the template what the filter must *not* exclude, and validate what you can (e.g. reject `ORDER BY`).

@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS tickets (
@@ -74,6 +74,40 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 """
 
+# v2: tickets from external systems (Jira), the write-back outbox, human outcomes and analyst feedback.
+_V2_COLUMNS = (
+    "external_key TEXT",
+    "external_url TEXT",
+    "external_created TEXT",
+    "backfill INTEGER NOT NULL DEFAULT 0",
+    "writeback_status TEXT NOT NULL DEFAULT 'none'",   # none | pending | posted | skipped | failed
+    "writeback_attempts INTEGER NOT NULL DEFAULT 0",
+    "writeback_next_at TEXT",
+    "writeback_error TEXT",
+    "outcome_status TEXT NOT NULL DEFAULT 'none'",     # none | pending | recorded
+    "human_priority TEXT",
+    "human_team TEXT",
+    "outcome_raw TEXT",
+    "outcome_at TEXT",
+)
+_V2_SCHEMA = """
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tickets_external ON tickets(external_key) WHERE external_key IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_tickets_writeback ON tickets(writeback_status, writeback_next_at);
+CREATE TABLE IF NOT EXISTS feedback (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    ticket_id      INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    username       TEXT NOT NULL,
+    created_at     TEXT NOT NULL,
+    verdict        TEXT NOT NULL CHECK (verdict IN ('accept', 'correct')),
+    priority       TEXT CHECK (priority IN ('P1', 'P2', 'P3', 'P4')),
+    escalate_to    TEXT,
+    security_flag  INTEGER,
+    category       TEXT,
+    note           TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_ticket ON feedback(ticket_id, id);
+"""
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
@@ -111,19 +145,41 @@ class Database:
             if version > SCHEMA_VERSION:
                 raise RuntimeError(f"{self.path} has schema v{version}, newer than this code (v{SCHEMA_VERSION}).")
             c.executescript(_SCHEMA)
+            if version < 2:
+                existing = {r["name"] for r in c.execute("PRAGMA table_info(tickets)")}
+                for col in _V2_COLUMNS:
+                    if col.split()[0] not in existing:
+                        c.execute(f"ALTER TABLE tickets ADD COLUMN {col}")
+            c.executescript(_V2_SCHEMA)
             c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     # ---------------------------------------------------------------- tickets
 
-    def add_ticket(self, requester: str, subject: str, body: str, source: str = "dashboard") -> int:
+    def add_ticket(
+        self, requester: str, subject: str, body: str, source: str = "dashboard", *,
+        external_key: str | None = None, external_url: str | None = None, external_created: str | None = None, backfill: bool = False,
+    ) -> int | None:
+        """Queue a ticket. Returns None if `external_key` was already imported (idempotent ingestion)."""
         with self.connect() as c:
             cur = c.execute(
-                "INSERT INTO tickets (created_at, source, requester, subject, body) VALUES (?, ?, ?, ?, ?)",
-                (now_iso(), source, requester, subject, body),
+                """INSERT OR IGNORE INTO tickets (created_at, source, requester, subject, body, external_key, external_url, external_created, backfill)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (now_iso(), source, requester, subject, body, external_key, external_url, external_created, int(backfill)),
             )
+            if cur.rowcount == 0:
+                return None
             ticket_id = int(cur.lastrowid)
-            c.execute("INSERT INTO events (ticket_id, ts, agent, level, message) VALUES (?, ?, 'system', 'info', ?)", (ticket_id, now_iso(), f"Ticket #{ticket_id} received from {source}."))
+            label = f"{external_key} from {source}" if external_key else f"from {source}"
+            note = " (read-only import for the accuracy report)" if backfill else ""
+            c.execute("INSERT INTO events (ticket_id, ts, agent, level, message) VALUES (?, ?, 'system', 'info', ?)", (ticket_id, now_iso(), f"Ticket #{ticket_id} received: {label}{note}."))
             return ticket_id
+
+    def known_external_keys(self, keys: list[str]) -> set[str]:
+        if not keys:
+            return set()
+        with self.connect() as c:
+            marks = ",".join("?" * len(keys))
+            return {r[0] for r in c.execute(f"SELECT external_key FROM tickets WHERE external_key IN ({marks})", keys)}
 
     def claim_next(self) -> sqlite3.Row | None:
         """Atomically move the oldest queued ticket to running and return it."""
@@ -149,14 +205,46 @@ class Database:
             cur = c.execute("UPDATE tickets SET status = 'queued', claimed_at = NULL WHERE status = 'running' AND claimed_at < ?", (cutoff,))
             return cur.rowcount
 
-    def complete(self, ticket_id: int, *, final: dict, mode: str, model: str, evidence: dict, fallback_reason: str | None) -> None:
+    def complete(self, ticket_id: int, *, final: dict, mode: str, model: str, evidence: dict, fallback_reason: str | None,
+                 writeback: str = "none", outcome: str = "none") -> None:
         with self.connect() as c:
             c.execute(
                 """UPDATE tickets SET status = 'done', finished_at = ?, mode = ?, model = ?, priority = ?, category = ?,
                    security_flag = ?, escalate_to = ?, confidence = ?, overrides = ?, final_json = ?, evidence_json = ?,
-                   fallback_reason = ?, error = NULL WHERE id = ?""",
+                   fallback_reason = ?, error = NULL, writeback_status = ?, outcome_status = ? WHERE id = ?""",
                 (now_iso(), mode, model, final["priority"], final["category"], int(final["security_flag"]), final["escalate_to"],
-                 final["confidence"], len(final["overrides"]), json.dumps(final), json.dumps(evidence), fallback_reason, ticket_id),
+                 final["confidence"], len(final["overrides"]), json.dumps(final), json.dumps(evidence), fallback_reason,
+                 writeback, outcome, ticket_id),
+            )
+
+    # ---------------------------------------------------------------- write-back outbox and outcomes
+
+    def writebacks_due(self, limit: int = 20) -> list[sqlite3.Row]:
+        with self.connect() as c:
+            return c.execute(
+                """SELECT * FROM tickets WHERE writeback_status = 'pending' AND (writeback_next_at IS NULL OR writeback_next_at <= ?)
+                   ORDER BY id LIMIT ?""", (now_iso(), limit),
+            ).fetchall()
+
+    def set_writeback(self, ticket_id: int, status: str, *, error: str | None = None, next_at: str | None = None, attempted: bool = True) -> None:
+        with self.connect() as c:
+            c.execute(
+                "UPDATE tickets SET writeback_status = ?, writeback_error = ?, writeback_next_at = ?, writeback_attempts = writeback_attempts + ? WHERE id = ?",
+                (status, error, next_at, int(attempted), ticket_id),
+            )
+
+    def outcomes_due(self, created_before: str, limit: int = 20) -> list[sqlite3.Row]:
+        with self.connect() as c:
+            return c.execute(
+                """SELECT * FROM tickets WHERE outcome_status = 'pending' AND status = 'done'
+                   AND (backfill = 1 OR external_created <= ?) ORDER BY id LIMIT ?""", (created_before, limit),
+            ).fetchall()
+
+    def set_outcome(self, ticket_id: int, *, status: str, human_priority: str | None = None, human_team: str | None = None, raw: dict | None = None) -> None:
+        with self.connect() as c:
+            c.execute(
+                "UPDATE tickets SET outcome_status = ?, human_priority = ?, human_team = ?, outcome_raw = ?, outcome_at = ? WHERE id = ?",
+                (status, human_priority, human_team, json.dumps(raw) if raw is not None else None, now_iso(), ticket_id),
             )
 
     def fail(self, ticket_id: int, error: str) -> None:
@@ -229,6 +317,8 @@ def _ticket_dict(row: sqlite3.Row, with_body: bool = True) -> dict:
     d["security_flag"] = None if d["security_flag"] is None else bool(d["security_flag"])
     d["final"] = json.loads(d.pop("final_json")) if d.get("final_json") else None
     d["evidence"] = json.loads(d.pop("evidence_json")) if d.get("evidence_json") else None
+    d["outcome"] = json.loads(d.pop("outcome_raw")) if d.get("outcome_raw") else None
+    d["backfill"] = bool(d.get("backfill"))
     if not with_body:
         d.pop("body", None)
         d.pop("evidence", None)
