@@ -17,7 +17,7 @@ Outcome = Literal["success", "unanswerable", "failed"]
 
 # ---------------------------------------------------------------- LLM contract
 class SqlDraft(BaseModel):
-    """Structured output the model must return (enforced with structured outputs)."""
+    """Structured output the model must return (JSON schema, validated with Pydantic)."""
 
     reasoning_chain: list[str] = Field(
         description="Ordered, concise reasoning steps: intent, tables and joins chosen, filters, aggregation, "

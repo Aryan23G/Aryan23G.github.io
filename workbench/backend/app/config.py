@@ -26,11 +26,13 @@ class Settings(BaseSettings):
     max_rows: int = 1_000
 
     # --- LLM ---------------------------------------------------------------
-    anthropic_model: str = "claude-opus-5-5"
-    anthropic_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
-    anthropic_max_tokens: int = 16_000
-    # Server-side refusal fallback (routes safety-classifier false positives to a fallback model).
-    anthropic_fallbacks: bool = True
+    # Any OpenAI-compatible chat completions endpoint. Default: a local Ollama server, so nothing
+    # leaves the machine and no API key is needed (`ollama pull qwen2.5-coder:7b`).
+    llm_base_url: str = "http://localhost:11434/v1"
+    llm_model: str = "qwen2.5-coder:7b"
+    llm_api_key: str | None = None  # only for hosted endpoints that need one
+    llm_max_tokens: int = 4_000
+    llm_timeout_s: float = 120.0
 
     # --- Agent loop ----------------------------------------------------------
     max_static_retries: int = 2   # SQLGlot compile failures routed back to generation
@@ -53,7 +55,7 @@ class Settings(BaseSettings):
     # For Langfuse use its OTLP endpoint, e.g. https://cloud.langfuse.com/api/public/otel
     otel_endpoint: str | None = None
     otel_headers: str | None = None  # "Authorization=Basic xxx,Other=yyy"
-    trace_content: bool = False  # include prompts/responses in SDK spans
+    trace_content: bool = False  # include prompts/responses on the generate_sql span
 
     # --- API -----------------------------------------------------------------
     cors_origins: list[str] = ["http://localhost:3000"]
