@@ -168,25 +168,25 @@
 
     <article class="proj feature hud tilt reveal">
       <div style="display:flex;flex-direction:column;gap:1rem">
-        <div class="top"><span class="badge m">Agentic AI</span><span class="tag">2026</span></div>
-        <h3>QueryPilot<small>Text-to-SQL Analytics Agent</small></h3>
+        <div class="top"><span class="badge m">Text-to-SQL</span><span class="tag">2026</span></div>
+        <h3>QueryPilot<small>Text-to-SQL Analytics Engine</small></h3>
         <ul>
-          <li>Built a <strong>text-to-SQL analytics agent</strong> that turns plain-English questions into SQL through a <strong>Claude tool-calling loop</strong>: it grounds itself in the schema, looks up real column values, <strong>fixes its own SQL errors</strong> and picks a chart that is checked against the result.</li>
-          <li>Made it <strong>read-only by design</strong> with <strong>5 layers of defence</strong>, including a tokenizer-based SQL guard and <strong>SQLite bytecode (EXPLAIN) verification</strong>, and added a <strong>PII shield</strong> so customer names and emails never reach the LLM. Backed by <strong>204 automated tests</strong> and a 20-question accuracy eval.</li>
+          <li>Built a <strong>text-to-SQL engine</strong> that parses plain-English questions into a query plan and compiles it to SQL, including <strong>multi-step analysis</strong>: period growth (<code>LAG</code>), top-N per group (<code>ROW_NUMBER</code>), share of a subset and <strong>cohort retention</strong>. It answers <strong>20/20</strong> on an execution-accuracy benchmark and declines "why" and forecast questions instead of guessing.</li>
+          <li>Made it <strong>read-only by design</strong> with <strong>5 layers of defence</strong>, including a tokenizer-based SQL guard and <strong>SQLite bytecode (EXPLAIN) verification</strong>, and picks a chart that is validated against the actual result. Backed by <strong>181 automated tests</strong>.</li>
         </ul>
-        <div class="chips"><span>TypeScript</span><span>Claude API</span><span>SQLite / WASM</span><span>Web Workers</span><span>Chart.js</span><span>Vitest</span></div>
-        <p class="note">Free to try with no API key: a built-in local engine answers in your browser.</p>
+        <div class="chips"><span>TypeScript</span><span>SQLite / WASM</span><span>Web Workers</span><span>Chart.js</span><span>Vitest</span></div>
+        <p class="note">Free to try: runs entirely in your browser, with no API key or sign-up.</p>
         <div class="links"><a class="btn primary magnetic" href="querypilot/">Try the live demo →</a><a class="textlink" href="https://github.com/Aryan23G/Aryan23G.github.io/tree/main/querypilot" target="_blank" rel="noopener">Source →</a></div>
       </div>
-      <div class="terminal" aria-label="Example QueryPilot agent trace">
+      <div class="terminal" aria-label="Example QueryPilot trace">
         <div class="bar"><i></i><i></i><i></i>querypilot · trace</div>
         <div class="body">
-          <div class="line"><span class="k">ask</span> "Which categories get returned most?"</div>
-          <div class="line"><span class="a">→ tool</span> get_column_values · <span class="k">orders.status</span></div>
-          <div class="line"><span class="a">→ tool</span> run_sql · <span class="a">no such column: categry</span></div>
-          <div class="line"><span class="a">→ tool</span> run_sql · <span class="k">6 rows · guard ✓ bytecode ✓</span></div>
-          <div class="line"><span class="a">→ tool</span> submit_answer · <span class="k">bar chart</span></div>
-          <div class="line"><span class="ok">✓ Footwear 20.3% · read-only</span> <span class="caret"></span></div>
+          <div class="line"><span class="k">ask</span> "Which category grew fastest?"</div>
+          <div class="line"><span class="a">→ plan</span> revenue · growth 2024 → 2025 · <span class="k">per category</span></div>
+          <div class="line"><span class="a">→ sql</span> pivot CTE · <span class="k">6 categories × 2 years</span></div>
+          <div class="line"><span class="a">→ run</span> <span class="k">guard ✓ bytecode ✓ · 6 rows</span></div>
+          <div class="line"><span class="a">→ chart</span> bar · <span class="k">growth %</span></div>
+          <div class="line"><span class="ok">✓ Apparel +67.5% · read-only</span> <span class="caret"></span></div>
         </div>
       </div>
     </article>
@@ -196,10 +196,10 @@
         <div class="top"><span class="badge m">Agentic AI</span><span class="tag">2026</span></div>
         <h3>SentinelDesk<small>Agentic AI Service Desk</small></h3>
         <ul>
-          <li>Built an <strong>agentic AI analyst</strong> that triages IT tickets through a <strong>Claude tool-calling loop across 5 tools</strong>, logging every tool call so a reviewer can trace how each decision was made.</li>
+          <li>Built an <strong>agentic AI analyst</strong> that triages IT tickets through an <strong>LLM tool-calling loop across 5 tools</strong>, logging every tool call so a reviewer can trace how each decision was made.</li>
           <li>Added <strong>guardrails</strong> for safe use: ticket text handled as untrusted input to block <strong>prompt injection</strong>, a rule-based scanner that overrides the model on high-risk tickets, and <strong>10 automated tests</strong>.</li>
         </ul>
-        <div class="chips"><span>TypeScript</span><span>Node.js</span><span>Express</span><span>Claude API</span></div>
+        <div class="chips"><span>TypeScript</span><span>Node.js</span><span>Express</span><span>LLM tool calling</span></div>
         <div class="links"><a class="btn primary magnetic" href="sentineldesk/">Try the live demo →</a></div>
       </div>
       <div class="terminal" aria-label="Example SentinelDesk trace for a phishing ticket">
@@ -219,7 +219,7 @@
       <div class="top"><span class="badge m">Agentic AI</span><span class="tag">2026</span></div>
       <h3>QueryPilot Workbench<small>Self-Hosted Text-to-SQL Agent System</small></h3>
       <ul>
-        <li>Rebuilt QueryPilot as a <strong>Python service</strong>: a <strong>LangGraph state machine</strong> with Claude structured outputs, a <strong>SQLGlot static compiler</strong> that binds every column to the live schema, read-only SQLAlchemy execution, and <strong>Qdrant schema RAG</strong> with foreign-key join-path expansion.</li>
+        <li>Rebuilt QueryPilot as a <strong>Python service</strong>: a <strong>LangGraph state machine</strong> with structured LLM output from any OpenAI-compatible model (local Ollama by default), a <strong>SQLGlot static compiler</strong> that binds every column to the live schema, read-only SQLAlchemy execution, and <strong>Qdrant schema RAG</strong> with foreign-key join-path expansion.</li>
         <li>Dense three-pane <strong>Next.js</strong> workbench with a live step tracker, SQL override and full execution trace; <strong>OpenTelemetry</strong> tracing, auth and rate limiting, <strong>100+ backend tests</strong> plus Playwright end-to-end and accessibility suites.</li>
       </ul>
       <div class="chips"><span>Python</span><span>FastAPI</span><span>LangGraph</span><span>SQLGlot</span><span>Qdrant</span><span>Next.js</span><span>OpenTelemetry</span></div>
@@ -255,7 +255,7 @@
   <div class="skills-grid">
     <div class="module hud reveal">
       <h3>AI Engineering</h3><div class="meter"><i></i></div>
-      <ul><li>Agentic AI</li><li>LLM tool calling (Claude &amp; OpenAI APIs)</li><li>Text-to-SQL</li><li>Guardrails</li><li>Prompt-injection defence</li><li>Prompt engineering</li><li>Microsoft 365 Copilot</li></ul>
+      <ul><li>Agentic AI</li><li>LLM tool calling</li><li>Local LLMs (Ollama)</li><li>Text-to-SQL</li><li>Guardrails</li><li>Prompt-injection defence</li><li>Prompt engineering</li><li>Microsoft 365 Copilot</li></ul>
     </div>
     <div class="module hud reveal">
       <h3>Languages &amp; Tools</h3><div class="meter"><i></i></div>
