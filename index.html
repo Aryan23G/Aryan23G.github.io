@@ -172,9 +172,10 @@
         <h3>QueryPilot<small>Text-to-SQL Analytics Agent</small></h3>
         <ul>
           <li>Built a <strong>text-to-SQL analytics agent</strong> that turns plain-English questions into SQL through a <strong>Claude tool-calling loop</strong>: it grounds itself in the schema, looks up real column values, <strong>fixes its own SQL errors</strong> and picks a chart that is checked against the result.</li>
-          <li>Made it <strong>read-only by design</strong> with <strong>5 layers of defence</strong>, including a tokenizer-based SQL guard and <strong>SQLite bytecode (EXPLAIN) verification</strong>, and added a <strong>PII shield</strong> so customer names and emails never reach the LLM. Backed by <strong>137 automated tests</strong> and a 20-question accuracy eval.</li>
+          <li>Made it <strong>read-only by design</strong> with <strong>5 layers of defence</strong>, including a tokenizer-based SQL guard and <strong>SQLite bytecode (EXPLAIN) verification</strong>, and added a <strong>PII shield</strong> so customer names and emails never reach the LLM. Backed by <strong>171 automated tests</strong> and a 20-question accuracy eval.</li>
         </ul>
         <div class="chips"><span>TypeScript</span><span>Claude API</span><span>SQLite / WASM</span><span>Web Workers</span><span>Chart.js</span><span>Vitest</span></div>
+        <p class="note">Free to try with no API key: a built-in local engine answers in your browser.</p>
         <div class="links"><a class="btn primary magnetic" href="querypilot/">Try the live demo →</a><a class="textlink" href="https://github.com/Aryan23G/Aryan23G.github.io/tree/main/querypilot" target="_blank" rel="noopener">Source →</a></div>
       </div>
       <div class="terminal" aria-label="Example QueryPilot agent trace">

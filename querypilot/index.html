@@ -18,7 +18,7 @@
     <a class="back" href="../">← Aryan Gupta</a>
     <div class="top-right">
       <a class="back" href="https://github.com/Aryan23G/Aryan23G.github.io/tree/main/querypilot" target="_blank" rel="noopener">Source ↗</a>
-      <span id="mode" class="mode">Demo mode</span>
+      <span id="mode" class="mode">Free · local engine</span>
     </div>
   </div>
 
@@ -43,7 +43,7 @@
         <button id="ask-btn" class="btn primary" type="submit">Ask</button>
       </form>
       <div class="examples-head">
-        <span class="label">Sample questions</span>
+        <span class="label">Sample questions · or ask your own</span>
         <button id="reset" type="button" class="ghost small">New conversation</button>
       </div>
       <div id="examples" class="chips"></div>
@@ -51,15 +51,16 @@
       <div id="feed" class="feed" aria-live="polite">
         <div class="empty hud">
           <p><b>Orbit Outfitters</b> is a made-up online outdoor-gear store with two years of orders (2024 to 2025): customers, products, orders, line items and reviews.</p>
-          <p class="muted">Pick a sample question to see the full pipeline run on real queries. Add your own Anthropic API key in Settings to ask anything, including follow-ups like "now split that by channel".</p>
+          <p class="muted">Ask your own question: it's free, with no API key needed. The built-in local engine turns it into SQL in your browser and runs it through the same safety pipeline. For multi-step analysis (growth, retention, follow-ups), you can optionally add an Anthropic API key to use the Claude agent.</p>
         </div>
       </div>
     </main>
 
     <aside>
       <section class="panel hud">
-        <h2>Settings</h2>
-        <label for="api-key" class="label">Anthropic API key</label>
+        <h2>Engine</h2>
+        <p class="small muted">Without a key, questions are answered by the <b>free local engine</b>: a deterministic NL→SQL parser that runs entirely in your browser. A key switches to the Claude agent.</p>
+        <label for="api-key" class="label">Anthropic API key <span class="muted">(optional)</span></label>
         <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
         <p id="key-status" class="small muted"></p>
         <label for="model" class="label">Model</label>

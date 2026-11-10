@@ -247,3 +247,4 @@ footer{border-top:1px solid var(--line);padding:2rem var(--gutter);display:flex;
   html{scroll-behavior:auto}
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+.proj .note{font-family:var(--mono);font-size:.7rem;letter-spacing:.04em;color:var(--lime);margin:.1rem 0 0}

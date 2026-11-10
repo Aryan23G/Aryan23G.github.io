@@ -14,6 +14,7 @@ import type { ExecOutcome } from "./db/engine.ts";
 import { TABLES } from "./db/schema.ts";
 import { ATTACKS, DEMOS, type DemoScript } from "./demo.ts";
 import { tokenize } from "./guard.ts";
+import { compile, describeResult, loadVocabulary, NotUnderstood, parse, SUGGESTIONS, type Vocabulary } from "./local/nl2sql.ts";
 import { PiiShield } from "./pii.ts";
 import { formatValue, profile, resolveChart, toCsv, type ChartSpec } from "./viz.ts";
 
@@ -40,6 +41,7 @@ let history: MessageParam[] = [];
 let pending: Anthropic.Beta.Messages.BetaToolResultBlockParam[] = [];
 let busy = false;
 let shield: PiiShield | undefined;
+let vocab: Vocabulary | undefined;
 let controller: AbortController | undefined;
 const charts = new Set<Chart>();
 
@@ -334,6 +336,46 @@ async function askDemo(demo: DemoScript) {
   });
 }
 
+// ---------------------------------------------------------------- free local engine (no API key)
+async function askLocal(question: string) {
+  const { card, trace, details } = newCard(question, "Local engine · free");
+  const t0 = performance.now();
+  if (!vocab) {
+    card.append(h("p", { class: "err" }, "The database is still loading. Try again in a moment."));
+    return;
+  }
+  let compiled;
+  try {
+    compiled = compile(parse(question, vocab));
+  } catch (e) {
+    if (!(e instanceof NotUnderstood)) throw e;
+    traceItem(trace, "understand — no confident interpretation; nothing was run", "note");
+    const chips = h("div", { class: "chips suggest" }, h("span", { class: "label" }, "Try"));
+    for (const s of e.suggestions) {
+      const b = h("button", { type: "button", class: "chip" }, s);
+      b.onclick = () => ask(s);
+      chips.append(b);
+    }
+    card.append(h("p", { class: "err" }, e.message), chips);
+    return;
+  }
+  traceItem(trace, "understand — parsed into a query plan (no LLM)", "note",
+    h("ul", { class: "plan" }, ...compiled.plan.notes.map((n) => h("li", {}, n))));
+  traceItem(trace, "run_sql — compiled plan", "tool", highlightSql(compiled.sql));
+  const outcome = await db.execute(compiled.sql);
+  trace.lastElementChild?.append(renderToolResult(outcome));
+  if (!outcome.ok) {
+    card.append(h("p", { class: "err" }, `The generated query was rejected: ${outcome.error}`));
+    return;
+  }
+  details.open = false;
+  renderAnswer(card, {
+    answer: describeResult(compiled, outcome.result.columns, outcome.result.rows),
+    sql: compiled.sql, chart: compiled.chart, outcome,
+    meta: ["2 steps", `${((performance.now() - t0) / 1000).toFixed(2)}s`, "local engine: free, no API key, no model call"],
+  });
+}
+
 // ---------------------------------------------------------------- wiring
 function setBusy(b: boolean) {
   busy = b;
@@ -344,10 +386,12 @@ function setBusy(b: boolean) {
 
 function updateMode() {
   const live = els.key.value.trim().startsWith("sk-");
-  els.mode.textContent = live ? "Live · Claude" : "Demo mode";
+  els.mode.textContent = live ? "Live · Claude" : "Free · local engine";
   els.mode.className = `mode ${live ? "live" : ""}`;
-  els.keyStatus.textContent = live ? "Key set for this tab. Ask anything." : els.key.value ? "That doesn't look like an Anthropic key (sk-ant-…)." : "No key: sample questions run as scripted demos.";
-  els.input.placeholder = live ? "Ask a question about the store's data…" : "Add an API key to ask your own questions, or pick a sample below.";
+  els.keyStatus.textContent = live
+    ? "Key set for this tab: questions go to the Claude agent."
+    : els.key.value ? "That doesn't look like an Anthropic key (sk-ant-…). Using the free local engine." : "No key needed: the free local engine answers in your browser.";
+  els.input.placeholder = live ? "Ask anything about the store's data…" : "Ask about revenue, orders, customers, returns, ratings… e.g. revenue by month in 2025";
 }
 
 async function ask(question: string) {
@@ -359,10 +403,7 @@ async function ask(question: string) {
     else {
       const demo = DEMOS.find((d) => d.question === question);
       if (demo) await askDemo(demo);
-      else {
-        const { card } = newCard(question, "Needs API key");
-        card.append(h("p", { class: "err" }, "Free-form questions need your Anthropic API key (Settings panel). Without one, try a sample question: they run real SQL through the same safety pipeline."));
-      }
+      else await askLocal(question.trim());
     }
   } finally {
     setBusy(false);
@@ -402,6 +443,12 @@ async function main() {
     b.onclick = () => ask(d.question);
     els.examples.append(b);
   }
+  for (const s of SUGGESTIONS.slice(0, 4)) {
+    const b = h("button", { type: "button", class: "chip local" }, s);
+    b.title = "Answered by the free local engine";
+    b.onclick = () => ask(s);
+    els.examples.append(b);
+  }
   for (const a of ATTACKS) {
     const b = h("button", { type: "button", class: "chip danger" }, a.label);
     b.onclick = () => { els.console.value = a.sql; runConsole(); };
@@ -425,6 +472,11 @@ async function main() {
     els.dbStatus.classList.add("ok");
     shield = new PiiShield(db.pii);
     buildSchema();
+    vocab = await loadVocabulary(async (sql) => {
+      const r = await db.execute(sql);
+      if (!r.ok) throw new Error(r.error);
+      return r.result.rows;
+    });
   } catch (e) {
     els.dbStatus.textContent = `Database failed to load: ${(e as Error).message}`;
   }
