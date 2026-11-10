@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS tickets (
@@ -108,6 +108,31 @@ CREATE TABLE IF NOT EXISTS feedback (
 CREATE INDEX IF NOT EXISTS idx_feedback_ticket ON feedback(ticket_id, id);
 """
 
+# v3: dashboard accounts and sessions.
+_V3_SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    username    TEXT NOT NULL UNIQUE,
+    pw_hash     TEXT NOT NULL,
+    role        TEXT NOT NULL CHECK (role IN ('admin', 'analyst')),
+    created_at  TEXT NOT NULL,
+    last_login  TEXT,
+    disabled    INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash  TEXT PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at  TEXT NOT NULL,
+    expires_at  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS login_failures (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    username  TEXT NOT NULL,
+    at        TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_login_failures ON login_failures(username, at);
+"""
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
@@ -151,6 +176,7 @@ class Database:
                     if col.split()[0] not in existing:
                         c.execute(f"ALTER TABLE tickets ADD COLUMN {col}")
             c.executescript(_V2_SCHEMA)
+            c.executescript(_V3_SCHEMA)
             c.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     # ---------------------------------------------------------------- tickets

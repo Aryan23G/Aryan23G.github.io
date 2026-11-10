@@ -122,8 +122,18 @@ def test_worker_loop_stops_cleanly(db, ollama, sample):
 # ---------------------------------------------------------------- web
 
 
-def client_for(settings, db, ollama_url):
-    return TestClient(create_app(settings, db, OllamaClient(ollama_url, 5)))
+H = {"X-SentinelDesk": "1"}
+
+
+def client_for(settings, db, ollama_url, login=True):
+    from sentineldesk_local.auth import Auth
+
+    c = TestClient(create_app(settings, db, OllamaClient(ollama_url, 5)))
+    if login:
+        if not Auth(db).user_count():
+            Auth(db).create_user("alice", "correct horse battery", "admin")
+        assert c.post("/api/login", json={"username": "alice", "password": "correct horse battery"}, headers=H).status_code == 200
+    return c
 
 
 def test_dashboard_is_fully_offline(settings_for, db):
@@ -134,6 +144,7 @@ def test_dashboard_is_fully_offline(settings_for, db):
 
 def test_health_reports_ollama_models_and_worker(settings_for, db, ollama):
     h = client_for(settings_for(ollama.url), db, ollama.url).get("/api/health").json()
+    assert h["profile"]["name"] == "Company Example"
     assert h["ollama"]["reachable"] and h["ollama"]["agent_model_ready"] and h["worker"]["alive"] is False
     down = client_for(settings_for(), db, "http://127.0.0.1:9").get("/api/health").json()
     assert down["ollama"]["reachable"] is False and "error" in down["ollama"]
@@ -141,10 +152,10 @@ def test_health_reports_ollama_models_and_worker(settings_for, db, ollama):
 
 def test_ticket_api_validates_creates_lists_and_details(settings_for, db):
     c = client_for(settings_for(), db, "http://127.0.0.1:9")
-    assert c.post("/api/tickets", json={"requester": "nope", "subject": "x", "body": "hello there"}).status_code == 422
-    assert c.post("/api/tickets", json={"requester": "a@b.co", "subject": "", "body": "hello there"}).status_code == 422
-    assert c.post("/api/tickets", json={"requester": "a@b.co", "subject": "x", "body": "y" * 4001}).status_code == 422
-    r = c.post("/api/tickets", json={"requester": " a@b.co ", "subject": "VPN", "body": "gateway unreachable"})
+    assert c.post("/api/tickets", headers=H, json={"requester": "nope", "subject": "x", "body": "hello there"}).status_code == 422
+    assert c.post("/api/tickets", headers=H, json={"requester": "a@b.co", "subject": "", "body": "hello there"}).status_code == 422
+    assert c.post("/api/tickets", headers=H, json={"requester": "a@b.co", "subject": "x", "body": "y" * 4001}).status_code == 422
+    r = c.post("/api/tickets", headers=H, json={"requester": " a@b.co ", "subject": "VPN", "body": "gateway unreachable"})
     assert r.status_code == 201 and r.json()["status"] == "queued"
     tid = r.json()["id"]
     assert c.get("/api/tickets").json()[0]["id"] == tid

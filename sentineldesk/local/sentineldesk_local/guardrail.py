@@ -30,12 +30,28 @@ def _is_company_url(url: str, profile: OrgProfile) -> bool:
     return profile.is_internal(host)
 
 
-def reply_problems(reply: str, profile: OrgProfile | None = None) -> list[str]:
+def invented_references(reply: str, profile: OrgProfile, also: tuple[str, ...] = ()) -> list[str]:
+    """Article ids in the reply text that are not in this desk's knowledge base. Only ids that look like
+    this KB's own (same prefix, e.g. KB-, SEC-) count, so ticket keys like IT-102 are not flagged."""
+    prefixes = {i.rsplit("-", 1)[0].upper() for i in profile.kb_by_id if "-" in i}
+    found = set()
+    for token in re.findall(r"\b[A-Za-z][A-Za-z0-9]*-\d+\b", reply):
+        if token in profile.kb_by_id:
+            continue
+        if token.rsplit("-", 1)[0].upper() in prefixes or token in also:
+            found.add(token)
+    return sorted(found)
+
+
+def reply_problems(reply: str, profile: OrgProfile | None = None, removed_refs: tuple[str, ...] = ()) -> list[str]:
     p = profile or demo_profile()
     problems: list[str] = []
     outside = [u for u in _URL_IN_TEXT.findall(reply) if not _is_company_url(u, p)]
     if outside:
         problems.append(f"links outside {p.primary_domain} ({', '.join(outside)})")
+    invented = invented_references(reply, p, removed_refs)
+    if invented:
+        problems.append(f"cites knowledge-base articles that do not exist ({', '.join(invented)})")
     if _ASKS_FOR_SECRET.search(reply):
         problems.append("asks the user for a password, code or payment detail")
     return problems
@@ -89,7 +105,8 @@ def enforce_policy(decision: dict, evidence: Evidence, requester: str, security_
             overrides.append({"field": "suggested_response", "from": reply, "to": p.analyst_note, "reason": "No reply is ever sent to the sender of a suspected attack."})
             reply = p.analyst_note
     else:
-        problems = reply_problems(reply, p)
+        removed = tuple(i for i in decision["kb_refs"] if i not in p.kb_by_id)
+        problems = reply_problems(reply, p, removed)
         if problems:
             safe = grounded_reply(requester, kb_refs, escalate_to, p)
             overrides.append({"field": "suggested_response", "from": reply, "to": safe, "reason": f"Reply blocked: {'; '.join(problems)}."})

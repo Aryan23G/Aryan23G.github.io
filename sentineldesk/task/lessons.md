@@ -39,3 +39,12 @@ Each entry: what went wrong → the rule that prevents it. Newest last.
 
 13. **A config template contradicted the feature it enables.** The example JQL filtered to `statusCategory = "To Do"`, which would silently hide the resolved historical requests that the accuracy import and outcome capture need.
     → When a feature reads data under a user-supplied filter, document in the template what the filter must *not* exclude, and validate what you can (e.g. reject `ORDER BY`).
+
+14. **The guardrail cleaned a list but not the text that quoted it.** Invented KB ids were removed from `kb_refs`, but the reply still said "(Ref: KB-601, KB-101)", so a Jira comment would have cited articles that do not exist. All 101 tests passed; only looking at the rendered dashboard caught it.
+    → Validate every model-written field that reaches a human or an external system, including free text that may repeat structured fields. After any end-to-end run, read the screenshot as a customer would, not only the assertions.
+
+15. **A metric that mixes severities misleads buyers.** "Guardrail overrides" counted a KB-id clean-up the same as "the AI missed an attack". Report security overrides and other corrections separately.
+
+16. **Live UIs that both reload and stream will show duplicates.** A review event arrived in the detail reload and again over SSE. Dedupe streamed items by id on the client.
+
+17. **Browser-test waits:** `waitForSelector("#x:not(.show)")` waits for *visible*, which a hidden overlay never is. To wait for something to close, use `waitForFunction` on its state.

@@ -5,6 +5,12 @@
     python run.py --open     ...and open the dashboard in your browser
     python run.py --check    run the checks only, then exit (0 = ready)
 
+Dashboard accounts (passwords are prompted, or read from SENTINEL_NEW_PASSWORD; never from argv):
+    python run.py --add-user alice --role analyst
+    python run.py --add-user boss --role admin
+    python run.py --reset-password alice
+    python run.py --list-users
+
 Opt-in network actions (never done implicitly):
     --install   pip install -r requirements.txt   (downloads from PyPI)
     --pull      ollama pull <missing models>      (downloads model weights from the Ollama library)
@@ -15,6 +21,7 @@ Nothing here calls a paid service. The model runs in Ollama on this machine.
 from __future__ import annotations
 
 import argparse
+import getpass
 import importlib.util
 import os
 import shutil
@@ -121,6 +128,66 @@ def check_profile_and_jira(settings) -> bool:
     return True
 
 
+def read_new_password(username: str) -> str:
+    env = os.environ.get("SENTINEL_NEW_PASSWORD")
+    if env:
+        return env
+    if not sys.stdin.isatty():
+        raise SystemExit(f"No terminal to prompt on: set SENTINEL_NEW_PASSWORD to the password for {username}.")
+    first = getpass.getpass(f"Password for {username} (12+ characters): ")
+    if first != getpass.getpass("Repeat password: "):
+        raise SystemExit("Passwords did not match.")
+    return first
+
+
+def manage_users(args, db) -> int | None:
+    """Handle the user-management flags. Returns an exit code, or None when none were given."""
+    from sentineldesk_local.auth import Auth, AuthError
+
+    auth = Auth(db)
+    try:
+        if args.list_users:
+            users = auth.list_users()
+            for u in users:
+                print(f"  {u['username']:<20} {u['role']:<8} {'disabled' if u['disabled'] else 'active':<9} last login {u['last_login'] or 'never'}")
+            if not users:
+                print("  (no users yet)")
+            return 0
+        if args.add_user:
+            user = auth.create_user(args.add_user, read_new_password(args.add_user), args.role)
+            say("ok", f"Created {user.role} {user.username}.")
+            return 0
+        if args.reset_password:
+            auth.set_password(args.reset_password, read_new_password(args.reset_password))
+            say("ok", f"Password for {args.reset_password} changed; their sessions were signed out.")
+            return 0
+    except AuthError as exc:
+        say("err", str(exc))
+        return 1
+    return None
+
+
+def ensure_admin(db) -> bool:
+    from sentineldesk_local.auth import Auth, AuthError
+
+    auth = Auth(db)
+    if auth.user_count() > 0:
+        say("ok", f"{auth.user_count()} dashboard account(s)")
+        return True
+    if not sys.stdin.isatty() and not os.environ.get("SENTINEL_NEW_PASSWORD"):
+        say("err", "No dashboard accounts yet. Create one: python run.py --add-user admin --role admin")
+        return False
+    say("info", "No dashboard accounts yet; creating the first admin.")
+    name = os.environ.get("SENTINEL_ADMIN_USER") or (input("Admin username [admin]: ").strip() if sys.stdin.isatty() else "") or "admin"
+    try:
+        auth.create_user(name, read_new_password(name), "admin")
+    except AuthError as exc:
+        say("err", str(exc))
+        return False
+    say("ok", f"Created admin {name}.")
+    return True
+
+
 def wait_healthy(url: str, procs: list[subprocess.Popen], timeout_s: float = 30) -> bool:
     import requests
 
@@ -157,6 +224,10 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="run the checks and exit")
     parser.add_argument("--install", action="store_true", help="pip install missing packages (network)")
     parser.add_argument("--pull", action="store_true", help="ollama pull missing models (network)")
+    parser.add_argument("--add-user", metavar="NAME", help="create a dashboard account")
+    parser.add_argument("--role", choices=["analyst", "admin"], default="analyst", help="role for --add-user")
+    parser.add_argument("--reset-password", metavar="NAME", help="set a new password for an account")
+    parser.add_argument("--list-users", action="store_true", help="list dashboard accounts")
     args = parser.parse_args()
 
     os.chdir(HERE)
@@ -179,6 +250,9 @@ def main() -> int:
     db.init()
     counts = db.counts()
     say("ok", f"Database {settings.db_path.resolve()} {'ready' if existed else 'created'} ({sum(counts.values())} ticket(s) logged)")
+    code = manage_users(args, db)
+    if code is not None:
+        return code
     check_ollama(settings, args.pull)
     if not check_profile_and_jira(settings):
         return 1
@@ -188,10 +262,17 @@ def main() -> int:
         return 1
     say("ok", f"Port {settings.port} free")
     if args.check:
+        from sentineldesk_local.auth import Auth
+
+        n = Auth(db).user_count()
+        say("ok" if n else "warn", f"{n} dashboard account(s)" + ("" if n else "; create one with --add-user NAME --role admin"))
         print("\nAll checks done.\n")
         return 0
 
-    env = {**os.environ, "PYTHONUNBUFFERED": "1", "SENTINEL_DB": str(settings.db_path.resolve())}
+    if not ensure_admin(db):
+        return 1
+    env = {k: v for k, v in os.environ.items() if k != "SENTINEL_NEW_PASSWORD"}  # children never see it
+    env.update({"PYTHONUNBUFFERED": "1", "SENTINEL_DB": str(settings.db_path.resolve())})
     worker = subprocess.Popen([sys.executable, "-m", "sentineldesk_local.worker"], cwd=HERE, env=env)
     web = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "sentineldesk_local.web:app_from_env", "--factory",

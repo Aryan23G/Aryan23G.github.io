@@ -75,6 +75,17 @@ def test_guardrail_fails_closed_on_a_confident_security_subagent(sample):
     assert not low["security_flag"]
 
 
+def test_guardrail_blocks_a_reply_that_cites_invented_articles(sample):
+    t = sample(3)
+    ev = gather_evidence(t["subject"], t["body"], t["requester"])
+    out = enforce_policy(decision(category="Hardware", escalate_to="Desktop Support", kb_refs=["KB-402", "KB-999"],
+                                  suggested_response="Re-add the printer. (Ref: KB-402, KB-999)"), ev, t["requester"])
+    assert "KB-999" not in out["suggested_response"] and "KB-402" in out["suggested_response"]
+    assert any("do not exist (KB-999)" in o["reason"] for o in out["overrides"] if o["field"] == "suggested_response")
+    ok = enforce_policy(decision(suggested_response="Following up on IT-102: see KB-101."), ev, t["requester"])
+    assert not any(o["field"] == "suggested_response" for o in ok["overrides"])  # ticket keys and real articles are fine
+
+
 def test_guardrail_validates_output(sample):
     t = sample(0)
     ev = gather_evidence(t["subject"], t["body"], t["requester"])
