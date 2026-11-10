@@ -86,6 +86,32 @@ describe("answers match independently written gold SQL", () => {
       "SELECT channel, COUNT(*) FROM orders WHERE channel IN ('web','mobile') AND strftime('%Y', order_date) = '2025' GROUP BY 1"],
     ["Who are our top 10 customers?",
       `SELECT c.name, ROUND(${REV}, 2) AS rev FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN customers c ON c.customer_id = o.customer_id WHERE ${REALISED} GROUP BY c.customer_id ORDER BY rev DESC LIMIT 10`, true],
+    // Second fuzz round: measures, periods and product types that used to be misread or ignored.
+    ["how much did we sell in december 2025",
+      `SELECT ROUND(${REV}, 2) FROM orders o JOIN order_items oi ON oi.order_id = o.order_id WHERE ${REALISED} AND strftime('%Y-%m', o.order_date) = '2025-12'`],
+    ["worst performing category",
+      `SELECT p.category, ROUND(${REV}, 2) AS r FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id WHERE ${REALISED} GROUP BY 1 ORDER BY r ASC`, true],
+    ["average items per order",
+      `SELECT ROUND(1.0 * SUM(oi.quantity) / COUNT(DISTINCT o.order_id), 2) FROM orders o JOIN order_items oi ON oi.order_id = o.order_id WHERE ${REALISED}`],
+    ["orders per customer", "SELECT ROUND(1.0 * COUNT(*) / COUNT(DISTINCT customer_id), 2) FROM orders"],
+    ["average shipping cost by country",
+      "SELECT c.country, ROUND(AVG(o.shipping_cost), 2) FROM orders o JOIN customers c ON c.customer_id = o.customer_id GROUP BY 1"],
+    ["monthly active customers",
+      "SELECT strftime('%Y-%m', order_date), COUNT(DISTINCT customer_id) FROM orders GROUP BY 1 ORDER BY 1", true],
+    ["how many customers ordered more than 5 times",
+      "SELECT COUNT(*) FROM (SELECT customer_id FROM orders GROUP BY customer_id HAVING COUNT(*) > 5)"],
+    ["holiday season sales",
+      `SELECT ROUND(${REV}, 2) FROM orders o JOIN order_items oi ON oi.order_id = o.order_id WHERE ${REALISED} AND strftime('%m', o.order_date) IN ('11', '12')`],
+    ["revenue in the second half of 2024",
+      `SELECT ROUND(${REV}, 2) FROM orders o JOIN order_items oi ON oi.order_id = o.order_id WHERE ${REALISED} AND strftime('%Y-%m', o.order_date) BETWEEN '2024-07' AND '2024-12'`],
+    ["average rating for tents",
+      "SELECT ROUND(AVG(r.rating), 2) FROM reviews r JOIN products p ON p.product_id = r.product_id WHERE p.name LIKE '% Tent %'"],
+    ["revenue from helmets excluding bike helmets",
+      `SELECT ROUND(${REV}, 2) FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id WHERE ${REALISED} AND p.name LIKE '%Helmet%' AND p.name NOT LIKE '%Bike Helmet%'`],
+    ["weekly orders in december 2025",
+      "SELECT strftime('%Y-W%W', order_date), COUNT(*) FROM orders WHERE strftime('%Y-%m', order_date) = '2025-12' GROUP BY 1 ORDER BY 1", true],
+    ["fastest growing category",
+      `WITH t AS (SELECT p.category AS k, SUM(CASE WHEN strftime('%Y', o.order_date) = '2024' THEN ${REV.slice(4, -1)} END) AS a, SUM(CASE WHEN strftime('%Y', o.order_date) = '2025' THEN ${REV.slice(4, -1)} END) AS b FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id WHERE ${REALISED} GROUP BY 1) SELECT k, ROUND(a, 2), ROUND(b, 2), ROUND(ROUND(b, 2) / ROUND(a, 2) - 1, 4) AS g FROM t ORDER BY g DESC`, true],
   ];
 
   it.each(cases)("%s", (question, gold, ordered) => {
@@ -250,6 +276,18 @@ describe("fuzz regressions", () => {
   it("does not total averages", () => {
     expect(ask("average order value per month").answer).not.toMatch(/Total/);
     expect(ask("revenue by month").answer).toMatch(/Total/);
+  });
+
+  it("declines review text search and explains products with no reviews or sales", () => {
+    expect(() => parse("how many reviews mention quality", vocab)).toThrow(/review text/);
+    expect(ask("products with no reviews").answer).toBe("Every product has at least one review.");
+    expect(ask("products that never sold").answer).toBe("Every product has been ordered at least once.");
+  });
+
+  it("reads seasons, halves and product types as one total, not a breakdown", () => {
+    for (const q of ["holiday season sales", "revenue in h1 2025", "average rating for tents"]) expect(ask(q).compiled.plan.dims).toEqual([]);
+    expect(ask("units sold by category in summer").compiled.plan.dims).toEqual(["category"]);
+    expect(ask("winter boots sales").compiled.plan.filters.map((f) => f.field)).toEqual(["product"]);
   });
 
   it("maps colloquial spender questions to customers by revenue", () => {
