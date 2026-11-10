@@ -98,22 +98,25 @@ def check_ollama(settings, pull: bool) -> None:
 
 def check_profile_and_jira(settings) -> bool:
     from sentineldesk_local.config import LocalOnlyError
-    from sentineldesk_local.jira import JiraClient, JiraCredentials, JiraError
+    from sentineldesk_local.jira import JiraClient, JiraError
     from sentineldesk_local.profile import ProfileError
 
+    store = settings.store()
     try:
-        profile = settings.load_profile()
-        jira_cfg = settings.load_jira()
+        profile = store.profile()
+        jira_cfg = store.jira()
     except (ProfileError, ValueError) as exc:
-        say("err", f"Configuration: {exc}")
+        say("err", f"Configuration ({store.path}): {exc}")
         return False
-    say("ok", f"Profile: {profile.name} ({', '.join(profile.internal_domains)}; {len(profile.teams)} teams, {len(profile.kb)} KB articles)"
-        + ("" if settings.config_path else "  [demo profile; set SENTINEL_CONFIG for a real desk]"))
+    if not store.configured():
+        say("info", "Not set up yet: the setup page in the browser walks you through it (demo data until then).")
+    else:
+        say("ok", f"Organisation: {profile.name} ({', '.join(profile.internal_domains)}; {len(profile.teams)} teams, {len(profile.kb)} help articles)")
     if jira_cfg is None:
         say("info", "Jira connector off (enable it in the [jira] section of your config).")
         return True
     try:
-        client = JiraClient(jira_cfg, JiraCredentials.from_env(dict(os.environ)))
+        client = JiraClient(jira_cfg, store.credentials())
         me = client.myself()
         client.search(jira_cfg.jql, 1)
     except LocalOnlyError as exc:
@@ -167,25 +170,23 @@ def manage_users(args, db) -> int | None:
     return None
 
 
-def ensure_admin(db) -> bool:
+def ensure_admin(db) -> str | None:
+    """Returns the one-time setup token when the first admin still has to be created in the browser.
+    Headless installs can instead set SENTINEL_ADMIN_USER + SENTINEL_NEW_PASSWORD."""
     from sentineldesk_local.auth import Auth, AuthError
 
     auth = Auth(db)
+    if auth.user_count() == 0 and os.environ.get("SENTINEL_NEW_PASSWORD"):
+        name = os.environ.get("SENTINEL_ADMIN_USER") or "admin"
+        try:
+            auth.create_user(name, os.environ["SENTINEL_NEW_PASSWORD"], "admin")
+            say("ok", f"Created admin {name} from SENTINEL_NEW_PASSWORD (remove it from your environment now).")
+        except AuthError as exc:
+            say("err", str(exc))
     if auth.user_count() > 0:
         say("ok", f"{auth.user_count()} dashboard account(s)")
-        return True
-    if not sys.stdin.isatty() and not os.environ.get("SENTINEL_NEW_PASSWORD"):
-        say("err", "No dashboard accounts yet. Create one: python run.py --add-user admin --role admin")
-        return False
-    say("info", "No dashboard accounts yet; creating the first admin.")
-    name = os.environ.get("SENTINEL_ADMIN_USER") or (input("Admin username [admin]: ").strip() if sys.stdin.isatty() else "") or "admin"
-    try:
-        auth.create_user(name, read_new_password(name), "admin")
-    except AuthError as exc:
-        say("err", str(exc))
-        return False
-    say("ok", f"Created admin {name}.")
-    return True
+        return None
+    return auth.setup_token()
 
 
 def wait_healthy(url: str, procs: list[subprocess.Popen], timeout_s: float = 30) -> bool:
@@ -281,8 +282,7 @@ def main() -> int:
         print("\nAll checks done.\n")
         return 0
 
-    if not ensure_admin(db):
-        return 1
+    setup_token = ensure_admin(db)
     env = {k: v for k, v in os.environ.items() if k != "SENTINEL_NEW_PASSWORD"}  # children never see it
     env.update({"PYTHONUNBUFFERED": "1", "SENTINEL_DB": str(settings.db_path.resolve())})
     worker = subprocess.Popen([sys.executable, "-m", "sentineldesk_local.worker"], cwd=HERE, env=env)
@@ -309,9 +309,16 @@ def main() -> int:
         stop(procs, 5)
         return 1
     say("ok", f"Worker running (pid {worker.pid})")
-    say("ok", f"Dashboard: {url}   (Ctrl+C to stop)\n")
+    open_url = url
+    if setup_token:
+        open_url = f"{url}/#setup={setup_token}"
+        print("\n  First time? Open this link to create your account and set SentinelDesk up:\n")
+        print(f"      \033[1m{open_url}\033[0m\n")
+        print("  (The link works once. Anyone with it can create the first admin, so keep it to yourself.)\n", flush=True)
+    else:
+        say("ok", f"Dashboard: {url}   (Ctrl+C to stop)\n")
     if args.open:
-        webbrowser.open(url)
+        webbrowser.open(open_url)
 
     code = 0
     while not stopping:

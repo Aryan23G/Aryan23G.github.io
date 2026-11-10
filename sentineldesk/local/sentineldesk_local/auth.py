@@ -114,6 +114,32 @@ class Auth:
         with self.db.connect() as c:
             return [dict(r) for r in c.execute("SELECT username, role, created_at, disabled, last_login FROM users ORDER BY username")]
 
+    # ---------------------------------------------------------------- first-run setup link
+
+    def setup_token(self) -> str | None:
+        """While no account exists, a one-time secret that lets whoever has it create the first admin
+        in the browser. It is printed by the launcher (and in `docker compose logs`), so only someone
+        with access to the server can use it. None once an account exists."""
+        if self.user_count() > 0:
+            self.db.set_meta("setup_token", "")
+            return None
+        token = self.db.get_meta("setup_token")
+        if not token:
+            token = secrets.token_urlsafe(18)
+            self.db.set_meta("setup_token", token)
+        return token
+
+    def create_first_admin(self, token: str, username: str, password: str) -> User:
+        expected = self.db.get_meta("setup_token") or ""
+        if self.user_count() > 0 or not expected:
+            raise AuthError("Setup is already complete. Sign in instead.")
+        if not hmac.compare_digest(token.encode(), expected.encode()):
+            raise AuthError("This setup link is not valid. Use the link printed when SentinelDesk started.")
+        user = self.create_user(username, password, "admin")
+        self.db.set_meta("setup_token", "")
+        self.db.add_event(None, "auth", "info", f"First admin {user.username} created from the setup link.")
+        return user
+
     # ---------------------------------------------------------------- sessions
 
     def login(self, username: str, password: str) -> tuple[User, str]:

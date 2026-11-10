@@ -15,7 +15,9 @@ from .db import Database
 from .ollama_client import OllamaClient
 from .profile import OrgProfile, demo_profile
 from .connector import JiraSync
-from .jira import JiraClient, JiraCredentials, JiraError
+from .config import LocalOnlyError
+from .config_store import ConfigStore
+from .jira import JiraClient, JiraError
 
 
 class DbObserver:
@@ -34,17 +36,46 @@ class DbObserver:
 
 class Worker:
     def __init__(self, db: Database, client: OllamaClient, agent_model: str, chairman_model: str, poll_ms: int = 500, stale_after_s: int = 900,
-                 profile: OrgProfile | None = None, jira: JiraSync | None = None, retention_days: int = 0):
+                 profile: OrgProfile | None = None, jira: JiraSync | None = None, retention_days: int = 0, store: ConfigStore | None = None):
         self.db = db
         self.retention_days = retention_days
-        self.profile = profile or demo_profile()
+        self._profile = profile
+        self.store = store  # when set, profile and Jira settings follow edits made in the browser
         self.jira = jira
+        self._jira_key: tuple | None = None
         self.client = client
         self.agent_model = agent_model
         self.chairman_model = chairman_model
         self.poll_s = poll_ms / 1000
         self.stale_after_s = stale_after_s
         self.stop_event = threading.Event()
+
+    @property
+    def profile(self) -> OrgProfile:
+        if self.store is not None:
+            return self.store.profile()
+        return self._profile or demo_profile()
+
+    def current_jira(self) -> JiraSync | None:
+        """The Jira sync for the current settings; rebuilt when settings or secrets change."""
+        if self.store is None:
+            return self.jira
+        key = self.store.version()
+        if key != self._jira_key:
+            self._jira_key = key
+            cfg = self.store.jira()
+            if cfg is None:
+                if self.jira is not None:
+                    self.db.add_event(None, "connector", "info", "Jira connector turned off.")
+                self.jira = None
+            else:
+                try:
+                    self.jira = JiraSync(self.db, JiraClient(cfg, self.store.credentials()), cfg, self.profile.name)
+                    self.db.add_event(None, "connector", "info", f"Jira connector using {cfg.base_url} ({cfg.mode}).")
+                except LocalOnlyError as exc:
+                    self.jira = None
+                    self.db.add_event(None, "connector", "error", f"Jira not started: {exc}")
+        return self.jira
 
     def process_one(self) -> int | None:
         """Claim and triage one ticket. Returns its id, or None if the queue was empty."""
@@ -59,7 +90,8 @@ class Worker:
             council = Council(self.client, self.agent_model, self.chairman_model, observer, profile=self.profile)
             result = council.run(row["subject"], row["body"], row["requester"])
             from_jira = row["source"] == "jira"
-            writeback = ("pending" if self.jira and self.jira.cfg.mode == "shadow" and not row["backfill"] else "skipped") if from_jira else "none"
+            sync = self.current_jira()
+            writeback = ("pending" if sync and sync.cfg.mode == "shadow" and not row["backfill"] else "skipped") if from_jira else "none"
             self.db.complete(ticket_id, final=result.final, mode=result.mode, model=result.model, evidence=result.evidence,
                              fallback_reason=result.fallback_reason, writeback=writeback, outcome="pending" if from_jira else "none")
             observer.event("system", "info", f"Ticket #{ticket_id} done in {time.monotonic() - started:.1f}s ({result.mode}).")
@@ -77,13 +109,19 @@ class Worker:
     def _connector_loop(self) -> None:
         """Jira polling, write-back and outcome capture, on their own timers and thread, so a slow
         model call never delays a write-back and a Jira outage never blocks triage."""
-        assert self.jira is not None
         due = {"poll": 0.0, "writeback": 0.0, "outcomes": 0.0}
-        every = {"poll": self.jira.cfg.poll_interval_s, "writeback": 10.0, "outcomes": 300.0}
         failures = 0
+        active: JiraSync | None = None
         while not self.stop_event.is_set():
+            sync = self.current_jira()
+            if sync is None:
+                self.stop_event.wait(2)
+                continue
+            if sync is not active:  # new or changed settings: run every step right away
+                active, due = sync, {"poll": 0.0, "writeback": 0.0, "outcomes": 0.0}
+            every = {"poll": sync.cfg.poll_interval_s, "writeback": 10.0, "outcomes": 300.0}
             now = time.monotonic()
-            for step, fn in (("poll", self.jira.poll_once), ("writeback", self.jira.writeback_once), ("outcomes", self.jira.outcomes_once)):
+            for step, fn in (("poll", sync.poll_once), ("writeback", sync.writeback_once), ("outcomes", sync.outcomes_once)):
                 if now < due[step]:
                     continue
                 try:
@@ -103,7 +141,7 @@ class Worker:
     def run_forever(self) -> None:
         beat = threading.Thread(target=self._heartbeat, name="heartbeat", daemon=True)
         beat.start()
-        connector = threading.Thread(target=self._connector_loop, name="jira", daemon=True) if self.jira else None
+        connector = threading.Thread(target=self._connector_loop, name="jira", daemon=True) if (self.jira or self.store) else None
         if connector:
             connector.start()
         recovered = self.db.requeue_stale(self.stale_after_s)
@@ -130,13 +168,6 @@ def main() -> None:
     settings = Settings.from_env()
     db = Database(settings.db_path)
     db.init()
-    profile = settings.load_profile()
-    jira_cfg = settings.load_jira()
-    jira = None
-    if jira_cfg:
-        import os
-
-        jira = JiraSync(db, JiraClient(jira_cfg, JiraCredentials.from_env(dict(os.environ))), jira_cfg, profile.name)
     worker = Worker(
         db,
         settings.ollama_client(),
@@ -145,9 +176,8 @@ def main() -> None:
         settings.worker_poll_ms,
         # A ticket can legitimately run for several model timeouts; only reclaim beyond that.
         max(settings.stale_after_s, settings.request_timeout_s * 10),
-        profile=profile,
-        jira=jira,
         retention_days=settings.retention_days,
+        store=settings.store(),
     )
     # Finish the current ticket, then exit, on Ctrl+C or a terminate from run.py.
     signal.signal(signal.SIGTERM, lambda *_: worker.stop_event.set())

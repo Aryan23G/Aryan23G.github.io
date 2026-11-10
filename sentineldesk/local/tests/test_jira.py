@@ -66,9 +66,9 @@ def test_config_validation():
 
 def test_credentials():
     assert CLOUD_CREDS.header("cloud").startswith("Basic ") and DC_CREDS.header("datacenter") == "Bearer pat-123"
-    with pytest.raises(LocalOnlyError, match="JIRA_API_TOKEN"):
+    with pytest.raises(LocalOnlyError, match="email and an API token"):
         JiraCredentials(email="a@b.c").header("cloud")
-    with pytest.raises(LocalOnlyError, match="JIRA_PAT"):
+    with pytest.raises(LocalOnlyError, match="personal access token"):
         JiraCredentials().header("datacenter")
     assert JiraCredentials.from_env({"JIRA_EMAIL": "e", "JIRA_API_TOKEN": "t"}).api_token == "t"
 
@@ -281,7 +281,7 @@ def test_launcher_checks_jira_credentials(tmp_path, jira, ollama):
                JIRA_EMAIL="bot@acme.com", JIRA_API_TOKEN="token")
     ok = subprocess.run([sys.executable, str(here / "run.py"), "--check"], capture_output=True, text=True, env=env, timeout=60)
     assert ok.returncode == 0, ok.stdout
-    assert "Profile: Acme Corporation" in ok.stdout and "JQL works; mode shadow" in ok.stdout
+    assert "Organisation: Acme Corporation" in ok.stdout and "JQL works; mode shadow" in ok.stdout
     env["JIRA_API_TOKEN"] = "wrong"
     bad = subprocess.run([sys.executable, str(here / "run.py"), "--check"], capture_output=True, text=True, env=env, timeout=60)
     assert bad.returncode == 1 and "check the Jira credentials" in bad.stdout

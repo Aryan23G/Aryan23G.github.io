@@ -29,6 +29,8 @@ class FakeJira:
         self.sd_emails: dict[str, str] = {}
         self.fail: dict[tuple[str, str], list[int]] = {}  # (method, path prefix) -> statuses to return first
         self.log: list[tuple[str, str, dict]] = []
+        self.priority_names = ["Highest", "High", "Medium", "Low", "Lowest"]
+        self.desks = [("IT", "IT Help Desk"), ("HR", "HR Requests")]
         self.expected_auth = "Basic " + base64.b64encode(b"bot@acme.com:token").decode() if deployment == "cloud" else "Bearer pat-123"
         fake = self
 
@@ -60,6 +62,10 @@ class FakeJira:
                 v = "3" if fake.deployment == "cloud" else "2"
                 if u.path == f"/rest/api/{v}/myself":
                     return self._send(200, {"displayName": "SentinelDesk Bot", "timeZone": fake.tz})
+                if u.path == f"/rest/api/{v}/priority":
+                    return self._send(200, [{"name": n} for n in fake.priority_names])
+                if u.path == "/rest/servicedeskapi/servicedesk":
+                    return self._send(200, {"values": [{"id": str(i + 1), "projectKey": k, "projectName": n} for i, (k, n) in enumerate(fake.desks)], "isLastPage": True})
                 if fake.deployment == "cloud" and u.path == "/rest/api/3/search/jql":
                     issues = fake.matching(q["jql"])
                     start = int(q.get("nextPageToken") or 0)

@@ -241,8 +241,3 @@ def test_launcher_manages_accounts_without_passwords_on_the_command_line(tmp_pat
     assert launcher(tmp_path, "--add-user", "x", SENTINEL_NEW_PASSWORD="short").returncode == 1
     no_tty = launcher(tmp_path, "--add-user", "carl")
     assert no_tty.returncode != 0 and "SENTINEL_NEW_PASSWORD" in (no_tty.stdout + no_tty.stderr)
-
-
-def test_launcher_refuses_to_start_without_an_account(tmp_path):
-    r = launcher(tmp_path)
-    assert r.returncode == 1 and "No dashboard accounts yet" in r.stdout

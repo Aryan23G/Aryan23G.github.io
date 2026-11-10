@@ -118,10 +118,10 @@ class JiraCredentials:
     def header(self, deployment: str) -> str:
         if deployment == "cloud":
             if not (self.email and self.api_token):
-                raise LocalOnlyError("Jira Cloud needs JIRA_EMAIL and JIRA_API_TOKEN in the environment.")
+                raise LocalOnlyError("Jira Cloud needs the account's email and an API token (enter them in Settings, or set JIRA_EMAIL and JIRA_API_TOKEN).")
             return "Basic " + base64.b64encode(f"{self.email}:{self.api_token}".encode()).decode()
         if not self.pat:
-            raise LocalOnlyError("Jira Data Center needs JIRA_PAT (a personal access token) in the environment.")
+            raise LocalOnlyError("Jira Data Center needs a personal access token (enter it in Settings, or set JIRA_PAT).")
         return f"Bearer {self.pat}"
 
 
@@ -303,11 +303,46 @@ class JiraClient:
                 return bodies
             start += len(values)
 
+    # ---------------------------------------------------------------- discovery (setup wizard)
+
+    def service_desks(self) -> list[dict]:
+        """Service Management projects this account can see: [{"key", "name"}]."""
+        desks: list[dict] = []
+        start = 0
+        while True:
+            data = self._req("GET", "/rest/servicedeskapi/servicedesk", params={"start": start, "limit": 100})
+            values = data.get("values", [])
+            desks.extend({"key": v.get("projectKey"), "name": v.get("projectName")} for v in values if v.get("projectKey"))
+            if data.get("isLastPage", True) or not values:
+                return desks
+            start += len(values)
+
+    def priorities(self) -> list[str]:
+        """Priority names, most urgent first (the order Jira returns them in)."""
+        data = self._req("GET", f"/rest/api/{self.cfg.api_version}/priority")
+        items = data if isinstance(data, list) else data.get("values", [])
+        return [p["name"] for p in items if p.get("name")]
+
     def has_triage_comment(self, key: str) -> bool:
         return any(MARKER in b for b in self.comment_bodies(key))
 
     def add_internal_comment(self, key: str, body: str) -> None:
         self._req("POST", f"/rest/servicedeskapi/request/{self._check_key(key)}/comment", json={"body": body, "public": False})
+
+
+def suggest_priority_map(names: list[str]) -> dict[str, str]:
+    """Map Jira's priorities (most urgent first) in order onto P1-P4; extras become P4.
+    Highest/High/Medium/Low/Lowest -> P1/P2/P3/P4/P4, High/Medium/Low -> P1/P2/P3. A desk with a
+    single priority gets P3 (neutral). Admins can adjust the result in Settings."""
+    if len(names) == 1:
+        return {names[0]: "P3"}
+    return {name: f"P{min(4, i + 1)}" for i, name in enumerate(names)}
+
+
+def deployment_for(base_url: str) -> str:
+    """Atlassian Cloud sites live on atlassian.net; anything else is Data Center / Server."""
+    host = re.sub(r"^https?://", "", base_url).split("/")[0].split(":")[0].lower()
+    return "cloud" if host.endswith(".atlassian.net") or host.endswith(".jira.com") else "datacenter"
 
 
 def format_comment(final: dict, mode: str, model: str, profile_name: str) -> str:

@@ -116,18 +116,15 @@ class Settings:
 
         return OllamaClient(self.ollama_url, self.request_timeout_s, allowed_hosts=self.model_hosts)
 
-    def load_profile(self):
-        from .profile import demo_profile, load_profile
+    def store(self):
+        from .config_store import ConfigStore
 
-        return load_profile(self.config_path) if self.config_path else demo_profile()
+        return ConfigStore(self)
+
+    def load_profile(self):
+        """SENTINEL_CONFIG, else <data dir>/sentineldesk.toml written by the setup wizard, else the demo."""
+        return self.store().profile()
 
     def load_jira(self):
-        """The [jira] table of the config file as a JiraConfig, or None when not enabled."""
-        if not self.config_path:
-            return None
-        import tomllib
-
-        from .jira import JiraConfig
-
-        data = tomllib.loads(self.config_path.read_text(encoding="utf-8"))
-        return JiraConfig.from_dict(data.get("jira") or {}, self.load_profile().team_names)
+        """The [jira] settings as a JiraConfig, or None when not enabled."""
+        return self.store().jira()
