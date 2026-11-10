@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QueryPilot · Text-to-SQL Analytics Agent · Aryan Gupta</title>
-<meta name="description" content="QueryPilot turns plain-English questions into safe, read-only SQL with a Claude tool-calling agent, then charts the results. Runs entirely in your browser.">
+<title>QueryPilot · Text-to-SQL Analytics · Aryan Gupta</title>
+<meta name="description" content="QueryPilot turns plain-English questions into safe, read-only SQL and charts the results. Free, no API key, runs entirely in your browser.">
 <meta name="theme-color" content="#02030A">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,17 +18,17 @@
     <a class="back" href="../">← Aryan Gupta</a>
     <div class="top-right">
       <a class="back" href="https://github.com/Aryan23G/Aryan23G.github.io/tree/main/querypilot" target="_blank" rel="noopener">Source ↗</a>
-      <span id="mode" class="mode">Free · local engine</span>
+      <span class="mode">Free · runs in your browser</span>
     </div>
   </div>
 
   <header class="hero">
-    <p class="kicker">Text-to-SQL analytics agent</p>
+    <p class="kicker">Text-to-SQL analytics</p>
     <h1>Query<em>Pilot</em></h1>
-    <p class="lede">Ask a business question in plain English and get the SQL, the result and a chart. It's free with no API key: a built-in engine answers in your browser, and a Claude agent takes over if you add your own key. Every query passes a five-layer read-only guard before it reaches the database.</p>
+    <p class="lede">Ask a business question in plain English and get the SQL, the result and a chart. It's free and needs no API key or account: a built-in engine turns your question into SQL right in your browser, and every query passes a five-layer read-only guard before it reaches the database.</p>
     <ul class="pipeline" aria-label="How a question is answered">
       <li><b>1</b>Question</li>
-      <li><b>2</b>Engine writes SQL</li>
+      <li><b>2</b>Query plan → SQL</li>
       <li><b>3</b>Guard + bytecode check</li>
       <li><b>4</b>SQLite in a worker</li>
       <li><b>5</b>Validated chart</li>
@@ -44,28 +44,22 @@
       </form>
       <div class="examples-head">
         <span class="label">Sample questions · or ask your own</span>
-        <button id="reset" type="button" class="ghost small">New conversation</button>
+        <button id="reset" type="button" class="ghost small">Clear results</button>
       </div>
       <div id="examples" class="chips"></div>
 
       <div id="feed" class="feed" aria-live="polite">
         <div class="empty hud">
           <p><b>Orbit Outfitters</b> is a made-up online outdoor-gear store with two years of orders (2024 to 2025): customers, products, orders, line items and reviews.</p>
-          <p class="muted">Ask your own question: it's free, with no API key needed. The built-in local engine turns it into SQL in your browser, including growth, retention, top-per-group and share questions, and runs it through the same safety pipeline. Optionally add an Anthropic API key to use the Claude agent for follow-ups and free-form exploration.</p>
+          <p class="muted">Ask your own question about revenue, orders, customers, returns, ratings and more, including growth, retention, top-per-group and share questions. The engine shows how it read your question, the SQL it wrote and the checks it passed. Questions it can't answer reliably, like "why" or forecasts, are declined instead of guessed.</p>
         </div>
       </div>
     </main>
 
     <aside>
       <section class="panel hud">
-        <h2>Engine</h2>
-        <p class="small muted">Without a key, questions are answered by the <b>free local engine</b>: a deterministic NL→SQL parser that runs entirely in your browser. A key switches to the Claude agent.</p>
-        <label for="api-key" class="label">Anthropic API key <span class="muted">(optional)</span></label>
-        <input id="api-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
-        <p id="key-status" class="small muted"></p>
-        <label for="model" class="label">Model</label>
-        <select id="model"></select>
-        <p class="small muted">Your key stays in this browser tab (sessionStorage) and is sent only to api.anthropic.com. There is no backend.</p>
+        <h2>How it works</h2>
+        <p class="small muted">A deterministic parser reads your question into a query plan: a measure, groupings, filters and ranking. The plan compiles to SQL from a fixed join graph, so filter values always come from the database, never from your text. There is no LLM, no backend and nothing to sign up for.</p>
       </section>
 
       <section class="panel hud">
@@ -75,9 +69,8 @@
           <li><b>Bytecode check</b><span>Compiles with <code>EXPLAIN</code> and inspects SQLite's VDBE program: no write opcodes or write transactions, and reads only from allowlisted b-trees.</span></li>
           <li><b>Read-only connection</b><span><code>PRAGMA query_only</code> makes SQLite itself refuse writes.</span></li>
           <li><b>Resource limits</b><span>Row cap while stepping, and a 4s timeout that kills and restarts the worker.</span></li>
-          <li><b>Sandbox</b><span>In-memory database rebuilt from a fixed seed. Query results go to the model as data, never as instructions.</span></li>
+          <li><b>Sandbox</b><span>In-memory database rebuilt from a fixed seed, so there is nothing real to damage.</span></li>
         </ol>
-        <p class="pii-note"><b>PII shield.</b> Customer names and emails are swapped for placeholders (<code>CUSTOMER_NAME_12</code>) in everything sent to Claude, then mapped back to real values just before the SQL runs and before you see the answer.</p>
       </section>
 
       <section class="panel hud">
@@ -100,7 +93,7 @@ FROM products GROUP BY category ORDER BY avg_price DESC</textarea>
   </div>
 
   <footer>
-    <p>Built by <a href="../">Aryan Gupta</a> · TypeScript, Claude API (tool use), SQLite/WASM, Web Workers, Chart.js · <a href="https://github.com/Aryan23G/Aryan23G.github.io/tree/main/querypilot" target="_blank" rel="noopener">Source &amp; tests</a></p>
+    <p>Built by <a href="../">Aryan Gupta</a> · TypeScript, SQLite/WASM, Web Workers, Chart.js · <a href="https://github.com/Aryan23G/Aryan23G.github.io/tree/main/querypilot" target="_blank" rel="noopener">Source &amp; tests</a></p>
   </footer>
 </div>
 <script type="module" src="dist/app.js"></script>
