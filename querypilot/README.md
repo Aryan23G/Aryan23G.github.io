@@ -8,8 +8,8 @@ It runs entirely in the browser and is **free to use with no API key**: SQLite (
 
 | Mode | Cost | Handles |
 |---|---|---|
-| **Local engine** (default, no key) | Free, offline, instant | Aggregates: measures × groupings × filters × rankings, e.g. "revenue by month in 2025", "top 5 products by units", "return rate by category", "Canada vs United States" |
-| **Claude agent** (your key) | Your API usage | Anything, including multi-step analysis and follow-ups |
+| **Local engine** (default, no key) | Free, offline, instant | Aggregates ("revenue by month in 2025", "top 5 products by units", "Canada vs United States") **and** multi-step analysis: period growth, top-N within each group, share of a subset, cohort retention, repeat customers |
+| **Claude agent** (your key) | Your API usage | Anything, including follow-up questions and open-ended exploration |
 
 ```
 question ──► Claude (tool loop) ──► run_sql / get_column_values / submit_answer
@@ -36,9 +36,18 @@ A deterministic semantic parser. It does no LLM call and needs no model download
 
 The trace shows exactly how the question was understood. Values in the SQL come from the database vocabulary, never from the user's text.
 
-Multi-step analyses (growth between periods, retention, top-N within each group, the share of a filtered subset, why/forecast questions) are **declined with an explanation** instead of answered with a guess.
+Beyond single aggregates, a plan can be one of four **multi-step shapes**. Each compiles to a CTE around the same aggregate builder:
 
-On the 20-question eval set written for the Claude agent, the local engine answers 16 correctly and declines the other 4, with 0 wrong answers. A test enforces this.
+| Shape | Example | SQL |
+|---|---|---|
+| growth | "which month had the biggest revenue growth" | `LAG()` over a per-period aggregate |
+| top per group | "best selling product in each category" | `ROW_NUMBER() OVER (PARTITION BY …)` |
+| share of a subset | "mobile's share of orders in Q4 2024 vs Q4 2025" | conditional sum / total |
+| retention | "customer retention from 2024 to 2025", "repeat customers" | cohort CTEs with `LEFT JOIN` |
+
+Questions asking *why* something happened, or for a forecast or correlation, are **declined with an explanation** instead of answered with a guess.
+
+On the 20-question eval set written for the Claude agent, the local engine answers **all 20 correctly**, including the 4 multi-step ones. It also passes 8 more multi-step questions phrased differently from the eval set, each checked against independently written gold SQL. Tests enforce both.
 
 ## How the agent works (`src/agent.ts`)
 
@@ -79,7 +88,7 @@ The model proposes a chart (line, bar, pie, scatter, KPI or table). The proposal
 
 ```bash
 npm ci
-npm test            # 171 tests: guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set, local engine
+npm test            # 181 tests: guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set, local engine
 npm run typecheck
 npm run build       # bundles src/ into dist/ (committed, since GitHub Pages serves it directly)
 ```
