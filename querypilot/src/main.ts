@@ -1,21 +1,18 @@
 /**
- * QueryPilot browser app. Everything runs client-side:
+ * QueryPilot browser app. Everything runs client-side, with no API key and no backend:
  *   - SQLite (WASM) in a Web Worker holds the demo warehouse,
- *   - the agent loop calls the Anthropic API directly with the visitor's own key
- *     (kept in sessionStorage only, sent only to api.anthropic.com),
+ *   - the local NL→SQL engine turns a question into SQL (src/local/nl2sql.ts),
+ *   - every query passes the guard + bytecode check before it runs,
  *   - Chart.js renders the validated chart.
  */
-import Anthropic from "@anthropic-ai/sdk";
 import Chart from "chart.js/auto";
 import type { SqlValue } from "sql.js";
-import { DEFAULT_MODEL, MODELS, runAgent, type AgentEvent, type MessageParam } from "./agent.ts";
 import { DbClient } from "./db/client.ts";
 import type { ExecOutcome } from "./db/engine.ts";
 import { TABLES } from "./db/schema.ts";
 import { ATTACKS, DEMOS, type DemoScript } from "./demo.ts";
 import { tokenize } from "./guard.ts";
 import { compile, describeResult, loadVocabulary, NotUnderstood, parse, SUGGESTIONS, type Vocabulary } from "./local/nl2sql.ts";
-import { PiiShield } from "./pii.ts";
 import { formatValue, profile, resolveChart, toCsv, type ChartSpec } from "./viz.ts";
 
 type Child = Node | string | null | undefined | false;
@@ -30,19 +27,11 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, 
 }
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T;
 
-const store = {
-  get(k: string) { try { return sessionStorage.getItem(k) ?? ""; } catch { return ""; } },
-  set(k: string, v: string) { try { v ? sessionStorage.setItem(k, v) : sessionStorage.removeItem(k); } catch { /* storage blocked */ } },
-};
-
 // ---------------------------------------------------------------- state
 const db = new DbClient(new URL("./dist/worker.js", document.baseURI).href);
-let history: MessageParam[] = [];
-let pending: Anthropic.Beta.Messages.BetaToolResultBlockParam[] = [];
 let busy = false;
-let shield: PiiShield | undefined;
 let vocab: Vocabulary | undefined;
-let controller: AbortController | undefined;
+let dbError: string | undefined;
 const charts = new Set<Chart>();
 
 const els = {
@@ -51,10 +40,6 @@ const els = {
   askBtn: $<HTMLButtonElement>("#ask-btn"),
   examples: $("#examples"),
   feed: $("#feed"),
-  key: $<HTMLInputElement>("#api-key"),
-  model: $<HTMLSelectElement>("#model"),
-  mode: $("#mode"),
-  keyStatus: $("#key-status"),
   schema: $("#schema"),
   console: $<HTMLTextAreaElement>("#console-sql"),
   consoleRun: $<HTMLButtonElement>("#console-run"),
@@ -108,9 +93,12 @@ function renderTable(columns: string[], rows: SqlValue[][], limit = 200): HTMLEl
 function renderChart(spec: ChartSpec, columns: string[], rows: SqlValue[][]): HTMLElement {
   if (spec.type === "table") return renderTable(columns, rows);
   if (spec.type === "kpi") {
-    return h("div", { class: "kpis" }, ...spec.y.map((c) => h("div", { class: "kpi" },
-      h("b", {}, /revenue|spend|value|price|cost|margin|sales/i.test(c) ? "$" + formatValue(rows[0]![columns.indexOf(c)]!, c) : formatValue(rows[0]![columns.indexOf(c)]!, c)),
-      h("span", {}, c.replace(/_/g, " ")))));
+    return h("div", { class: "kpis" }, ...spec.y.map((c) => {
+      const v = formatValue(rows[0]![columns.indexOf(c)]!, c);
+      // Money columns get a "$", but not when the value is a percentage ("margin_pct" → "43.2%").
+      const money = /revenue|spend|value|price|cost|margin|sales|shipping/i.test(c) && !v.endsWith("%") && v !== "NULL";
+      return h("div", { class: "kpi" }, h("b", {}, money ? "$" + v : v), h("span", {}, c.replace(/_/g, " ")));
+    }));
   }
   const canvas = h("canvas", { role: "img", "aria-label": spec.title || "Chart of query result" });
   const box = h("div", { class: `chart-box ${spec.type}` }, canvas);
@@ -229,7 +217,7 @@ function renderToolResult(outcome: ExecOutcome): HTMLElement {
 function newCard(question: string, badge: string) {
   for (const c of els.feed.querySelectorAll(".empty")) c.remove();
   const trace = h("ol", { class: "trace" });
-  const details = h("details", { class: "trace-wrap", open: "" }, h("summary", { class: "mono" }, "Agent trace"), trace);
+  const details = h("details", { class: "trace-wrap", open: "" }, h("summary", { class: "mono" }, "Trace"), trace);
   const card = h("article", { class: "turn hud" },
     h("header", {}, h("span", { class: "badge" }, badge), h("h3", {}, question)),
     details);
@@ -238,110 +226,31 @@ function newCard(question: string, badge: string) {
   return { card, trace, details };
 }
 
-// ---------------------------------------------------------------- live agent
-async function askLive(question: string, apiKey: string) {
-  const model = els.model.value || DEFAULT_MODEL;
-  const { card, trace, details } = newCard(question, MODELS.find((m) => m.id === model)?.label ?? model);
-  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 2 });
-  controller = new AbortController();
+// ---------------------------------------------------------------- curated examples
+async function askCurated(demo: DemoScript) {
+  const { card, trace, details } = newCard(demo.question, "Curated example · hand-written SQL");
   const t0 = performance.now();
-  let lastSql = "";
-  let thinking: HTMLElement | undefined;
-  const cancel = h("button", { type: "button", class: "ghost small" }, "Cancel");
-  cancel.onclick = () => controller?.abort();
-  card.querySelector("header")!.append(cancel);
-
-  const onEvent = (e: AgentEvent) => {
-    thinking?.remove();
-    switch (e.type) {
-      case "step":
-        thinking = traceItem(trace, `Step ${e.step} · thinking…`, "thinking");
-        break;
-      case "note":
-        traceItem(trace, "Model", "note", h("p", {}, e.text));
-        break;
-      case "tool_call":
-        if (e.name === "run_sql") {
-          lastSql = String(e.input.sql ?? "");
-          traceItem(trace, `run_sql — ${String(e.input.purpose ?? "")}`, "tool", highlightSql(lastSql));
-        } else if (e.name === "get_column_values") {
-          traceItem(trace, `get_column_values — ${String(e.input.table)}.${String(e.input.column)}`, "tool");
-        } else if (e.name === "submit_answer") {
-          traceItem(trace, "submit_answer — re-running final SQL through the guard", "tool");
-        }
-        break;
-      case "tool_result":
-        trace.lastElementChild?.append(renderToolResult(e.outcome));
-        break;
-      case "error":
-        card.append(h("p", { class: "err" }, e.message));
-        break;
-      case "answer":
-      case "usage":
-        break;
-    }
-  };
-
-  const result = await runAgent({
-    client, executor: db, question, history, pendingResults: pending, model, rowCounts: db.rowCounts, shield, onEvent, signal: controller.signal,
-  });
-  thinking?.remove();
-  cancel.remove();
-  pending = result.pendingResults;
-  if (result.answer) {
-    const u = result.usage;
-    details.open = false;
-    renderAnswer(card, {
-      ...result.answer,
-      meta: [
-        `${result.answer.steps} step${result.answer.steps > 1 ? "s" : ""}`,
-        `${((performance.now() - t0) / 1000).toFixed(1)}s`,
-        `${(u.input + u.cacheRead + u.cacheWrite).toLocaleString()} in / ${u.output.toLocaleString()} out tokens`,
-        u.cacheRead ? `${Math.round((u.cacheRead / (u.input + u.cacheRead + u.cacheWrite)) * 100)}% cached` : "",
-      ].filter(Boolean),
-    });
-  } else if (lastSql && !card.querySelector(".err")) {
-    card.append(h("p", { class: "err" }, result.error ?? "No answer."));
-  }
-}
-
-// ---------------------------------------------------------------- demo mode
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-async function askDemo(demo: DemoScript) {
-  const { card, trace, details } = newCard(demo.question, "Demo · scripted SQL");
-  card.append();
-  const t0 = performance.now();
-  let n = 0;
-  for (const s of demo.steps) {
-    n++;
-    await wait(350);
-    if (s.tool === "get_column_values") {
-      traceItem(trace, `get_column_values — ${s.table}.${s.column}`, "tool", renderToolResult(await db.sampleValues(s.table!, s.column!)));
-    }
-  }
-  await wait(350);
-  n++;
-  traceItem(trace, "run_sql — draft and verify the query", "tool", highlightSql(demo.sql), renderToolResult(await db.execute(demo.sql)));
-  await wait(350);
-  traceItem(trace, "submit_answer — re-running final SQL through the guard", "tool");
+  traceItem(trace, "run_sql — hand-written query, same guard and checks", "tool", highlightSql(demo.sql));
   const outcome = await db.execute(demo.sql);
   trace.lastElementChild?.append(renderToolResult(outcome));
-  if (!outcome.ok) return;
+  if (!outcome.ok) {
+    card.append(h("p", { class: "err" }, `The query was rejected: ${outcome.error}`));
+    return;
+  }
   details.open = false;
   renderAnswer(card, {
     answer: demo.answer(outcome.result.columns, outcome.result.rows),
     sql: demo.sql, chart: demo.chart, outcome,
-    meta: [`${n + 1} steps`, `${((performance.now() - t0) / 1000).toFixed(1)}s`, "demo mode: no model call"],
+    meta: [`${((performance.now() - t0) / 1000).toFixed(2)}s`, "curated example"],
   });
 }
 
 // ---------------------------------------------------------------- free local engine (no API key)
 async function askLocal(question: string) {
-  const { card, trace, details } = newCard(question, "Local engine · free");
+  const { card, trace, details } = newCard(question, "Local engine");
   const t0 = performance.now();
   if (!vocab) {
-    card.append(h("p", { class: "err" }, "The database is still loading. Try again in a moment."));
+    card.append(h("p", { class: "err" }, dbError ? `The database failed to load: ${dbError}` : "The database is still loading. Try again in a moment."));
     return;
   }
   let compiled;
@@ -372,11 +281,21 @@ async function askLocal(question: string) {
   renderAnswer(card, {
     answer: describeResult(compiled, outcome.result.columns, outcome.result.rows),
     sql: compiled.sql, chart: compiled.chart, outcome,
-    meta: ["2 steps", `${((performance.now() - t0) / 1000).toFixed(2)}s`, "local engine: free, no API key, no model call"],
+    meta: [`${((performance.now() - t0) / 1000).toFixed(2)}s`, "local engine, runs in your browser"],
   });
 }
 
 // ---------------------------------------------------------------- wiring
+/** Sample questions on the page: plain aggregates and each multi-step shape. */
+const EXAMPLES = [
+  "Revenue by month in 2025",
+  "Return rate by category",
+  "Which month had the biggest revenue growth?",
+  "Best selling product in each category",
+  "Mobile's share of orders in Q4 2024 vs Q4 2025",
+  "Customer retention from 2024 to 2025",
+];
+
 function setBusy(b: boolean) {
   busy = b;
   els.askBtn.disabled = b;
@@ -384,27 +303,13 @@ function setBusy(b: boolean) {
   for (const chip of els.examples.querySelectorAll("button")) (chip as HTMLButtonElement).disabled = b;
 }
 
-function updateMode() {
-  const live = els.key.value.trim().startsWith("sk-");
-  els.mode.textContent = live ? "Live · AI agent" : "Free · local engine";
-  els.mode.className = `mode ${live ? "live" : ""}`;
-  els.keyStatus.textContent = live
-    ? "Key set for this tab: questions go to the AI agent."
-    : els.key.value ? "That doesn't look like an Anthropic key (sk-ant-…). Using the free local engine." : "No key needed: the free local engine answers in your browser.";
-  els.input.placeholder = live ? "Ask anything about the store's data…" : "Ask about revenue, orders, customers, returns, ratings… e.g. revenue by month in 2025";
-}
-
 async function ask(question: string) {
   if (busy || !question.trim()) return;
   setBusy(true);
   try {
-    const key = els.key.value.trim();
-    if (key.startsWith("sk-")) await askLive(question.trim(), key);
-    else {
-      const demo = DEMOS.find((d) => d.question === question);
-      if (demo) await askDemo(demo);
-      else await askLocal(question.trim());
-    }
+    const demo = DEMOS.find((d) => d.question === question);
+    if (demo) await askCurated(demo);
+    else await askLocal(question.trim());
   } finally {
     setBusy(false);
     els.input.value = "";
@@ -431,22 +336,15 @@ async function runConsole() {
 }
 
 async function main() {
-  for (const m of MODELS) els.model.append(h("option", { value: m.id }, m.label));
-  els.key.value = store.get("qp.key");
-  els.model.value = store.get("qp.model") || DEFAULT_MODEL;
-  updateMode();
-  els.key.addEventListener("input", () => { store.set("qp.key", els.key.value.trim()); updateMode(); });
-  els.model.addEventListener("change", () => store.set("qp.model", els.model.value));
-
-  for (const d of DEMOS) {
-    const b = h("button", { type: "button", class: "chip" }, d.question);
-    b.onclick = () => ask(d.question);
+  for (const s of EXAMPLES) {
+    const b = h("button", { type: "button", class: "chip" }, s);
+    b.onclick = () => ask(s);
     els.examples.append(b);
   }
-  for (const s of SUGGESTIONS.slice(0, 4)) {
-    const b = h("button", { type: "button", class: "chip local" }, s);
-    b.title = "Answered by the free local engine";
-    b.onclick = () => ask(s);
+  for (const d of DEMOS) {
+    const b = h("button", { type: "button", class: "chip curated" }, d.question);
+    b.title = "Curated example: hand-written SQL, same guard and checks";
+    b.onclick = () => ask(d.question);
     els.examples.append(b);
   }
   for (const a of ATTACKS) {
@@ -458,11 +356,9 @@ async function main() {
   els.input.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(els.input.value); } });
   els.consoleRun.onclick = runConsole;
   els.reset.onclick = () => {
-    controller?.abort();
-    history = []; pending = [];
     for (const c of charts) c.destroy();
     charts.clear();
-    els.feed.replaceChildren(h("p", { class: "empty muted" }, "Conversation cleared. Follow-up questions start fresh."));
+    els.feed.replaceChildren(h("p", { class: "empty muted" }, "Results cleared."));
   };
 
   try {
@@ -470,7 +366,6 @@ async function main() {
     const s = db.stats!;
     els.dbStatus.textContent = `SQLite (WASM) ready · ${s.orders.toLocaleString()} orders · ${s.order_items.toLocaleString()} line items · ${s.customers} customers`;
     els.dbStatus.classList.add("ok");
-    shield = new PiiShield(db.pii);
     buildSchema();
     vocab = await loadVocabulary(async (sql) => {
       const r = await db.execute(sql);
@@ -478,7 +373,8 @@ async function main() {
       return r.result.rows;
     });
   } catch (e) {
-    els.dbStatus.textContent = `Database failed to load: ${(e as Error).message}`;
+    dbError = (e as Error).message;
+    els.dbStatus.textContent = `Database failed to load: ${dbError}`;
   }
 }
 

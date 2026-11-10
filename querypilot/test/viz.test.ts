@@ -32,12 +32,12 @@ describe("inferChart", () => {
   });
 });
 
-describe("resolveChart (validating the model's proposal)", () => {
+describe("resolveChart (validating a proposed chart)", () => {
   const cols = ["month", "orders"];
   const rows = Array.from({ length: 24 }, (_, i) => [`2024-${String((i % 12) + 1).padStart(2, "0")}`, i]);
 
   it("keeps a proposal that fits", () => {
-    expect(resolveChart({ type: "line", x: "month", y: ["orders"], title: "t" }, cols, rows)).toMatchObject({ type: "line", source: "model" });
+    expect(resolveChart({ type: "line", x: "month", y: ["orders"], title: "t" }, cols, rows)).toMatchObject({ type: "line", source: "proposed" });
   });
   it("rejects a pie with too many slices", () => {
     expect(resolveChart({ type: "pie", x: "month", y: ["orders"], title: "t" }, cols, rows)).toMatchObject({ type: "line", source: "inferred", title: "t" });

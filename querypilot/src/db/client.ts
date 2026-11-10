@@ -4,21 +4,18 @@
  * deterministic, so the restart is invisible apart from ~200ms of seeding).
  */
 import type { ExecOutcome } from "./engine.ts";
-import type { QueryExecutor } from "../agent.ts";
 import type { SeedStats } from "./seed.ts";
-import type { PiiValues } from "../pii.ts";
 import type { WorkerRequest } from "./worker.ts";
 
 type Distribute<T> = T extends unknown ? Omit<T, "id"> : never;
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> };
 
-export class DbClient implements QueryExecutor {
+export class DbClient {
   private worker!: Worker;
   private nextId = 1;
   private pending = new Map<number, Pending>();
   rowCounts: Record<string, number> = {};
   stats?: SeedStats;
-  pii: PiiValues = { name: [], email: [] };
 
   constructor(private workerUrl: string, private timeoutMs = 4000) {
     this.spawn();
@@ -54,23 +51,14 @@ export class DbClient implements QueryExecutor {
   }
 
   async init(): Promise<void> {
-    const r = await this.call<{ rowCounts: Record<string, number>; stats: SeedStats; pii: PiiValues }>({ type: "init" }, 30000);
+    const r = await this.call<{ rowCounts: Record<string, number>; stats: SeedStats }>({ type: "init" }, 30000);
     this.rowCounts = r.rowCounts;
     this.stats = r.stats;
-    this.pii = r.pii;
   }
 
   async execute(sql: string): Promise<ExecOutcome> {
     try {
       return await this.call<ExecOutcome>({ type: "execute", sql });
-    } catch (e) {
-      return timeoutOutcome(e);
-    }
-  }
-
-  async sampleValues(table: string, column: string): Promise<ExecOutcome> {
-    try {
-      return await this.call<ExecOutcome>({ type: "sample", table, column });
     } catch (e) {
       return timeoutOutcome(e);
     }

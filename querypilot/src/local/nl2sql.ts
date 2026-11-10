@@ -4,12 +4,12 @@
  * A semantic parser for the Orbit Outfitters schema. It reads a question into a
  * structured plan (metric, grouping dimensions, filters, ranking), compiles the plan
  * to SQL from a fixed join graph, and the caller runs that SQL through the same
- * guard → bytecode check → worker pipeline as the AI agent. Every interpretation
+ * guard → bytecode check → worker pipeline as the SQL console. Every interpretation
  * decision is recorded in `plan.notes`, so the UI can show exactly how the question
  * was understood.
  *
- * Scope: aggregate questions ("revenue by month in 2025", "top 5 products by units",
- * "return rate per channel", "how many enterprise customers in Canada"). Questions it
+ * Scope: aggregates ("revenue by month in 2025", "top 5 products by units") and four
+ * multi-step shapes (growth, top-N per group, share of a subset, retention). Questions it
  * cannot map get a NotUnderstood error with suggestions instead of a guess.
  */
 
@@ -232,6 +232,8 @@ const sqlStr = (s: string) => `'${s.replace(/'/g, "''")}'`;
  */
 const MULTI_STEP: [RegExp, string][] = [
   [/\b(why|predict|forecast|will be|next (month|year|quarter)|correlat\w*|regression|causes?)\b/, "explanation or prediction"],
+  // "Do more expensive products get better ratings?", "does discount affect returns": two measures against each other.
+  [/\b(do|does|are|is) (the )?(more|less|higher|lower|cheaper|pricier|bigger|smaller|larger)\b.*\b(get|have|sell|rate|receive|see|cause)\b|\b(relationship|relate[sd]?|affects?|impacts?|influences?|effect of|depends? on)\b/, "a relationship between two measures"],
   [/\breviews?\b.*\b(mention\w*|contain\w*|say|says|saying|keywords?|words?|text|complain\w*)\b|\b(mention\w*|say|says|complain\w*)\b.*\breviews?\b/, "searching review text"],
 ];
 
@@ -251,7 +253,7 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   for (const [re, what] of MULTI_STEP) {
     if (re.test(q)) {
       throw new NotUnderstood(
-        `This needs ${what}, which the free local engine does not do: it answers from the numbers in the data${what === "explanation or prediction" ? ", it does not explain or predict" : " (reviews have star ratings, not searchable text)"}. Add an Anthropic API key in Settings to ask the AI agent, or ask about what the data shows.`,
+        `This needs ${what}, which the free local engine does not do: it answers one measure at a time from the numbers in the data${what === "explanation or prediction" ? ", it does not explain or predict" : what === "searching review text" ? " (reviews have star ratings, not searchable text)" : ""}. Try asking about one measure instead.`,
         SUGGESTIONS,
       );
     }
@@ -318,7 +320,18 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   take("channel", vocab.channels, { website: "web", online: "web", app: "mobile", phone: "mobile", "third-party": "marketplace", amazon: "marketplace" });
 
   // Metric (status words are only filters when they are not the metric itself).
-  const metricDef = pickMetric(rest.replace(/\bsales (channels?|platforms?)\b/g, "channel"));
+  const metricText = rest.replace(/\bsales (channels?|platforms?)\b/g, "channel");
+  const metricDef = pickMetric(metricText);
+  // "total revenue, order count and average order value": several measures in one question. Answering only
+  // one of them would look complete, so decline and suggest asking one at a time.
+  // Parentheses usually hold a definition ("average order value (revenue per order)"), not another measure.
+  const named = namedMeasures(` ${question.toLowerCase().replace(/\([^)]*\)/g, " ").replace(/[?!;:"]/g, " ").replace(/\s+/g, " ")} `);
+  if (named.length >= 2) {
+    throw new NotUnderstood(
+      `That asks for several measures at once (${named.join(", ")}). The free local engine answers one measure per question, so try asking for each one separately.`,
+      named.map((m) => `${capitalize(m)}${/\b20\d\d\b/.test(q) ? ` in ${q.match(/\b20\d\d\b/)![0]}` : ""}`),
+    );
+  }
   if (metricDef.id !== "return_rate" && metricDef.id !== "cancel_rate") {
     const statusAliases: Record<string, string> = { canceled: "cancelled", cancellations: "cancelled", refunded: "returned", returns: "returned" };
     take("status", vocab.statuses, statusAliases);
@@ -561,7 +574,7 @@ function detectMultiStep(plan: Plan, q: string, metricWasGuessed: boolean) {
 const AMBIGUOUS_HEADS = new Set(["set", "device", "light", "layer", "bank", "shell", "bag", "watch", "runner", "messenger", "pump", "filter"]);
 
 /** Product type phrases → product names, longest phrase first: "sleeping bag", "tent", "boot". */
-export function productTypes(products: readonly string[]): [string, string[]][] {
+function productTypes(products: readonly string[]): [string, string[]][] {
   const map = new Map<string, Set<string>>();
   const add = (phrase: string, name: string) => {
     if (phrase.length < 3) return;
@@ -576,6 +589,29 @@ export function productTypes(products: readonly string[]): [string, string[]][] 
     if (!AMBIGUOUS_HEADS.has(head)) add(head, name);
   }
   return [...map].map(([k, v]) => [k, [...v]] as [string, string[]]).sort((a, b) => b[0].length - a[0].length);
+}
+
+/** Labels of the distinct measures named in the text; a match inside a longer match ("margin" in "margin %") is dropped. */
+function namedMeasures(text: string): string[] {
+  const spans: { label: string; start: number; end: number }[] = [];
+  for (const m of METRICS) {
+    // Counts of orders/customers/products also name the things being measured ("revenue per customer").
+    if (m.id === "orders" || m.id === "customers" || m.id === "products") continue;
+    const hit = m.pattern.exec(text);
+    if (hit) spans.push({ label: m.label, start: hit.index, end: hit.index + hit[0].length });
+  }
+  // ...unless they are named as a count ("order count", "number of customers").
+  for (const hit of text.matchAll(/\b(order|customer|product) counts?\b|\b(number|count) of (orders|customers|products)\b/g)) {
+    spans.push({ label: `${(hit[1] ?? hit[3]!.replace(/s$/, ""))}s`, start: hit.index!, end: hit.index! + hit[0].length });
+  }
+  const outer = spans.filter((a) => !spans.some((b) => b !== a && b.start <= a.start && b.end >= a.end && b.end - b.start > a.end - a.start));
+  outer.sort((a, b) => a.start - b.start);
+  // Only a list counts: "revenue, margin and units" / "revenue and order count", joined closely.
+  const listed = outer.filter((a, i) => {
+    const near = (x: typeof a, y: typeof a) => /^\s*(,|and|plus|&|as well as|along with)(\s+(,|and))?\s*((the|total|our|average|avg)\s+)?$/.test(text.slice(x.end, y.start));
+    return (i > 0 && near(outer[i - 1]!, a)) || (i < outer.length - 1 && near(a, outer[i + 1]!));
+  });
+  return [...new Set(listed.map((s) => s.label))];
 }
 
 function pickMetric(text: string): MetricDef & { fallback?: boolean } {

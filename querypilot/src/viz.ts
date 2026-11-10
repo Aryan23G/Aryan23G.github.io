@@ -1,13 +1,12 @@
 /**
- * Chart selection. The model proposes a chart, but its proposal is validated
- * against the *actual* result shape (column exists? numeric? temporal? row
- * count sane?). If it doesn't fit, a deterministic heuristic picks one instead,
- * so a bad suggestion never produces a broken chart.
+ * Chart selection. The engine (or a curated example) proposes a chart, and the
+ * proposal is validated against the *actual* result shape (column exists?
+ * numeric? temporal? row count sane?). If it doesn't fit, a deterministic
+ * heuristic picks one instead, so a bad suggestion never produces a broken chart.
  */
 import type { SqlValue } from "sql.js";
 
-export const CHART_TYPES = ["line", "bar", "pie", "scatter", "kpi", "table"] as const;
-export type ChartType = (typeof CHART_TYPES)[number];
+export type ChartType = "line" | "bar" | "pie" | "scatter" | "kpi" | "table";
 
 export interface ChartSpec {
   type: ChartType;
@@ -62,10 +61,10 @@ export function inferChart(columns: string[], rows: SqlValue[][], title = ""): C
   return { type: "table", x: "", y: [], title };
 }
 
-/** Keep the model's chart if it fits the data; otherwise fall back to inference. */
-export function resolveChart(proposed: ChartSpec | undefined, columns: string[], rows: SqlValue[][]): ChartSpec & { source: "model" | "inferred" } {
+/** Keep the proposed chart if it fits the data; otherwise fall back to inference. */
+export function resolveChart(proposed: ChartSpec | undefined, columns: string[], rows: SqlValue[][]): ChartSpec & { source: "proposed" | "inferred" } {
   const title = proposed?.title ?? "";
-  if (proposed && fits(proposed, columns, rows)) return { ...proposed, source: "model" };
+  if (proposed && fits(proposed, columns, rows)) return { ...proposed, source: "proposed" };
   return { ...inferChart(columns, rows, title), source: "inferred" };
 }
 

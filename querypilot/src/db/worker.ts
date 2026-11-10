@@ -10,8 +10,7 @@ import { Engine } from "./engine.ts";
 
 export type WorkerRequest =
   | { id: number; type: "init" }
-  | { id: number; type: "execute"; sql: string; maxRows?: number }
-  | { id: number; type: "sample"; table: string; column: string };
+  | { id: number; type: "execute"; sql: string; maxRows?: number };
 
 let engine: Engine | undefined;
 const ready = initSqlJs({ locateFile: () => new URL("../vendor/sql-wasm.wasm", self.location.href).href }).then((SQL) => {
@@ -23,10 +22,7 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
   const msg = ev.data;
   try {
     const e = await ready;
-    let result: unknown;
-    if (msg.type === "init") result = { rowCounts: e.rowCounts, stats: e.stats, pii: e.piiValues() };
-    else if (msg.type === "execute") result = e.execute(msg.sql, msg.maxRows);
-    else result = e.sampleValues(msg.table, msg.column);
+    const result = msg.type === "init" ? { rowCounts: e.rowCounts, stats: e.stats } : e.execute(msg.sql, msg.maxRows);
     (self as unknown as Worker).postMessage({ id: msg.id, result });
   } catch (err) {
     (self as unknown as Worker).postMessage({ id: msg.id, error: (err as Error).message });
