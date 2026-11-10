@@ -1,0 +1,31 @@
+{
+  "name": "sentineldesk",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Agentic AI service desk: a Claude tool-use agent that triages IT tickets, with a rules-based guardrail that overrides the model on attacks, and a ServiceNow integration.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "node build.mjs",
+    "build:web": "node build.mjs web",
+    "build:server": "node build.mjs server",
+    "start": "node dist-server/server.js",
+    "dev": "tsx watch src/server/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "eval": "tsx eval/run.ts",
+    "sn:sync": "tsx scripts/servicenow-sync.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.7.0",
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

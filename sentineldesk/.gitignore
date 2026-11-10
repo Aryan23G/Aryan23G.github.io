@@ -1,0 +1,5 @@
+node_modules/
+dist-server/
+eval/results/
+.env
+.servicenow-ledger.json
