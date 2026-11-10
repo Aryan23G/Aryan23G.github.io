@@ -39,10 +39,10 @@
 
 <h2>Projects</h2>
 <div class="entry">
-  <div class="row"><span><b>QueryPilot – Text-to-SQL Analytics Agent</b> | <i>TypeScript, Anthropic API, SQLite (WASM), Chart.js</i></span><span class="r">2026</span></div>
+  <div class="row"><span><b>QueryPilot – Text-to-SQL Analytics Engine</b> | <i>TypeScript, SQLite (WASM), Web Workers, Chart.js</i></span><span class="r">2026</span></div>
   <ul>
-    <li>Built an <b>agentic text-to-SQL analyst</b> that turns plain-English questions into SQL via an <b>LLM tool-calling loop</b>, grounding queries in the schema and real column values and <b>self-correcting from SQL errors</b></li>
-    <li>Enforced <b>read-only access with 5 defence layers</b>, incl. a tokenizer-based SQL guard and <b>SQLite bytecode (EXPLAIN) checks</b>, and a <b>PII shield</b> that keeps customer names and emails from the LLM; <b>137 tests</b> and a 20-question eval</li>
+    <li>Built a <b>text-to-SQL engine</b> that parses plain-English questions into a query plan and compiles it to SQL, incl. <b>multi-step analysis</b> (period growth, top-N per group, cohort retention); <b>20/20</b> on an execution-accuracy benchmark</li>
+    <li>Enforced <b>read-only access with 5 defence layers</b>, incl. a tokenizer-based SQL guard and <b>SQLite bytecode (EXPLAIN) checks</b>, with charts validated against the result; runs in the browser with no API key; <b>181 tests</b></li>
   </ul>
 </div>
 <div class="entry">
@@ -90,7 +90,7 @@
 
 <h2>Technical Skills</h2>
 <div class="skills">
-  <p><b>AI Engineering</b>: Agentic AI, LLM Tool Calling (Anthropic &amp; OpenAI APIs), Text-to-SQL, Guardrails, Prompt-Injection Defence, Prompt Engineering, LLM Evaluation, Microsoft 365 Copilot</p>
+  <p><b>AI Engineering</b>: Agentic AI, LLM Tool Calling, Local LLMs (Ollama), Text-to-SQL, Guardrails, Prompt-Injection Defence, Prompt Engineering, LLM Evaluation, Microsoft 365 Copilot</p>
   <p><b>Languages &amp; Tools</b>: Python, TypeScript/JavaScript, SQL, SQLite, PostgreSQL, Node.js, Express, React, ServiceNow</p>
   <p><b>Other</b>: Use-Case Discovery, Documentation, Stakeholder Communication, Executive Presentations</p>
 </div>
