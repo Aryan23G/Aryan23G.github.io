@@ -25,10 +25,10 @@
   <header class="hero">
     <p class="kicker">Text-to-SQL analytics agent</p>
     <h1>Query<em>Pilot</em></h1>
-    <p class="lede">Ask a business question in plain English. A Claude agent explores the schema, writes SQL, checks its own results and draws the chart. Every query passes a five-layer read-only guard before it reaches the database.</p>
+    <p class="lede">Ask a business question in plain English and get the SQL, the result and a chart. It's free with no API key: a built-in engine answers in your browser, and a Claude agent takes over if you add your own key. Every query passes a five-layer read-only guard before it reaches the database.</p>
     <ul class="pipeline" aria-label="How a question is answered">
       <li><b>1</b>Question</li>
-      <li><b>2</b>Agent writes SQL</li>
+      <li><b>2</b>Engine writes SQL</li>
       <li><b>3</b>Guard + bytecode check</li>
       <li><b>4</b>SQLite in a worker</li>
       <li><b>5</b>Validated chart</li>
@@ -51,7 +51,7 @@
       <div id="feed" class="feed" aria-live="polite">
         <div class="empty hud">
           <p><b>Orbit Outfitters</b> is a made-up online outdoor-gear store with two years of orders (2024 to 2025): customers, products, orders, line items and reviews.</p>
-          <p class="muted">Ask your own question: it's free, with no API key needed. The built-in local engine turns it into SQL in your browser and runs it through the same safety pipeline. For multi-step analysis (growth, retention, follow-ups), you can optionally add an Anthropic API key to use the Claude agent.</p>
+          <p class="muted">Ask your own question: it's free, with no API key needed. The built-in local engine turns it into SQL in your browser, including growth, retention, top-per-group and share questions, and runs it through the same safety pipeline. Optionally add an Anthropic API key to use the Claude agent for follow-ups and free-form exploration.</p>
         </div>
       </div>
     </main>

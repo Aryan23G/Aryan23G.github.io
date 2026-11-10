@@ -107,7 +107,9 @@ export function formatValue(v: SqlValue, column = ""): string {
   if (v === null) return "NULL";
   if (typeof v === "number") {
     if (/(^|_)(year|id)$/i.test(column) && Number.isInteger(v)) return String(v);
-    if (/(rate|share|pct|ratio|margin_pct|percent)/i.test(column) && Math.abs(v) <= 1.5 && !Number.isInteger(v)) {
+    // Fractions shown as percentages. Growth can exceed ±150% (e.g. +166%), so it is not bounded.
+    const fraction = /(rate|share|pct|ratio|margin_pct|percent|retention)/i.test(column) && Math.abs(v) <= 1.5;
+    if ((fraction || /growth/i.test(column)) && !Number.isInteger(v)) {
       return (v * 100).toFixed(1) + "%";
     }
     return Number.isInteger(v) ? v.toLocaleString("en-US") : v.toLocaleString("en-US", { maximumFractionDigits: 2 });

@@ -104,7 +104,10 @@ describe("parsing details", () => {
   it("records how the question was understood", () => {
     const { compiled } = ask("revenue by month in 2025 for mobile");
     expect(compiled.plan.dims).toEqual(["month"]);
-    expect(compiled.plan.filters).toEqual(expect.arrayContaining([{ field: "channel", values: ["mobile"] }, { field: "year", values: ["2025"] }]));
+    expect(compiled.plan.filters).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "channel", values: ["mobile"] }),
+      expect.objectContaining({ field: "year", values: ["2025"] }),
+    ]));
     expect(compiled.chart.type).toBe("line");
     expect(compiled.plan.notes.join(" ")).toMatch(/excluding cancelled and returned/);
   });
@@ -141,8 +144,8 @@ describe("parsing details", () => {
 });
 
 describe("20-question eval set (written for the Claude agent)", () => {
-  // The local engine must answer at least 16/20 correctly and DECLINE the rest: never a wrong answer.
-  it("answers ≥16 correctly and declines, rather than guesses, the multi-step ones", () => {
+  // Including the multi-step ones (growth, retention, top-per-group, share of a subset): 20/20, no wrong answers.
+  it("answers all 20 correctly, including the multi-step questions", () => {
     const qs = JSON.parse(readFileSync(new URL("../eval/questions.json", import.meta.url), "utf8")) as { id: string; question: string; gold: string; ordered?: boolean }[];
     const correct: string[] = [];
     const declined: string[] = [];
@@ -159,7 +162,47 @@ describe("20-question eval set (written for the Claude agent)", () => {
       (m.match ? correct : wrong).push(q.id);
     }
     expect(wrong).toEqual([]);
-    expect(correct.length).toBeGreaterThanOrEqual(16);
-    expect(declined.sort()).toEqual(["h01", "h03", "h04", "h06"]);
+    expect(declined).toEqual([]);
+    expect(correct).toHaveLength(20);
+  });
+});
+
+describe("multi-step questions, phrased differently from the eval set", () => {
+  const REVQ = `SELECT strftime('%Y-%m', o.order_date) AS m, ${REV} AS v FROM orders o JOIN order_items oi ON oi.order_id = o.order_id WHERE ${REALISED}`;
+  const cases: [string, string, boolean?][] = [
+    ["month over month revenue growth in 2025",
+      `WITH t AS (${REVQ} AND strftime('%Y', o.order_date) = '2025' GROUP BY 1) SELECT m, ROUND(v / LAG(v) OVER (ORDER BY m) - 1, 4) FROM t ORDER BY m`, true],
+    ["which quarter saw the biggest increase in orders",
+      "WITH t AS (SELECT strftime('%Y', order_date) || '-Q' || ((CAST(strftime('%m', order_date) AS INTEGER) + 2) / 3) AS q, COUNT(*) AS n FROM orders GROUP BY 1) SELECT q, ROUND(n * 1.0 / LAG(n) OVER (ORDER BY q) - 1, 4) AS g FROM t ORDER BY g DESC LIMIT 1", true],
+    ["best selling product in each category",
+      `WITH t AS (SELECT p.category, p.name, SUM(oi.quantity) AS u FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id WHERE ${REALISED} GROUP BY p.category, p.product_id), r AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY category ORDER BY u DESC) AS rn FROM t) SELECT category, name, u FROM r WHERE rn = 1`],
+    ["top 2 customers by revenue in every country",
+      `WITH t AS (SELECT c.country, c.name, ${REV} AS v FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN customers c ON c.customer_id = o.customer_id WHERE ${REALISED} GROUP BY c.country, c.customer_id), r AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY country ORDER BY v DESC) AS rn FROM t) SELECT country, rn, name, ROUND(v, 2) FROM r WHERE rn <= 2`],
+    ["what percentage of orders came from mobile in 2025",
+      "SELECT ROUND(1.0 * SUM(channel = 'mobile') / COUNT(*), 4) FROM orders WHERE strftime('%Y', order_date) = '2025'"],
+    ["Footwear's share of revenue by year",
+      `SELECT strftime('%Y', o.order_date), ROUND(SUM(CASE WHEN p.category = 'Footwear' THEN oi.quantity * oi.unit_price * (1 - oi.discount) ELSE 0 END) / ${REV}, 4) FROM orders o JOIN order_items oi ON oi.order_id = o.order_id JOIN products p ON p.product_id = oi.product_id WHERE ${REALISED} GROUP BY 1`],
+    ["how many repeat customers do we have",
+      "WITH t AS (SELECT customer_id, COUNT(*) AS n FROM orders GROUP BY 1) SELECT COUNT(*), SUM(n >= 2), ROUND(1.0 * SUM(n >= 2) / COUNT(*), 4) FROM t"],
+    ["customer retention from 2024 to 2025",
+      "WITH a AS (SELECT DISTINCT customer_id FROM orders WHERE strftime('%Y', order_date) = '2024'), b AS (SELECT DISTINCT customer_id FROM orders WHERE strftime('%Y', order_date) = '2025') SELECT COUNT(*), COUNT(b.customer_id), ROUND(1.0 * COUNT(b.customer_id) / COUNT(*), 4) FROM a LEFT JOIN b ON b.customer_id = a.customer_id"],
+  ];
+
+  it.each(cases)("%s", (question, gold, ordered) => {
+    const { compiled, result } = ask(question);
+    expect(compiled.plan.kind).not.toBe("aggregate");
+    const m = resultsMatch(rows(gold), result, ordered);
+    expect(m.reason ?? "match").toBe("match");
+  });
+
+  it("writes multi-step answers from the rows", () => {
+    expect(ask("which month had the biggest revenue growth").answer).toMatch(/^\d{4}-\d{2} had the largest revenue growth: \+\d+\.\d% vs the previous month/);
+    expect(ask("customer retention from 2024 to 2025").answer).toMatch(/customers who ordered in 2024 also ordered in 2025: \d+\.\d% retention\.$/);
+    expect(ask("what percentage of orders came from mobile in 2025").answer).toMatch(/^Mobile accounts for \d+\.\d% of orders for 2025\.$/);
+  });
+
+  it("still declines explanation and prediction", () => {
+    expect(() => parse("why did revenue drop in March?", vocab)).toThrow(NotUnderstood);
+    expect(() => parse("forecast revenue for next quarter", vocab)).toThrow(NotUnderstood);
   });
 });
