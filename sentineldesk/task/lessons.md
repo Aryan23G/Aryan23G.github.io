@@ -22,3 +22,14 @@ Each entry: what went wrong → the rule that prevents it. Newest last.
 
 7. **Misnamed tests hide intent.** "refunds the budget" asserted that it doesn't refund, and "reports duplicate deliveries" tested a closed queue.
    → After writing a test, reread the name against the assertions. A name that disagrees with the assertions is a bug.
+
+8. **A specific error was swallowed by its own base class.** `LocalOnlyError` subclasses `ValueError`; it was raised inside `try: ipaddress.ip_address(...) except ValueError`, so the helpful message ("would expose the dashboard to the network") was replaced with a generic one.
+   → Never raise inside a `try` whose `except` catches the raised type's base class. Do the parsing in a helper that returns a value (`_loopback_ip -> bool | None`), then raise outside any `try`. Test the exact message, not just the exception type.
+
+9. **Two engines must agree.** The Python port of the rules engine was checked against the TypeScript one on all 46 sample and eval tickets (0 differences). Any change to scanner patterns, weights or routing must be made in both `src/core/*.ts` and `local/sentineldesk_local/rules.py`, then re-run that parity check.
+
+10. **The dashboard overflowed on phones.** A wide `<table>` inside `overflow-x:auto` still stretched the page, because grid items default to `min-width: auto`.
+    → Give grid and flex children that hold wide content `min-width: 0`. The Playwright check asserts `scrollWidth == 390` at phone width.
+
+11. **A shutdown test was a no-op.** `pkill -f "a\|b"` uses extended regex, where `\|` is a literal pipe, so nothing matched and the "graceful stop" was never exercised.
+    → After sending a signal in a test script, assert that the process is gone (`pgrep` returns nothing) before checking anything else.

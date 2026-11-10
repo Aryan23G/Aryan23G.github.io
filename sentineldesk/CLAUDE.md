@@ -21,6 +21,25 @@ Read `task/lessons.md` before starting work. Add a rule there after every bug or
 Definition of done: `npm run typecheck && npm test && npm run build:web` pass, and `git diff --stat dist`
 shows a rebuilt bundle whenever `src/core` or `src/web` changed (CI fails on a stale bundle).
 
+## Local edition (`local/`, Python): the default way to run SentinelDesk
+
+**Cost rule: nothing in this project may call a paid service by default.** The local edition uses
+Ollama on loopback only. The TypeScript server calls Claude only if someone sets `ANTHROPIC_API_KEY`
+themselves; never set it, and never add a default that would.
+
+| Task | Command (from `local/`) |
+|---|---|
+| Setup | `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt` |
+| Tests | `.venv/bin/python -m pytest -q` (fake Ollama; no model needed) |
+| Checks only | `.venv/bin/python run.py --check` |
+| Run | `.venv/bin/python run.py --open` → http://127.0.0.1:8765 |
+
+Layout: `rules.py` (port of src/core; keep it in parity, see lesson 9), `guardrail.py`, `ollama_client.py`,
+`council.py` (Security/Sentiment/Intent in parallel → Chairman → guardrail), `db.py` (SQLite, WAL,
+atomic claim), `worker.py`, `web.py` (FastAPI + SSE), `static/dashboard.html` (no external assets), `run.py`.
+Local-only invariants: model URL and dashboard host must be loopback (`config.py`); `requests` sessions
+use `trust_env=False`; the dashboard HTML contains no `http(s)://` URL (tested).
+
 ## Architecture (do not break these boundaries)
 
 ```

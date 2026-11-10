@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SentinelDesk Local</title>
+<!-- Fully offline: no CDNs, no web fonts, no analytics. Everything below is inline. -->
+<style>
+:root{
+  --bg:#070A14;--panel:#0D1222;--panel2:#111829;--line:#1E2740;--line2:#2B3757;
+  --text:#E6EAF5;--soft:#B7BFD6;--dim:#7D87A6;
+  --ice:#8FDCEB;--amber:#F2B66B;--red:#FF7A85;--green:#7CE8AE;--violet:#B9A6FF;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font:14px/1.5 var(--sans)}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:6px}
+.wrap{max-width:1500px;margin:0 auto;padding:18px 20px 40px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,#183A4A,#2A1E52);border:1px solid var(--line2);color:var(--ice);font-weight:700}
+h1{font-size:18px;font-weight:650;letter-spacing:.2px}
+h1 small{display:block;font-size:12px;font-weight:400;color:var(--dim)}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{font:12px var(--mono);border:1px solid var(--line2);border-radius:999px;padding:4px 10px;color:var(--soft);display:flex;align-items:center;gap:6px;background:var(--panel)}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.pill.ok::before{background:var(--green);box-shadow:0 0 8px var(--green)}
+.pill.warn::before{background:var(--amber)}
+.pill.bad::before{background:var(--red)}
+.grid{display:grid;grid-template-columns:360px 1fr;gap:14px;align-items:start}
+@media(max-width:1050px){.grid{grid-template-columns:1fr}}
+/* Grid items default to min-width:auto, which lets the wide matrix stretch the page on phones. */
+.grid>*,.lanes>*,.detail>*{min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.ph h2{font-size:13px;font-weight:650;letter-spacing:.4px;text-transform:uppercase;color:var(--soft)}
+.ph .hint{font-size:12px;color:var(--dim)}
+.pb{padding:14px}
+label{display:grid;gap:4px;font-size:12px;color:var(--dim);margin-bottom:10px}
+input,textarea{background:#060912;border:1px solid var(--line2);border-radius:9px;padding:8px 10px;font-size:13px;width:100%}
+textarea{min-height:120px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{border:1px dashed var(--line2);background:none;border-radius:999px;padding:3px 9px;font-size:12px;color:var(--ice);cursor:pointer}
+.chip:hover{border-style:solid}
+.btn{border:1px solid var(--ice);background:var(--ice);color:#06121A;font-weight:650;border-radius:9px;padding:8px 14px;cursor:pointer}
+.btn:hover{background:var(--amber);border-color:var(--amber)}
+.btn:disabled{opacity:.5;cursor:progress}
+.err{color:var(--red);font-size:12px;min-height:18px;margin-top:6px}
+.queue{list-style:none;max-height:360px;overflow:auto}
+.queue li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--line);cursor:pointer}
+.queue li:hover{background:var(--panel2)}
+.queue li.sel{background:#14203A}
+.qid{font:12px var(--mono);color:var(--dim)}
+.qs{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qr{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st{font:11px var(--mono);border-radius:999px;padding:2px 8px;border:1px solid var(--line2);color:var(--soft);white-space:nowrap}
+.st.running{color:var(--ice);border-color:var(--ice);animation:pulse 1.2s ease-in-out infinite}
+.st.done{color:var(--green);border-color:#2D5A45}
+.st.sec{color:var(--red);border-color:#6B2F3A;background:#2A1219}
+.st.failed{color:var(--red);border-color:var(--red)}
+@keyframes pulse{50%{opacity:.45}}
+/* execution log */
+.lanes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:760px){.lanes{grid-template-columns:1fr}}
+.lane{background:var(--panel2);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-height:210px}
+.lh{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--line)}
+.lh b{font-size:13px}
+.lh .meta{font:11px var(--mono);color:var(--dim)}
+.lane[data-agent=security] .lh b{color:var(--red)}
+.lane[data-agent=sentiment] .lh b{color:var(--amber)}
+.lane[data-agent=intent] .lh b{color:var(--violet)}
+.lane.wide .lh b{color:var(--ice)}
+.lane.state-running{border-color:var(--ice)}
+.lane.state-failed{border-color:var(--red)}
+.ll{list-style:none;padding:8px 11px;display:grid;gap:6px;font-size:12.5px;max-height:240px;overflow:auto}
+.ll li{display:grid;grid-template-columns:62px 1fr;gap:8px;color:var(--soft)}
+.ll time{font:11px var(--mono);color:var(--dim);padding-top:1px}
+.ll li.warn span{color:var(--amber)}
+.ll li.alert span{color:#FFB3BA}
+.ll li.error span{color:var(--red)}
+.ll .empty{display:block;color:var(--dim);font-style:italic}
+.lane.wide{margin-top:10px;min-height:140px}
+.lane.wide .ll li{grid-template-columns:62px 82px 1fr}
+.ll .who{font:11px var(--mono);color:var(--dim);padding-top:1px;text-transform:uppercase}
+.rep{border-top:1px solid var(--line);padding:8px 11px;font:11.5px var(--mono);color:var(--dim);white-space:pre-wrap;word-break:break-word;max-height:150px;overflow:auto}
+/* matrix */
+.matrix{width:100%;border-collapse:collapse;font-size:13px}
+.matrix th{font:11px var(--mono);text-transform:uppercase;letter-spacing:.5px;color:var(--dim);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.matrix td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.matrix tr{cursor:pointer}
+.matrix tbody tr:hover{background:var(--panel2)}
+.matrix tr.sel{background:#14203A}
+.matrix .sub{color:var(--dim);font-size:11.5px}
+.scroll{overflow-x:auto}
+.p{font:700 12px var(--mono);border-radius:6px;padding:2px 7px;display:inline-block}
+.P1{background:#3A1520;color:var(--red)}.P2{background:#3A2A12;color:var(--amber)}.P3{background:#123040;color:var(--ice)}.P4{background:#1D2335;color:var(--soft)}
+.tag{font:11px var(--mono);border-radius:6px;padding:2px 7px;display:inline-block;border:1px solid var(--line2);color:var(--soft)}
+.tag.bad{color:var(--red);border-color:#6B2F3A}
+.tag.good{color:var(--green);border-color:#2D5A45}
+.bar{height:6px;border-radius:3px;background:var(--line);width:70px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:6px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ice),var(--amber))}
+.detail{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px;border-top:1px solid var(--line)}
+@media(max-width:900px){.detail{grid-template-columns:1fr}}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
+.card h3{font:11px var(--mono);text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin-bottom:8px}
+.card p,.card li{font-size:13px;color:var(--soft)}
+.card ul{list-style:none;display:grid;gap:6px}
+.ov{border-left:3px solid var(--amber);padding-left:8px}
+.ov b{color:var(--text);font-weight:600}
+.verdict{font-size:15px;font-weight:650}
+.verdict.bad{color:var(--red)}.verdict.good{color:var(--green)}
+.empty-state{color:var(--dim);padding:22px 14px;text-align:center}
+.section{margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><div class="logo">SD</div><h1>SentinelDesk · Agentic Council<small>Local triage on your hardware: Ollama + SQLite, no cloud calls</small></h1></div>
+    <div class="pills" role="status">
+      <span class="pill" id="pOllama">Ollama…</span>
+      <span class="pill" id="pModel">model…</span>
+      <span class="pill" id="pWorker">worker…</span>
+      <span class="pill" id="pQueue">queue…</span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <section class="panel" aria-labelledby="ingestTitle">
+        <div class="ph"><h2 id="ingestTitle">Ticket ingestion</h2><span class="hint">simulate an incoming request</span></div>
+        <form class="pb" id="form" novalidate>
+          <div class="chips" id="chips" aria-label="Sample tickets"></div>
+          <label>From<input id="fFrom" type="email" maxlength="120" placeholder="name@company.example" autocomplete="off" required></label>
+          <label>Subject<input id="fSubj" maxlength="160" placeholder="What's going on?" autocomplete="off" required></label>
+          <label>Message<textarea id="fBody" maxlength="4000" placeholder="Describe the problem, or paste a suspicious email." required></textarea></label>
+          <button class="btn" id="submit" type="submit">Send to council</button>
+          <p class="err" id="err" role="alert"></p>
+        </form>
+      </section>
+      <section class="panel section" aria-labelledby="queueTitle">
+        <div class="ph"><h2 id="queueTitle">Queue</h2><span class="hint" id="qHint"></span></div>
+        <ul class="queue" id="queue"></ul>
+      </section>
+    </div>
+
+    <div>
+      <section class="panel" aria-labelledby="logTitle">
+        <div class="ph"><h2 id="logTitle">Agentic execution log</h2><span class="hint" id="logFor">no ticket selected</span></div>
+        <div class="pb">
+          <div class="lanes">
+            <div class="lane" data-agent="security"><div class="lh"><b>Security</b><span class="meta" data-meta>idle</span></div><ul class="ll" data-log></ul><div class="rep" data-rep hidden></div></div>
+            <div class="lane" data-agent="sentiment"><div class="lh"><b>Sentiment</b><span class="meta" data-meta>idle</span></div><ul class="ll" data-log></ul><div class="rep" data-rep hidden></div></div>
+            <div class="lane" data-agent="intent"><div class="lh"><b>Intent</b><span class="meta" data-meta>idle</span></div><ul class="ll" data-log></ul><div class="rep" data-rep hidden></div></div>
+          </div>
+          <div class="lane wide" data-agent="chairman"><div class="lh"><b>Chairman · Guardrail · System</b><span class="meta" data-meta>idle</span></div><ul class="ll" data-log></ul></div>
+        </div>
+      </section>
+
+      <section class="panel section" aria-labelledby="mxTitle">
+        <div class="ph"><h2 id="mxTitle">Final triage matrix</h2><span class="hint">subagent signals → Chairman decision → guardrail</span></div>
+        <div class="scroll">
+          <table class="matrix">
+            <thead><tr><th>#</th><th>Ticket</th><th>Security</th><th>Sentiment</th><th>Intent</th><th>Priority</th><th>Route</th><th>Confidence</th><th>Engine</th><th>Overrides</th></tr></thead>
+            <tbody id="matrix"></tbody>
+          </table>
+        </div>
+        <div id="detail"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const time = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "");
+const LANES = ["security", "sentiment", "intent"];
+const laneOf = (agent) => (LANES.includes(agent) ? agent : "chairman");
+
+let tickets = [];
+let selected = null;      // ticket id shown in the log + detail
+let follow = true;        // auto-select the newest ticket until the user picks one
+let detail = null;
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(body.detail ? JSON.stringify(body.detail) : `HTTP ${res.status}`), { body });
+  return body;
+}
+
+// ---------------- health ----------------
+function pill(id, cls, text, title = "") {
+  const el = $(id);
+  el.className = `pill ${cls}`;
+  el.textContent = text;
+  el.title = title;
+}
+async function refreshHealth() {
+  try {
+    const h = await api("/api/health");
+    const o = h.ollama;
+    pill("pOllama", o.reachable ? "ok" : "bad", o.reachable ? "Ollama online" : "Ollama offline", o.error || o.url);
+    const ready = o.reachable && o.agent_model_ready && o.chairman_model_ready;
+    const models = o.agent_model === o.chairman_model ? o.agent_model : `${o.agent_model} / ${o.chairman_model}`;
+    pill("pModel", ready ? "ok" : "warn", ready ? models : `${models} · rules fallback`, ready ? "" : `Not ready. Run: ollama pull ${o.agent_model}`);
+    pill("pWorker", h.worker.alive ? "ok" : "bad", h.worker.alive ? "worker running" : "worker offline");
+    const q = h.queue;
+    pill("pQueue", q.running || q.queued ? "warn" : "ok", `${q.queued} queued · ${q.running} running · ${q.done} done${q.failed ? ` · ${q.failed} failed` : ""}`);
+  } catch {
+    pill("pOllama", "bad", "server unreachable");
+  }
+}
+
+// ---------------- ingestion ----------------
+async function loadSamples() {
+  const samples = await api("/api/samples");
+  const labels = ["Locked out", "Phishing", "CEO fraud", "Floor can't print", "VPN", "Bank change", "Software", "Tricks the AI"];
+  $("chips").innerHTML = samples.map((s, i) => `<button type="button" class="chip" data-i="${i}">${esc(labels[i] || s.subject)}</button>`).join("");
+  $("chips").onclick = (e) => {
+    const b = e.target.closest(".chip");
+    if (!b) return;
+    const s = samples[Number(b.dataset.i)];
+    $("fFrom").value = s.requester;
+    $("fSubj").value = s.subject;
+    $("fBody").value = s.body;
+  };
+}
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("err").textContent = "";
+  $("submit").disabled = true;
+  try {
+    const r = await api("/api/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requester: $("fFrom").value, subject: $("fSubj").value, body: $("fBody").value }),
+    });
+    follow = false;
+    selected = r.id;
+    $("form").reset();
+    await refreshTickets();
+    await loadDetail();
+  } catch (err) {
+    const d = err.body?.detail;
+    $("err").textContent = Array.isArray(d) ? d.map((x) => `${x.loc?.at(-1)}: ${x.msg}`).join("; ") : err.message;
+  } finally {
+    $("submit").disabled = false;
+  }
+});
+
+// ---------------- queue + matrix ----------------
+function statusTag(t) {
+  if (t.status === "done") return t.security_flag ? `<span class="st sec">security</span>` : `<span class="st done">${esc(t.priority)}</span>`;
+  return `<span class="st ${esc(t.status)}">${esc(t.status)}</span>`;
+}
+function renderQueue() {
+  $("qHint").textContent = `${tickets.length} recent`;
+  $("queue").innerHTML = tickets.length
+    ? tickets.map((t) => `<li class="${t.id === selected ? "sel" : ""}" data-id="${t.id}" tabindex="0"><span class="qid">#${t.id}</span><div style="min-width:0"><div class="qs">${esc(t.subject)}</div><div class="qr">${esc(t.requester)}</div></div>${statusTag(t)}</li>`).join("")
+    : `<li class="empty-state" style="display:block;cursor:default">No tickets yet. Pick a sample above.</li>`;
+}
+function renderMatrix() {
+  $("matrix").innerHTML = tickets.length
+    ? tickets.map((t) => {
+        const r = t.reports || {};
+        const sec = r.security ? `<span class="tag ${r.security.is_attack ? "bad" : "good"}">${r.security.is_attack ? esc(r.security.attack_type) : "clean"}</span><div class="sub">${Math.round(r.security.confidence * 100)}%</div>` : `<span class="sub">—</span>`;
+        const sen = r.sentiment ? `${esc(r.sentiment.sentiment)}<div class="sub">urgency ${esc(r.sentiment.urgency)} · ${esc(r.sentiment.people_affected)}</div>` : `<span class="sub">—</span>`;
+        const intent = r.intent ? `${esc(r.intent.category)}<div class="sub">${esc(r.intent.intent)}</div>` : `<span class="sub">—</span>`;
+        const done = t.status === "done";
+        return `<tr class="${t.id === selected ? "sel" : ""}" data-id="${t.id}">
+          <td class="sub">#${t.id}</td>
+          <td>${esc(t.subject)}<div class="sub">${esc(t.requester)}</div></td>
+          <td>${sec}</td><td>${sen}</td><td>${intent}</td>
+          <td>${done ? `<span class="p ${esc(t.priority)}">${esc(t.priority)}</span>${t.security_flag ? ` <span class="tag bad">SOC</span>` : ""}` : statusTag(t)}</td>
+          <td>${done ? esc(t.escalate_to || "Service Desk") : ""}</td>
+          <td>${done ? `<span class="bar"><i style="width:${Math.round((t.confidence || 0) * 100)}%"></i></span>${Math.round((t.confidence || 0) * 100)}%` : ""}</td>
+          <td>${done ? `<span class="tag">${esc(t.mode === "council" ? "council" : "rules")}</span>` : ""}</td>
+          <td>${done ? (t.overrides ? `<span class="tag bad">${t.overrides}</span>` : `<span class="sub">0</span>`) : ""}</td>
+        </tr>`;
+      }).join("")
+    : `<tr><td colspan="10" class="empty-state">Decisions appear here as the council finishes each ticket.</td></tr>`;
+}
+async function refreshTickets() {
+  tickets = await api("/api/tickets?limit=50");
+  if (follow && tickets.length && selected !== tickets[0].id) {
+    selected = tickets[0].id;
+    await loadDetail();
+  }
+  renderQueue();
+  renderMatrix();
+}
+function pick(id) {
+  follow = false;
+  selected = id;
+  renderQueue();
+  renderMatrix();
+  loadDetail();
+}
+$("queue").addEventListener("click", (e) => { const li = e.target.closest("li[data-id]"); if (li) pick(Number(li.dataset.id)); });
+$("queue").addEventListener("keydown", (e) => { const li = e.target.closest("li[data-id]"); if (li && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pick(Number(li.dataset.id)); } });
+$("matrix").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) pick(Number(tr.dataset.id)); });
+
+// ---------------- execution log ----------------
+function lane(name) { return document.querySelector(`.lane[data-agent="${name}"]`); }
+function resetLanes() {
+  for (const name of [...LANES, "chairman"]) {
+    const l = lane(name);
+    l.className = `lane${name === "chairman" ? " wide" : ""}`;
+    l.querySelector("[data-log]").innerHTML = `<li class="empty">waiting…</li>`;
+    l.querySelector("[data-meta]").textContent = "idle";
+    const rep = l.querySelector("[data-rep]");
+    if (rep) { rep.hidden = true; rep.textContent = ""; }
+  }
+}
+function appendEvent(e) {
+  const name = laneOf(e.agent);
+  const ul = lane(name).querySelector("[data-log]");
+  ul.querySelector(".empty")?.remove();
+  const who = name === "chairman" ? `<span class="who">${esc(e.agent)}</span>` : "";
+  ul.insertAdjacentHTML("beforeend", `<li class="${esc(e.level)}"><time>${time(e.ts)}</time>${who}<span>${esc(e.message)}</span></li>`);
+  ul.scrollTop = ul.scrollHeight;
+  if (LANES.includes(e.agent) && /^Started/.test(e.message)) setLaneState(e.agent, "running", "running…");
+}
+function setLaneState(name, state, meta) {
+  const l = lane(name);
+  l.classList.remove("state-running", "state-failed", "state-done");
+  l.classList.add(`state-${state}`);
+  l.querySelector("[data-meta]").textContent = meta;
+}
+async function loadDetail() {
+  if (selected == null) return;
+  const id = selected;
+  const t = await api(`/api/tickets/${id}`);
+  if (id !== selected) return;
+  detail = t;
+  $("logFor").textContent = `ticket #${t.id} · ${t.status}`;
+  resetLanes();
+  t.events.forEach(appendEvent);
+  for (const run of t.agent_runs) {
+    const name = laneOf(run.agent);
+    const meta = `${run.model} · ${(run.duration_ms / 1000).toFixed(1)}s · ${run.prompt_tokens + run.output_tokens} tok`;
+    if (LANES.includes(run.agent)) {
+      setLaneState(run.agent, run.status === "ok" ? "done" : "failed", run.status === "ok" ? meta : `failed · ${meta}`);
+      const rep = lane(name).querySelector("[data-rep]");
+      rep.hidden = false;
+      rep.textContent = run.output ? JSON.stringify(run.output, null, 1) : run.error || "";
+    } else {
+      setLaneState("chairman", run.status === "ok" ? "done" : "failed", meta);
+    }
+  }
+  if (t.status === "done" && t.mode === "rules") setLaneState("chairman", "done", "offline rules engine");
+  renderDetail(t);
+}
+function renderDetail(t) {
+  if (t.status !== "done" || !t.final) {
+    $("detail").innerHTML = t.status === "failed" ? `<div class="detail"><div class="card"><h3>Failed</h3><p>${esc(t.error)}</p></div></div>` : "";
+    return;
+  }
+  const f = t.final;
+  const overrides = f.overrides.length
+    ? `<ul>${f.overrides.map((o) => `<li class="ov"><b>${esc(o.field)}</b>: ${esc(JSON.stringify(o.from))} → ${esc(JSON.stringify(o.to))}<div class="sub">${esc(o.reason)}</div></li>`).join("")}</ul>`
+    : `<p>The guardrail accepted the council's decision unchanged.</p>`;
+  $("detail").innerHTML = `<div class="detail">
+    <div class="card"><h3>Final decision · ticket #${t.id}</h3>
+      <p class="verdict ${f.security_flag ? "bad" : "good"}">${f.security_flag ? "Security incident: sent to the SOC, no reply to the sender" : `${esc(f.category)} → ${esc(f.escalate_to || "Service Desk")}`}</p>
+      <p style="margin-top:6px"><span class="p ${esc(f.priority)}">${esc(f.priority)}</span> · confidence ${Math.round(f.confidence * 100)}% · ${esc(t.mode === "council" ? `council (${t.model})` : "offline rules")}</p>
+      ${t.fallback_reason ? `<p class="sub" style="margin-top:6px">${esc(t.fallback_reason)}</p>` : ""}
+      <p style="margin-top:8px"><b>Reasoning:</b> ${esc(f.reasoning)}</p>
+      ${f.security_reasons.length ? `<h3 style="margin-top:10px">Indicators</h3><ul>${f.security_reasons.slice(0, 8).map((r) => `<li>• ${esc(r)}</li>`).join("")}</ul>` : ""}
+    </div>
+    <div class="card"><h3>${f.security_flag ? "Note for the security analyst" : "Suggested reply"}</h3><p>${esc(f.suggested_response)}</p>
+      ${f.kb_refs.length ? `<p class="sub" style="margin-top:6px">Grounded in ${esc(f.kb_refs.join(", "))}</p>` : ""}
+      <h3 style="margin-top:12px">Guardrail</h3>${overrides}
+    </div></div>`;
+}
+
+// ---------------- live stream ----------------
+function connectStream() {
+  const es = new EventSource("/api/stream");
+  es.addEventListener("log", async (msg) => {
+    const e = JSON.parse(msg.data);
+    if (e.ticket_id != null && e.ticket_id === selected) appendEvent(e);
+    if (e.agent === "system" || e.agent === "chairman") {
+      await refreshTickets();
+      if (e.ticket_id === selected && /done|failed/.test(e.message)) loadDetail();
+    }
+    if (e.ticket_id == null) refreshHealth();
+  });
+  es.onerror = () => { es.close(); setTimeout(connectStream, 2000); };
+}
+
+(async function start() {
+  resetLanes();
+  await Promise.all([refreshHealth(), loadSamples(), refreshTickets()]);
+  connectStream();
+  setInterval(refreshHealth, 4000);
+  setInterval(refreshTickets, 5000);
+})();
+</script>
+</body>
+</html>
