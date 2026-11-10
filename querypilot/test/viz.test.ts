@@ -63,6 +63,9 @@ describe("toCsv", () => {
 describe("formatValue", () => {
   it("formats rates, ids and numbers", () => {
     expect(formatValue(0.2031, "return_rate")).toBe("20.3%");
+    expect(formatValue(0.5294, "growth")).toBe("52.9%");
+    expect(formatValue(1.6604, "growth")).toBe("166.0%");
+    expect(formatValue(0.9565, "retention")).toBe("95.7%");
     expect(formatValue(2025, "year")).toBe("2025");
     expect(formatValue(1234567.891, "revenue")).toBe("1,234,567.89");
     expect(formatValue(null)).toBe("NULL");
