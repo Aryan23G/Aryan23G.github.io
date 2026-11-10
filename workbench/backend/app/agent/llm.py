@@ -1,17 +1,21 @@
-"""State 2 backend: Claude as a structured SQL generator.
+"""State 2 backend: an LLM as a structured SQL generator.
 
 `SqlGenerator` is the seam between the state machine and the model. The
-production implementation calls Claude with structured outputs (the response
-is validated into `SqlDraft`); tests inject a scripted generator, so the graph
-is fully testable without network access.
+production implementation talks to any OpenAI-compatible `/chat/completions`
+endpoint (a local Ollama, vLLM, LM Studio or llama.cpp server, or a hosted
+provider) and asks for JSON matching the `SqlDraft` schema, which is then
+validated with Pydantic. Tests inject a scripted generator, so the graph is
+fully testable without network access.
 """
 
 from __future__ import annotations
 
+import json
 import time
-from typing import Any, Protocol, cast
+from typing import Any, Protocol
 
-import anthropic
+import httpx
+from opentelemetry import trace
 from pydantic import BaseModel, ValidationError
 
 from app.agent.prompts import system_prompt
@@ -37,73 +41,106 @@ class SqlGenerator(Protocol):
     async def generate(self, *, dialect: str, user_prompt: str) -> GenerationResult: ...
 
 
-class ClaudeSqlGenerator:
+class OpenAICompatibleSqlGenerator:
+    """Structured SQL drafts from an OpenAI-compatible chat completions API."""
+
     def __init__(
         self,
-        client: anthropic.AsyncAnthropic,
         *,
+        base_url: str,
         model: str,
-        effort: str = "medium",
-        max_tokens: int = 16_000,
-        server_fallbacks: bool = True,
+        api_key: str | None = None,
+        max_tokens: int = 4_000,
+        timeout_s: float = 120.0,
+        trace_content: bool = False,
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
-        self._client = client
+        self._url = base_url.rstrip("/") + "/chat/completions"
         self._model = model
-        self._effort = effort
         self._max_tokens = max_tokens
-        # Server-side refusal fallback is offered on Opus/Sonnet-tier models (not Haiku).
-        self._fallbacks = server_fallbacks and "haiku" not in model
+        self._trace_content = trace_content
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        self._client = http_client or httpx.AsyncClient(timeout=timeout_s)
+        self._headers = headers
 
     @property
     def model(self) -> str:
         return self._model
 
     async def generate(self, *, dialect: str, user_prompt: str) -> GenerationResult:
-        extra: dict[str, Any] = {}
-        if self._fallbacks:
-            extra = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
+        body: dict[str, Any] = {
+            "model": self._model,
+            "max_tokens": self._max_tokens,
+            "temperature": 0,
+            "messages": [
+                {"role": "system", "content": system_prompt(dialect)},
+                {"role": "user", "content": user_prompt},
+            ],
+            # Structured output: servers that support JSON schema constrain decoding to it;
+            # the reply is validated against SqlDraft either way.
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "sql_draft", "schema": SqlDraft.model_json_schema()},
+            },
+        }
         started = time.perf_counter()
         try:
-            # Raw response first: on refusal / truncation the body is not valid SqlDraft JSON, and
-            # parse() would raise a validation error that hides the real stop_reason.
-            raw = await self._client.beta.messages.with_raw_response.parse(
-                model=self._model,
-                max_tokens=self._max_tokens,
-                # Static per dialect -> cached across runs.
-                system=[{"type": "text", "text": system_prompt(dialect), "cache_control": {"type": "ephemeral"}}],
-                messages=[{"role": "user", "content": user_prompt}],
-                output_format=SqlDraft,
-                output_config=cast(Any, {"effort": self._effort}),
-                **extra,
-            )
-        except anthropic.APIStatusError as exc:
-            raise GenerationError(f"Claude API error {exc.status_code}: {exc.message}") from exc
-        except anthropic.APIConnectionError as exc:
-            raise GenerationError(f"Could not reach the Claude API: {exc}") from exc
+            response = await self._client.post(self._url, json=body, headers=self._headers)
+        except httpx.HTTPError as exc:
+            raise GenerationError(f"Could not reach the LLM endpoint {self._url}: {exc}") from exc
         latency_ms = round((time.perf_counter() - started) * 1000, 1)
+        if response.status_code != 200:
+            raise GenerationError(f"LLM API error {response.status_code}: {_error_message(response)}")
 
-        stop_reason = raw.http_response.json().get("stop_reason")
-        if stop_reason == "refusal":
-            raise GenerationError("Claude declined to answer this request.")
-        if stop_reason == "max_tokens":
+        payload = response.json()
+        choice = (payload.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        if message.get("refusal"):
+            raise GenerationError(f"The model declined to answer this request: {message['refusal']}")
+        if choice.get("finish_reason") == "length":
             raise GenerationError("Generation hit max_tokens before completing the SQL draft.")
+        content = message.get("content") or ""
+        if not content.strip():
+            raise GenerationError("The model returned no structured output.")
         try:
-            response = await raw.parse()
+            draft = SqlDraft.model_validate_json(_strip_fences(content))
         except ValidationError as exc:
             raise GenerationError(
-                f"Claude's output did not match the SqlDraft schema ({exc.error_count()} errors)") from exc
-        draft = response.parsed_output
-        if draft is None:
-            raise GenerationError("Claude returned no structured output.")
+                f"The model's output did not match the SqlDraft schema ({exc.error_count()} errors)") from exc
 
-        u = response.usage
+        if self._trace_content:
+            span = trace.get_current_span()
+            span.set_attribute("gen_ai.prompt", user_prompt)
+            span.set_attribute("gen_ai.completion", content)
+
+        u = payload.get("usage") or {}
+        prompt_tokens = int(u.get("prompt_tokens") or 0)
+        cached = int((u.get("prompt_tokens_details") or {}).get("cached_tokens") or 0)
         usage = TokenUsage(
-            input_tokens=u.input_tokens or 0,
-            output_tokens=u.output_tokens or 0,
-            cache_read_input_tokens=u.cache_read_input_tokens or 0,
-            cache_creation_input_tokens=u.cache_creation_input_tokens or 0,
+            input_tokens=prompt_tokens - cached,
+            output_tokens=int(u.get("completion_tokens") or 0),
+            cache_read_input_tokens=cached,
         )
         return GenerationResult(
-            draft=draft, usage=usage, model=response.model, latency_ms=latency_ms,
-            request_id=raw.headers.get("request-id"),
+            draft=draft, usage=usage, model=str(payload.get("model") or self._model), latency_ms=latency_ms,
+            request_id=response.headers.get("x-request-id") or payload.get("id"),
         )
+
+
+def _error_message(response: httpx.Response) -> str:
+    try:
+        err = response.json().get("error")
+    except json.JSONDecodeError:
+        return response.text[:200]
+    if isinstance(err, dict):
+        return str(err.get("message") or err)
+    return str(err or response.text[:200])
+
+
+def _strip_fences(text: str) -> str:
+    """Some local servers wrap JSON in a ```json fence even in JSON mode."""
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.split("\n", 1)[1] if "\n" in t else ""
+        t = t.rsplit("```", 1)[0]
+    return t.strip()

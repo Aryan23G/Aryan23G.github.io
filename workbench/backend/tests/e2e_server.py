@@ -1,4 +1,4 @@
-"""API server for end-to-end tests: the real app with a scripted SQL generator instead of Claude.
+"""API server for end-to-end tests: the real app with a scripted SQL generator instead of an LLM.
 
     python -m tests.e2e_server            # http://127.0.0.1:8000  (QP_E2E_PORT to change)
 

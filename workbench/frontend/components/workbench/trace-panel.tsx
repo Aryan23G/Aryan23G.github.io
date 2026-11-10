@@ -183,7 +183,7 @@ export function TracePanel({ state }: { state: RunState }) {
       <ScrollArea className="min-h-0 flex-1">
         {!t && state.status !== "running" && state.log.length === 0 && (
           <p className="p-3 font-mono text-2xs text-muted-foreground">
-            No run yet. Token usage, per-node latency, the tables injected by RAG, Claude&apos;s reasoning chain and every self-correction cycle appear here.
+            No run yet. Token usage, per-node latency, the tables injected by RAG, the model&apos;s reasoning chain and every self-correction cycle appear here.
           </p>
         )}
         {t && (

@@ -1,12 +1,12 @@
 """Live execution-accuracy evaluation of the agent against the sample warehouse.
 
-    ANTHROPIC_API_KEY=... python -m eval.run                          # all questions, configured model
-    ANTHROPIC_API_KEY=... python -m eval.run --model claude-haiku-5-5 --only h
+    python -m eval.run                                  # all questions, configured model
+    python -m eval.run --model llama3.1:8b --only h     # another model, hard questions only
 
-Runs every question through the real agent (real Claude API, schema RAG, SQLGlot,
-read-only executor), executes the gold SQL through the same guard and executor,
-and compares result sets with `eval.compare.results_match`. Writes a JSON report
-to eval/results/. This makes real API calls and costs tokens.
+Runs every question through the real agent (the configured LLM endpoint, schema
+RAG, SQLGlot, read-only executor), executes the gold SQL through the same guard
+and executor, and compares result sets with `eval.compare.results_match`. Writes a
+JSON report to eval/results/. With a hosted endpoint this makes paid API calls.
 """
 
 from __future__ import annotations
@@ -81,14 +81,14 @@ async def evaluate(container: Container, questions: list[dict[str, Any]]) -> dic
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--model", help="Override QP_ANTHROPIC_MODEL")
+    parser.add_argument("--model", help="Override QP_LLM_MODEL")
     parser.add_argument("--only", help="Only question ids with this prefix (e.g. 'h' or 'm03')")
     args = parser.parse_args()
 
     db = seed.ensure()
     overrides: dict[str, Any] = {"database_url": f"sqlite:///{db}", "qdrant_path": None}
     if args.model:
-        overrides["anthropic_model"] = args.model
+        overrides["llm_model"] = args.model
     settings = Settings().model_copy(update=overrides)
     container = build_container(settings)
     try:

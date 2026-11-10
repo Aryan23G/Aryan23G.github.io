@@ -77,9 +77,9 @@ async def test_unanswerable_skips_execution(make_container) -> None:  # type: ig
 
 
 async def test_generation_error_fails_cleanly(make_container) -> None:  # type: ignore[no-untyped-def]
-    c, _ = make_container([GenerationError("Claude declined to answer this request.")])
+    c, _ = make_container([GenerationError("The model declined to answer this request.")])
     trace = await c.runner.run("anything")
-    assert trace.outcome == "failed" and trace.error == "Claude declined to answer this request."
+    assert trace.outcome == "failed" and trace.error == "The model declined to answer this request."
 
 
 async def test_stream_emits_running_then_done_for_each_state(make_container) -> None:  # type: ignore[no-untyped-def]

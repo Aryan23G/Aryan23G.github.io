@@ -32,7 +32,7 @@ def draft(sql: str, *, answerable: bool = True, reasoning: list[str] | None = No
 
 
 class ScriptedGenerator:
-    """Deterministic stand-in for Claude: returns queued drafts and records every prompt it was given."""
+    """Deterministic stand-in for the LLM: returns queued drafts and records every prompt it was given."""
 
     def __init__(self, script: list[SqlDraft | Exception]) -> None:
         self.script = list(script)
