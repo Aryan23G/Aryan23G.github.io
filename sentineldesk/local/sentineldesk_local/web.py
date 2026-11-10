@@ -46,6 +46,7 @@ def create_app(settings: Settings, db: Database | None = None, client: OllamaCli
     db = db or Database(settings.db_path)
     db.init()
     client = client or OllamaClient(settings.ollama_url, settings.request_timeout_s)
+    profile = settings.load_profile()
     app = FastAPI(title="SentinelDesk Local", docs_url="/api/docs", redoc_url=None)
 
     @app.get("/", include_in_schema=False)
@@ -68,7 +69,8 @@ def create_app(settings: Settings, db: Database | None = None, client: OllamaCli
         beat = (db.get_meta("worker_heartbeat") or "0||").split("|")
         age = time.time() - float(beat[0] or 0)
         worker = {"alive": age < 10, "last_seen_s": round(age, 1) if float(beat[0] or 0) > 0 else None}
-        return {"ok": True, "ollama": ollama, "worker": worker, "queue": db.counts(), "db": str(settings.db_path)}
+        profile_info = {"name": profile.name, "domains": list(profile.internal_domains), "teams": len(profile.teams), "kb_articles": len(profile.kb), "source": profile.source}
+        return {"ok": True, "ollama": ollama, "worker": worker, "queue": db.counts(), "db": str(settings.db_path), "profile": profile_info}
 
     @app.get("/api/samples")
     def samples() -> list[dict]:

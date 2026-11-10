@@ -1,4 +1,6 @@
-"""Deterministic detection engine: scanner, sender check, knowledge base, offline triage.
+"""Deterministic detection engine: scanner, sender check, knowledge-base search, offline triage.
+
+Company-specific data (domains, teams, categories, KB) comes from an OrgProfile (profile.py).
 
 A Python port of src/core (scanner.ts, sender.ts, knowledge.ts, rules.ts). It never calls a
 model, so a ticket cannot talk its way past it. The council uses it as evidence, the guardrail
@@ -12,12 +14,11 @@ from dataclasses import asdict, dataclass, field
 from typing import Literal
 from urllib.parse import urlparse
 
+from .profile import OTHER_CATEGORY, PRIORITIES, SECURITY_CATEGORY, OrgProfile, demo_profile
+
 RiskLevel = Literal["clean", "low", "medium", "high"]
 Priority = Literal["P1", "P2", "P3", "P4"]
-PRIORITIES: tuple[str, ...] = ("P1", "P2", "P3", "P4")
-
-INTERNAL_DOMAIN = "company.example"
-SOC_TEAM = "Security Operations Center (SOC)"
+__all__ = ["PRIORITIES", "OrgProfile"]
 
 # ---------------------------------------------------------------- scanner
 
@@ -144,8 +145,6 @@ def scan_for_security_indicators(text: str) -> ScanResult:
 
 # ---------------------------------------------------------------- sender
 
-_FREE_MAIL = ("gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "proton.me", "protonmail.com", "icloud.com", "aol.com")
-
 
 @dataclass
 class SenderCheck:
@@ -159,71 +158,35 @@ class SenderCheck:
         return asdict(self)
 
 
-def check_sender_domain(email: str) -> SenderCheck:
+def check_sender_domain(email: str, profile: OrgProfile | None = None) -> SenderCheck:
+    p = profile or demo_profile()
     domain = (email.split("@")[1] if "@" in email else "").lower().strip()
-    internal = domain == INTERNAL_DOMAIN
-    free_mail = domain in _FREE_MAIL
-    brand = INTERNAL_DOMAIN.split(".")[0]
+    internal = p.is_internal(domain)
+    free_mail = domain in p.free_mail_domains
+    # Undo common look-alike substitutions (0 -> o, 1 -> l, separators) before comparing.
     normalized = domain.replace("0", "o").replace("1", "l").replace("-", "").replace("_", "")
-    lookalike = not internal and (brand in normalized or brand in domain)
+    lookalike = not internal and any(t in normalized or t in domain for t in p.brand_tokens)
     notes: list[str] = []
     if internal:
         notes.append("Sender is on the internal company domain.")
     if free_mail:
         notes.append("Sender uses a free personal email provider; cannot verify identity.")
     if lookalike:
-        notes.append(f'Domain "{domain}" imitates the company domain "{INTERNAL_DOMAIN}". Strong impersonation indicator.')
+        notes.append(f'Domain "{domain}" imitates the company domain "{p.primary_domain}". Strong impersonation indicator.')
     if not (internal or free_mail or lookalike):
         notes.append("External sender domain.")
     return SenderCheck(domain=domain, internal=internal, free_mail=free_mail, lookalike=lookalike, notes=notes)
 
 
-# ---------------------------------------------------------------- knowledge base and teams
-
-KNOWLEDGE_BASE: list[dict] = [
-    {"id": "KB-101", "title": "Resetting a forgotten network password", "tags": ["password", "reset", "login", "locked", "account", "access"],
-     "content": "Users can reset their password at the self-service portal after verifying MFA. If the account is locked after 5 failed attempts, it unlocks automatically after 15 minutes, or the Service Desk can unlock it after verifying identity with a callback to the number on file. IT will NEVER ask for your password by email or chat."},
-    {"id": "KB-102", "title": "Setting up or replacing an MFA device", "tags": ["mfa", "authenticator", "2fa", "new phone", "verification", "code"],
-     "content": "If you got a new phone, sign in from a trusted computer and add the new device under Security Info. If you have no trusted device, open a ticket and the Service Desk will verify your identity by video call before issuing a temporary access pass. Never share MFA codes with anyone, including IT."},
-    {"id": "KB-201", "title": "Reporting a suspicious email", "tags": ["phishing", "suspicious", "email", "scam", "link", "attachment", "spam"],
-     "content": "Do not click links or open attachments. Use the Report Phishing button in Outlook, or forward the message as an attachment to security@company.example. If you already clicked a link or entered credentials, reset your password immediately and contact the Security Operations Center (SOC) by phone."},
-    {"id": "KB-202", "title": "What to do if you think your account is compromised", "tags": ["compromised", "hacked", "breach", "unauthorized", "sign-in", "suspicious activity"],
-     "content": "Reset your password, sign out of all sessions from the account portal, and contact the SOC immediately. Do not delete suspicious emails; the SOC may need them for investigation."},
-    {"id": "KB-301", "title": "Connecting to the corporate VPN", "tags": ["vpn", "remote", "connect", "network", "home", "globalprotect", "gateway"],
-     "content": "Install GlobalProtect from the Software Center, connect to vpn.company.example, and sign in with your network credentials plus MFA. If it fails with 'gateway unreachable', check your home internet, then restart the GlobalProtect service."},
-    {"id": "KB-302", "title": "Wi-Fi drops or slow network in the office", "tags": ["wifi", "wi-fi", "slow", "network", "internet", "disconnect"],
-     "content": "Forget and rejoin the CORP-SECURE network. If multiple people in the same area are affected, it is likely an access point issue and should be raised to Network Operations as a P2."},
-    {"id": "KB-401", "title": "Laptop won't turn on or is running slowly", "tags": ["laptop", "hardware", "slow", "won't turn on", "battery", "screen", "computer"],
-     "content": "Hold the power button for 15 seconds, connect the charger, and try again. For slowness, restart and check that updates have finished. Physical damage or a device that will not power on requires a hardware swap from Desktop Support."},
-    {"id": "KB-402", "title": "Printer not working", "tags": ["printer", "print", "printing", "queue", "toner", "jam"],
-     "content": "Check the printer display for jams or toner warnings. Remove and re-add the printer from Settings > Printers. If a whole floor cannot print, escalate to Desktop Support as a P2."},
-    {"id": "KB-501", "title": "Requesting new software", "tags": ["software", "install", "installed", "license", "request", "application", "admin rights"],
-     "content": "Approved software is available in the Software Center. Anything else requires a Software Request in the service catalog with manager approval. Users do not receive local admin rights."},
-    {"id": "KB-502", "title": "Outlook or Teams not syncing", "tags": ["outlook", "teams", "email", "calendar", "sync", "not loading"],
-     "content": "Sign out and back in, then clear the cache. For Outlook, run the repair tool from Control Panel. Mailbox-wide outages should be escalated to Collaboration Services."},
-    {"id": "KB-601", "title": "New hire onboarding and access requests", "tags": ["new hire", "onboarding", "access", "permissions", "shared drive", "group"],
-     "content": "Access to shared drives and groups requires a catalog request approved by the data owner. New hire accounts are created from HR's onboarding record, not from email requests."},
-    {"id": "KB-701", "title": "Payroll and banking detail changes", "tags": ["payroll", "direct deposit", "bank", "banking", "pay"],
-     "content": "Banking changes can ONLY be made by the employee in the HR portal after MFA. IT and HR will never change banking details from an email request. Treat any such request as suspicious and report it to the SOC."},
-]
-KB_BY_ID = {a["id"]: a for a in KNOWLEDGE_BASE}
-
-ESCALATION_TEAMS: list[dict] = [
-    {"name": SOC_TEAM, "handles": "Phishing, credential theft, compromised accounts, malware, fraud or payment-change requests, any suspected security incident"},
-    {"name": "Identity & Access Management", "handles": "Account lockouts that self-service cannot fix, MFA re-registration, permission and group access changes"},
-    {"name": "Network Operations", "handles": "VPN outages, office Wi-Fi or wired network problems affecting multiple users, firewall requests"},
-    {"name": "Desktop Support", "handles": "Hardware failures, laptop swaps, printers, peripherals, OS rebuilds"},
-    {"name": "Collaboration Services", "handles": "Email, Teams, SharePoint and calendar outages or mailbox issues"},
-    {"name": "Application Support", "handles": "Business application errors, software installs and licensing"},
-]
-TEAM_NAMES: tuple[str, ...] = tuple(t["name"] for t in ESCALATION_TEAMS)
+# ---------------------------------------------------------------- knowledge base
 
 
-def search_knowledge_base(query: str, limit: int = 3) -> list[dict]:
+def search_knowledge_base(query: str, limit: int = 3, profile: OrgProfile | None = None) -> list[dict]:
     """Keyword search: tag hits score 3, body hits score 1. Ties keep catalogue order."""
+    p = profile or demo_profile()
     terms = [t for t in re.split(r"[^a-z0-9-]+", query.lower()) if len(t) > 2]
     scored = []
-    for article in KNOWLEDGE_BASE:
+    for article in p.kb:
         haystack = f"{article['title']} {article['content']}".lower()
         score = 0
         for term in terms:
@@ -253,8 +216,8 @@ def ticket_text(subject: str, body: str) -> str:
     return f"{subject}\n{body}"
 
 
-def gather_evidence(subject: str, body: str, requester: str) -> Evidence:
-    return Evidence(scan=scan_for_security_indicators(ticket_text(subject, body)), sender=check_sender_domain(requester))
+def gather_evidence(subject: str, body: str, requester: str, profile: OrgProfile | None = None) -> Evidence:
+    return Evidence(scan=scan_for_security_indicators(ticket_text(subject, body)), sender=check_sender_domain(requester, profile))
 
 
 def assess_incident(ev: Evidence) -> tuple[bool, list[str]]:
@@ -264,53 +227,40 @@ def assess_incident(ev: Evidence) -> tuple[bool, list[str]]:
     return incident, reasons
 
 
-ANALYST_NOTE = (
-    "Internal analyst note: Do not reply to the sender or act on this request. Quarantine the message, search for other "
-    "recipients, and block the sender domain and any linked URLs. Follow KB-201 and KB-701."
-)
-
-
-def grounded_reply(requester: str, kb_refs: list[str], escalate_to: str | None) -> str:
+def grounded_reply(requester: str, kb_refs: list[str], escalate_to: str | None, profile: OrgProfile | None = None) -> str:
+    p = profile or demo_profile()
     first = (requester.split("@")[0] or "").split(".")[0] or "there"
-    article = next((KB_BY_ID[i] for i in kb_refs if i in KB_BY_ID), None)
+    article = next((p.kb_by_id[i] for i in kb_refs if i in p.kb_by_id), None)
     body = article["content"] if article else "A technician will review your request shortly."
     routed = f" We've also routed this to {escalate_to}." if escalate_to else ""
     ref = f" (Ref: {', '.join(kb_refs)})" if kb_refs else ""
     return f"Hi {first}, thanks for reaching out. {body}{routed}{ref}"
 
 
-_CATEGORY_RULES: list[tuple[re.Pattern[str], str, str, str | None]] = [
-    (re.compile(r"\b(vpn|wi-?fi|network|internet|gateway)\b", re.I), "Network", "P3", "Network Operations"),
-    (re.compile(r"\b(install|software|license|figma|adobe|application)\b", re.I), "Software", "P4", "Application Support"),
-    (re.compile(r"\b(print|printer|laptop|monitor|keyboard|screen|battery)\b", re.I), "Hardware", "P3", "Desktop Support"),
-    (re.compile(r"\b(password|locked|log ?in|mfa|authenticator|access)\b", re.I), "Access & Accounts", "P3", None),
-    (re.compile(r"\b(outlook|teams|sharepoint|calendar|mailbox)\b", re.I), "Email & Collaboration", "P3", "Collaboration Services"),
-]
-
-
-def triage_with_rules(subject: str, body: str, requester: str) -> dict:
+def triage_with_rules(subject: str, body: str, requester: str, profile: OrgProfile | None = None) -> dict:
     """Offline decision in the same shape the Chairman produces after the guardrail."""
+    p = profile or demo_profile()
     text = ticket_text(subject, body)
-    ev = gather_evidence(subject, body, requester)
+    ev = gather_evidence(subject, body, requester, p)
     incident, reasons = assess_incident(ev)
-    kb = search_knowledge_base(text)
+    kb = search_knowledge_base(text, 3, p)
     if incident:
         return {
-            "category": "Security Incident", "priority": "P1", "security_flag": True, "security_reasons": reasons,
-            "escalate_to": SOC_TEAM, "suggested_response": ANALYST_NOTE,
+            "category": SECURITY_CATEGORY, "priority": "P1", "security_flag": True, "security_reasons": reasons,
+            "escalate_to": p.security_team, "suggested_response": p.analyst_note,
             "reasoning": f"Rule-based scanner scored {ev.scan.score}/100 and the sender check found: {' '.join(ev.sender.notes)}",
-            "confidence": round(min(0.95, 0.5 + ev.scan.score / 200), 2), "kb_refs": ["KB-201", "KB-701"], "overrides": [],
+            "confidence": round(min(0.95, 0.5 + ev.scan.score / 200), 2), "kb_refs": list(p.security_kb), "overrides": [],
         }
-    match = next((r for r in _CATEGORY_RULES if r[0].search(text)), None)
-    category, priority, team = (match[1], match[2], match[3]) if match else ("Other", "P4", None)
-    if re.search(r"\b(whole|entire|all of us|none of us|everyone|floor)\b", text, re.I):
+    match = next((c for c in p.categories if c.pattern.search(text)), None)
+    category, priority, team = (match.name, match.priority, match.team) if match else (OTHER_CATEGORY, "P4", None)
+    if p.team_wide.search(text):
         priority = "P2"
-    if re.search(r"\b(deadline|due at|client call|board|outage)\b", text, re.I) and priority == "P3":
+    if p.deadline.search(text) and priority == "P3":
         priority = "P2"
     kb_refs = [a["id"] for a in kb]
     return {
         "category": category, "priority": priority, "security_flag": False, "security_reasons": ev.scan.reasons,
-        "escalate_to": team, "suggested_response": grounded_reply(requester, kb_refs, team),
+        "escalate_to": team, "suggested_response": grounded_reply(requester, kb_refs, team, p),
         "reasoning": f"Matched {category} keywords. {len(kb)} related KB article(s) found. Security scan was {ev.scan.level} ({ev.scan.score}/100).",
         "confidence": 0.6 if match else 0.3, "kb_refs": kb_refs, "overrides": [],
     }

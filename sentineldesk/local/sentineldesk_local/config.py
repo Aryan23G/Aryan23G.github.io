@@ -64,6 +64,8 @@ class Settings:
     request_timeout_s: int
     worker_poll_ms: int
     stale_after_s: int
+    # Organisation profile + connector settings (TOML). None = bundled demo profile, no connectors.
+    config_path: Path | None = None
 
     @staticmethod
     def from_env() -> "Settings":
@@ -85,4 +87,10 @@ class Settings:
             request_timeout_s=_int("SENTINEL_OLLAMA_TIMEOUT", 180, 5),
             worker_poll_ms=_int("SENTINEL_WORKER_POLL_MS", 500, 50),
             stale_after_s=_int("SENTINEL_STALE_AFTER_S", 900, 30),
+            config_path=Path(os.environ["SENTINEL_CONFIG"]) if os.environ.get("SENTINEL_CONFIG", "").strip() else None,
         )
+
+    def load_profile(self):
+        from .profile import demo_profile, load_profile
+
+        return load_profile(self.config_path) if self.config_path else demo_profile()

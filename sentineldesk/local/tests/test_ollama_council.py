@@ -3,7 +3,10 @@ import pytest
 from sentineldesk_local.config import LocalOnlyError, assert_loopback_url
 from sentineldesk_local.council import Council, render_ticket
 from sentineldesk_local.ollama_client import OllamaClient, OllamaError, OllamaUnavailable
-from sentineldesk_local.rules import ANALYST_NOTE, SOC_TEAM
+from sentineldesk_local.profile import demo_profile
+
+SOC_TEAM = demo_profile().security_team
+ANALYST_NOTE = demo_profile().analyst_note
 
 from .conftest import honest
 

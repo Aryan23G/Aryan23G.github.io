@@ -1,15 +1,17 @@
 import pytest
 
 from sentineldesk_local.guardrail import enforce_policy, reply_problems
+from sentineldesk_local.profile import demo_profile
 from sentineldesk_local.rules import (
-    ANALYST_NOTE,
-    SOC_TEAM,
     check_sender_domain,
     gather_evidence,
     scan_for_security_indicators,
     search_knowledge_base,
     triage_with_rules,
 )
+
+SOC_TEAM = demo_profile().security_team
+ANALYST_NOTE = demo_profile().analyst_note
 
 
 @pytest.mark.parametrize(

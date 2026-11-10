@@ -13,6 +13,7 @@ from .config import Settings
 from .council import Council
 from .db import Database
 from .ollama_client import OllamaClient
+from .profile import OrgProfile, demo_profile
 
 
 class DbObserver:
@@ -30,8 +31,9 @@ class DbObserver:
 
 
 class Worker:
-    def __init__(self, db: Database, client: OllamaClient, agent_model: str, chairman_model: str, poll_ms: int = 500, stale_after_s: int = 900):
+    def __init__(self, db: Database, client: OllamaClient, agent_model: str, chairman_model: str, poll_ms: int = 500, stale_after_s: int = 900, profile: OrgProfile | None = None):
         self.db = db
+        self.profile = profile or demo_profile()
         self.client = client
         self.agent_model = agent_model
         self.chairman_model = chairman_model
@@ -49,7 +51,7 @@ class Worker:
         started = time.monotonic()
         observer.event("system", "info", f"Worker claimed ticket #{ticket_id} (attempt {row['attempts']}).")
         try:
-            council = Council(self.client, self.agent_model, self.chairman_model, observer)
+            council = Council(self.client, self.agent_model, self.chairman_model, observer, profile=self.profile)
             result = council.run(row["subject"], row["body"], row["requester"])
             self.db.complete(ticket_id, final=result.final, mode=result.mode, model=result.model, evidence=result.evidence, fallback_reason=result.fallback_reason)
             observer.event("system", "info", f"Ticket #{ticket_id} done in {time.monotonic() - started:.1f}s ({result.mode}).")
@@ -70,7 +72,7 @@ class Worker:
         recovered = self.db.requeue_stale(self.stale_after_s)
         if recovered:
             self.db.add_event(None, "system", "warn", f"Worker requeued {recovered} ticket(s) left running by a previous worker.")
-        self.db.add_event(None, "system", "info", f"Worker online: subagents on {self.agent_model}, Chairman on {self.chairman_model}.")
+        self.db.add_event(None, "system", "info", f"Worker online for {self.profile.name}: subagents on {self.agent_model}, Chairman on {self.chairman_model}.")
         while not self.stop_event.is_set():
             if self.process_one() is None:
                 self.stop_event.wait(self.poll_s)
@@ -91,6 +93,7 @@ def main() -> None:
         settings.worker_poll_ms,
         # A ticket can legitimately run for several model timeouts; only reclaim beyond that.
         max(settings.stale_after_s, settings.request_timeout_s * 10),
+        profile=settings.load_profile(),
     )
     # Finish the current ticket, then exit, on Ctrl+C or a terminate from run.py.
     signal.signal(signal.SIGTERM, lambda *_: worker.stop_event.set())

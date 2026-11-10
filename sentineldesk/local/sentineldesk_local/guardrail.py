@@ -12,16 +12,8 @@ from __future__ import annotations
 import re
 from urllib.parse import urlparse
 
-from .rules import (
-    ANALYST_NOTE,
-    INTERNAL_DOMAIN,
-    KB_BY_ID,
-    SOC_TEAM,
-    TEAM_NAMES,
-    Evidence,
-    assess_incident,
-    grounded_reply,
-)
+from .profile import SECURITY_CATEGORY, OrgProfile, demo_profile
+from .rules import Evidence, assess_incident, grounded_reply
 
 _URL_IN_TEXT = re.compile(r"\bhttps?://[^\s<>\"')\]]+", re.I)
 _ASKS_FOR_SECRET = re.compile(
@@ -30,30 +22,32 @@ _ASKS_FOR_SECRET = re.compile(
 )
 
 
-def _is_company_url(url: str) -> bool:
+def _is_company_url(url: str, profile: OrgProfile) -> bool:
     try:
         host = (urlparse(url).hostname or "").lower()
     except ValueError:
         return False
-    return host == INTERNAL_DOMAIN or host.endswith("." + INTERNAL_DOMAIN)
+    return profile.is_internal(host)
 
 
-def reply_problems(reply: str) -> list[str]:
+def reply_problems(reply: str, profile: OrgProfile | None = None) -> list[str]:
+    p = profile or demo_profile()
     problems: list[str] = []
-    outside = [u for u in _URL_IN_TEXT.findall(reply) if not _is_company_url(u)]
+    outside = [u for u in _URL_IN_TEXT.findall(reply) if not _is_company_url(u, p)]
     if outside:
-        problems.append(f"links outside {INTERNAL_DOMAIN} ({', '.join(outside)})")
+        problems.append(f"links outside {p.primary_domain} ({', '.join(outside)})")
     if _ASKS_FOR_SECRET.search(reply):
         problems.append("asks the user for a password, code or payment detail")
     return problems
 
 
-def enforce_policy(decision: dict, evidence: Evidence, requester: str, security_agent: dict | None = None) -> dict:
+def enforce_policy(decision: dict, evidence: Evidence, requester: str, security_agent: dict | None = None, profile: OrgProfile | None = None) -> dict:
     """Return the final decision plus an `overrides` list explaining every change.
 
     `decision` is the Chairman's validated output. `security_agent` is the Security subagent's
     report; a confident attack verdict from it escalates (fail closed) even if the Chairman disagrees.
     """
+    p = profile or demo_profile()
     overrides: list[dict] = []
     incident, incident_reasons = assess_incident(evidence)
 
@@ -65,11 +59,11 @@ def enforce_policy(decision: dict, evidence: Evidence, requester: str, security_
     confidence = decision.get("confidence", 0)
     confidence = max(0.0, min(1.0, float(confidence))) if isinstance(confidence, (int, float)) and confidence == confidence else 0.0
 
-    kb_refs = [i for i in decision["kb_refs"] if i in KB_BY_ID]
+    kb_refs = [i for i in decision["kb_refs"] if i in p.kb_by_id]
     if len(kb_refs) != len(decision["kb_refs"]):
         overrides.append({"field": "kb_refs", "from": decision["kb_refs"], "to": kb_refs, "reason": "Removed references to knowledge-base articles that do not exist."})
 
-    if escalate_to is not None and escalate_to not in TEAM_NAMES:
+    if escalate_to is not None and escalate_to not in p.team_names:
         overrides.append({"field": "escalate_to", "from": escalate_to, "to": None, "reason": "The Chairman named a team that does not exist."})
         escalate_to = None
 
@@ -87,17 +81,17 @@ def enforce_policy(decision: dict, evidence: Evidence, requester: str, security_
         security_flag = True
 
     if security_flag:
-        for field, current, forced in (("priority", priority, "P1"), ("escalate_to", escalate_to, SOC_TEAM), ("category", category, "Security Incident")):
+        for field, current, forced in (("priority", priority, "P1"), ("escalate_to", escalate_to, p.security_team), ("category", category, SECURITY_CATEGORY)):
             if current != forced:
-                overrides.append({"field": field, "from": current, "to": forced, "reason": "Security incidents are always P1 and routed to the SOC."})
-        priority, escalate_to, category = "P1", SOC_TEAM, "Security Incident"
+                overrides.append({"field": field, "from": current, "to": forced, "reason": f"Security incidents are always P1 and routed to the {p.security_team}."})
+        priority, escalate_to, category = "P1", p.security_team, SECURITY_CATEGORY
         if not reply.startswith("Internal analyst note:"):
-            overrides.append({"field": "suggested_response", "from": reply, "to": ANALYST_NOTE, "reason": "No reply is ever sent to the sender of a suspected attack."})
-            reply = ANALYST_NOTE
+            overrides.append({"field": "suggested_response", "from": reply, "to": p.analyst_note, "reason": "No reply is ever sent to the sender of a suspected attack."})
+            reply = p.analyst_note
     else:
-        problems = reply_problems(reply)
+        problems = reply_problems(reply, p)
         if problems:
-            safe = grounded_reply(requester, kb_refs, escalate_to)
+            safe = grounded_reply(requester, kb_refs, escalate_to, p)
             overrides.append({"field": "suggested_response", "from": reply, "to": safe, "reason": f"Reply blocked: {'; '.join(problems)}."})
             reply = safe
 

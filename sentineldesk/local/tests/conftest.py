@@ -15,16 +15,19 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sentineldesk_local.config import Settings  # noqa: E402
-from sentineldesk_local.council import SYSTEM_PROMPTS  # noqa: E402
 from sentineldesk_local.db import Database  # noqa: E402
 from sentineldesk_local.rules import SAMPLE_TICKETS, gather_evidence, triage_with_rules  # noqa: E402
 
 Responder = Callable[[str, dict], "dict | str"]
 
 
+ROLE_MARKERS = {"security": "the Security analyst", "sentiment": "the Sentiment and Impact analyst", "intent": "the Intent analyst", "chairman": "the Chairman"}
+
+
 def agent_of(payload: dict) -> str:
+    """Identify the agent by its role sentence, so this works for any organisation profile."""
     system = payload["messages"][0]["content"]
-    return next(name for name, prompt in SYSTEM_PROMPTS.items() if prompt == system)
+    return next(name for name, marker in ROLE_MARKERS.items() if system.startswith(f"You are {marker}"))
 
 
 def ticket_fields(payload: dict) -> tuple[str, str, str]:

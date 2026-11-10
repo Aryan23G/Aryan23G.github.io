@@ -1,0 +1,103 @@
+# SentinelDesk configuration for one service desk.
+#   cp sentineldesk.example.toml sentineldesk.toml   then edit, then:
+#   SENTINEL_CONFIG=sentineldesk.toml python run.py --check
+# Secrets never go in this file; they come from environment variables (see [jira]).
+
+[organization]
+name = "Acme Corporation"
+# Every email domain your staff send from. Look-alikes of these are flagged as impersonation.
+domains = ["acme.com", "acme.co.uk"]
+# Words an attacker would copy into a fake domain. Defaults to the first label of each domain
+# when it has 4+ characters ("acme"). List them yourself for short names.
+# brand_tokens = ["acme"]
+security_team = "Security Operations"
+# KB articles cited in the analyst note for security incidents (optional).
+security_kb = ["SEC-001"]
+# analyst_note = "Internal analyst note: ..."   (optional; a sensible default is generated)
+
+[[teams]]
+name = "Security Operations"
+handles = "Phishing, fraud, compromised accounts, malware, anything suspicious"
+
+[[teams]]
+name = "Identity & Access"
+handles = "Lockouts self-service cannot fix, MFA resets, group and permission changes"
+
+[[teams]]
+name = "End User Computing"
+handles = "Laptops, printers, peripherals, hardware swaps"
+
+[[teams]]
+name = "Network"
+handles = "VPN, Wi-Fi and office network problems"
+
+[[teams]]
+name = "Business Applications"
+handles = "Line-of-business apps, software requests and licences"
+
+# Rules-engine fallback routing. First match wins; keywords are regex fragments (case-insensitive).
+# The AI council can choose any of these category names too.
+[[categories]]
+name = "Network"
+keywords = ["vpn", "wi-?fi", "network", "internet"]
+priority = "P3"
+team = "Network"
+
+[[categories]]
+name = "Hardware"
+keywords = ["laptop", "printer", "print", "monitor", "dock", "keyboard"]
+priority = "P3"
+team = "End User Computing"
+
+[[categories]]
+name = "Software"
+keywords = ["install", "software", "licen[cs]e", "application"]
+priority = "P4"
+team = "Business Applications"
+
+[[categories]]
+name = "Access & Accounts"
+keywords = ["password", "locked", "log ?in", "mfa", "access"]
+priority = "P3"
+
+[priority_rules]
+team_wide = ["whole", "entire", "everyone", "all of us", "floor", "site"]
+deadline = ["deadline", "due", "outage", "customer call", "go-live"]
+
+[knowledge_base]
+# A folder of Markdown articles (see kb-example/). Paths are relative to this file.
+dir = "kb-example"
+
+# -------------------------------------------------------------------------------------------
+# Jira Service Management connector (optional). Credentials come from the environment:
+#   Cloud:        JIRA_EMAIL and JIRA_API_TOKEN   (id.atlassian.com > Security > API tokens)
+#   Data Center:  JIRA_PAT                        (profile > Personal access tokens)
+# The account needs to browse the project and add internal comments (an agent licence).
+[jira]
+enabled = false
+deployment = "cloud"                          # "cloud" or "datacenter"
+base_url = "https://acme.atlassian.net"
+jql = 'project = "IT" AND statusCategory = "To Do"'
+poll_interval_s = 60
+# "shadow": post the triage as an INTERNAL comment (customers never see it), change nothing else.
+# "read-only": triage and record in SentinelDesk only; write nothing to Jira.
+mode = "shadow"
+# "now": only requests created after SentinelDesk first connects get comments.
+# A date such as "2026-10-01" also imports older requests read-only, for the accuracy report.
+start_from = "now"
+max_per_poll = 25
+# How long to wait before reading what your analysts decided (priority, team) for the report.
+outcome_after_hours = 24
+
+[jira.priority_map]                            # your Jira priority names -> P1..P4
+Highest = "P1"
+High = "P2"
+Medium = "P3"
+Low = "P4"
+Lowest = "P4"
+
+# Optional: the Jira field that records which team handled a request, and how its values map
+# to the [[teams]] above. Leave out to compare priorities and security flags only.
+# team_field = "customfield_10001"
+# [jira.team_map]
+# "Service Desk Tier 2 - Network" = "Network"
