@@ -10,7 +10,7 @@ from sqlalchemy import Engine
 
 from app.agent.graph import build_graph
 from app.agent.history import RunStore
-from app.agent.llm import ClaudeSqlGenerator, SqlGenerator
+from app.agent.llm import AnthropicSqlGenerator, SqlGenerator
 from app.agent.nodes import AgentConfig, AgentDeps
 from app.agent.runner import AgentRunner
 from app.config import Settings
@@ -64,7 +64,7 @@ def build_container(
         qdrant_url=settings.qdrant_url, qdrant_path=None if settings.qdrant_url else settings.qdrant_path)
     if generator is None:
         client = anthropic.AsyncAnthropic(open_telemetry=cast(Any, anthropic_otel_option(settings)), max_retries=3)
-        generator = ClaudeSqlGenerator(
+        generator = AnthropicSqlGenerator(
             client, model=settings.anthropic_model, effort=settings.anthropic_effort,
             max_tokens=settings.anthropic_max_tokens, server_fallbacks=settings.anthropic_fallbacks)
     config = AgentConfig(

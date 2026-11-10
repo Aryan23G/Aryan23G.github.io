@@ -1,7 +1,7 @@
 /**
  * QueryPilot browser app. Everything runs client-side:
  *   - SQLite (WASM) in a Web Worker holds the demo warehouse,
- *   - the agent loop calls the Claude API directly with the visitor's own key
+ *   - the agent loop calls the Anthropic API directly with the visitor's own key
  *     (kept in sessionStorage only, sent only to api.anthropic.com),
  *   - Chart.js renders the validated chart.
  */
@@ -386,10 +386,10 @@ function setBusy(b: boolean) {
 
 function updateMode() {
   const live = els.key.value.trim().startsWith("sk-");
-  els.mode.textContent = live ? "Live · Claude" : "Free · local engine";
+  els.mode.textContent = live ? "Live · AI agent" : "Free · local engine";
   els.mode.className = `mode ${live ? "live" : ""}`;
   els.keyStatus.textContent = live
-    ? "Key set for this tab: questions go to the Claude agent."
+    ? "Key set for this tab: questions go to the AI agent."
     : els.key.value ? "That doesn't look like an Anthropic key (sk-ant-…). Using the free local engine." : "No key needed: the free local engine answers in your browser.";
   els.input.placeholder = live ? "Ask anything about the store's data…" : "Ask about revenue, orders, customers, returns, ratings… e.g. revenue by month in 2025";
 }

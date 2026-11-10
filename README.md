@@ -10,6 +10,8 @@ Static site, no build step needed to deploy:
 - `vendor/libs.js`: tree-shaken bundle of three, motion, @tsparticles (source in `vendor/libs.src.js`)
 - `resume/Aryan_Gupta_Resume.pdf`, built from `resume/resume.html` with `node resume/build-pdf.cjs`
 - `querypilot/`: QueryPilot, a text-to-SQL analytics agent (live demo + source, tests and eval; see its README)
+- `workbench/`: QueryPilot Workbench, the self-hosted Python/Next.js version (source only; see its README)
+- `sentineldesk/`: a self-contained, offline demo of SentinelDesk (the product source is in a private repository)
 
 To rebuild the vendor bundle after changing `vendor/libs.src.js`:
 

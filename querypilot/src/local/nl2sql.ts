@@ -4,7 +4,7 @@
  * A semantic parser for the Orbit Outfitters schema. It reads a question into a
  * structured plan (metric, grouping dimensions, filters, ranking), compiles the plan
  * to SQL from a fixed join graph, and the caller runs that SQL through the same
- * guard → bytecode check → worker pipeline as the Claude agent. Every interpretation
+ * guard → bytecode check → worker pipeline as the AI agent. Every interpretation
  * decision is recorded in `plan.notes`, so the UI can show exactly how the question
  * was understood.
  *
@@ -251,7 +251,7 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   for (const [re, what] of MULTI_STEP) {
     if (re.test(q)) {
       throw new NotUnderstood(
-        `This needs ${what}, which the free local engine does not do: it answers from the numbers in the data${what === "explanation or prediction" ? ", it does not explain or predict" : " (reviews have star ratings, not searchable text)"}. Add an Anthropic API key in Settings to ask the Claude agent, or ask about what the data shows.`,
+        `This needs ${what}, which the free local engine does not do: it answers from the numbers in the data${what === "explanation or prediction" ? ", it does not explain or predict" : " (reviews have star ratings, not searchable text)"}. Add an Anthropic API key in Settings to ask the AI agent, or ask about what the data shows.`,
         SUGGESTIONS,
       );
     }

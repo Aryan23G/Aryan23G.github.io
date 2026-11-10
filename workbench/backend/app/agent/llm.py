@@ -1,7 +1,7 @@
-"""State 2 backend: Claude as a structured SQL generator.
+"""State 2 backend: an LLM as a structured SQL generator.
 
 `SqlGenerator` is the seam between the state machine and the model. The
-production implementation calls Claude with structured outputs (the response
+production implementation calls the Anthropic API with structured outputs (the response
 is validated into `SqlDraft`); tests inject a scripted generator, so the graph
 is fully testable without network access.
 """
@@ -37,7 +37,7 @@ class SqlGenerator(Protocol):
     async def generate(self, *, dialect: str, user_prompt: str) -> GenerationResult: ...
 
 
-class ClaudeSqlGenerator:
+class AnthropicSqlGenerator:
     def __init__(
         self,
         client: anthropic.AsyncAnthropic,
@@ -77,24 +77,24 @@ class ClaudeSqlGenerator:
                 **extra,
             )
         except anthropic.APIStatusError as exc:
-            raise GenerationError(f"Claude API error {exc.status_code}: {exc.message}") from exc
+            raise GenerationError(f"Anthropic API error {exc.status_code}: {exc.message}") from exc
         except anthropic.APIConnectionError as exc:
-            raise GenerationError(f"Could not reach the Claude API: {exc}") from exc
+            raise GenerationError(f"Could not reach the Anthropic API: {exc}") from exc
         latency_ms = round((time.perf_counter() - started) * 1000, 1)
 
         stop_reason = raw.http_response.json().get("stop_reason")
         if stop_reason == "refusal":
-            raise GenerationError("Claude declined to answer this request.")
+            raise GenerationError("The model declined to answer this request.")
         if stop_reason == "max_tokens":
             raise GenerationError("Generation hit max_tokens before completing the SQL draft.")
         try:
             response = await raw.parse()
         except ValidationError as exc:
             raise GenerationError(
-                f"Claude's output did not match the SqlDraft schema ({exc.error_count()} errors)") from exc
+                f"The model's output did not match the SqlDraft schema ({exc.error_count()} errors)") from exc
         draft = response.parsed_output
         if draft is None:
-            raise GenerationError("Claude returned no structured output.")
+            raise GenerationError("The model returned no structured output.")
 
         u = response.usage
         usage = TokenUsage(

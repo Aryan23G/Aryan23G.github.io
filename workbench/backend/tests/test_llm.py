@@ -1,4 +1,4 @@
-"""ClaudeSqlGenerator against a mocked HTTP transport: checks the exact request we send and response handling."""
+"""AnthropicSqlGenerator against a mocked HTTP transport: checks the exact request we send and response handling."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import anthropic
 import httpx2 as httpx
 import pytest
 
-from app.agent.llm import ClaudeSqlGenerator, GenerationError
+from app.agent.llm import AnthropicSqlGenerator, GenerationError
 
 DRAFT = {"reasoning_chain": ["Count orders by status."], "sql_query": "SELECT status, count(*) FROM orders GROUP BY 1",
          "tables_used": ["orders"], "answerable": True, "clarification": ""}
@@ -39,7 +39,7 @@ def make(stop_reason: str = "end_turn", text: str | None = None, status: int = 2
 
 async def test_request_shape_and_parsed_draft() -> None:
     client, seen = make()
-    gen = ClaudeSqlGenerator(client, model="claude-opus-5-5", effort="medium")
+    gen = AnthropicSqlGenerator(client, model="claude-opus-5-5", effort="medium")
     result = await gen.generate(dialect="sqlite", user_prompt="<question>orders by status</question>")
 
     body = seen["body"]
@@ -59,7 +59,7 @@ async def test_request_shape_and_parsed_draft() -> None:
 
 async def test_haiku_gets_no_server_fallback() -> None:
     client, seen = make()
-    await ClaudeSqlGenerator(client, model="claude-haiku-5-5").generate(dialect="sqlite", user_prompt="q")
+    await AnthropicSqlGenerator(client, model="claude-haiku-5-5").generate(dialect="sqlite", user_prompt="q")
     assert "fallbacks" not in seen["body"]
 
 
@@ -67,10 +67,10 @@ async def test_haiku_gets_no_server_fallback() -> None:
 async def test_stop_reasons_raise(stop: str, match: str) -> None:
     client, _ = make(stop_reason=stop, text="")
     with pytest.raises(GenerationError, match=match):
-        await ClaudeSqlGenerator(client, model="claude-opus-5-5").generate(dialect="sqlite", user_prompt="q")
+        await AnthropicSqlGenerator(client, model="claude-opus-5-5").generate(dialect="sqlite", user_prompt="q")
 
 
 async def test_api_errors_become_generation_errors() -> None:
     client, _ = make(status=429)
     with pytest.raises(GenerationError, match="429"):
-        await ClaudeSqlGenerator(client, model="claude-opus-5-5").generate(dialect="sqlite", user_prompt="q")
+        await AnthropicSqlGenerator(client, model="claude-opus-5-5").generate(dialect="sqlite", user_prompt="q")

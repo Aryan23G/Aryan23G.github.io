@@ -2,17 +2,17 @@
 
 **Live demo:** https://aryan23g.github.io/querypilot/
 
-QueryPilot answers business questions in plain English. A Claude agent explores the schema, writes SQLite, reads the result, fixes its own mistakes and submits an answer with a chart. Every query the model writes goes through a five-layer read-only guard before it touches data, and customer PII never reaches the model.
+QueryPilot answers business questions in plain English. An AI agent explores the schema, writes SQLite, reads the result, fixes its own mistakes and submits an answer with a chart. Every query the model writes goes through a five-layer read-only guard before it touches data, and customer PII never reaches the model.
 
-It runs entirely in the browser and is **free to use with no API key**: SQLite (compiled to WebAssembly) lives in a Web Worker, and questions are answered by a built-in local NL→SQL engine. Visitors who add their own Anthropic key get the Claude agent for open-ended, multi-step questions.
+It runs entirely in the browser and is **free to use with no API key**: SQLite (compiled to WebAssembly) lives in a Web Worker, and questions are answered by a built-in local NL→SQL engine. Visitors who add their own Anthropic key get the AI agent for open-ended, multi-step questions.
 
 | Mode | Cost | Handles |
 |---|---|---|
 | **Local engine** (default, no key) | Free, offline, instant | Aggregates ("revenue by month in 2025", "top 5 products by units", "Canada vs United States") **and** multi-step analysis: period growth, top-N within each group, share of a subset, cohort retention, repeat customers |
-| **Claude agent** (your key) | Your API usage | Anything, including follow-up questions and open-ended exploration |
+| **AI agent** (your key) | Your API usage | Anything, including follow-up questions and open-ended exploration |
 
 ```
-question ──► Claude (tool loop) ──► run_sql / get_column_values / submit_answer
+question ──► LLM (tool loop) ──► run_sql / get_column_values / submit_answer
                   ▲                         │
                   │  results, SQL errors,   ▼
                   │  guard rejections   PII shield (restore placeholders)
@@ -48,7 +48,7 @@ Beyond single aggregates, a plan can be one of four **multi-step shapes**. Each 
 
 Questions asking *why* something happened, for a forecast or correlation, or to search review text are **declined with an explanation** instead of answered with a guess. SQL typed into the question box is pointed to the SQL console.
 
-On the 20-question eval set written for the Claude agent, the local engine answers **all 20 correctly**, including the 4 multi-step ones. It also passes 8 more multi-step questions phrased differently from the eval set, each checked against independently written gold SQL. Tests enforce both.
+On the 20-question eval set written for the AI agent, the local engine answers **all 20 correctly**, including the 4 multi-step ones. It also passes 8 more multi-step questions phrased differently from the eval set, each checked against independently written gold SQL. Tests enforce both.
 
 ## How the agent works (`src/agent.ts`)
 
@@ -59,7 +59,7 @@ On the 20-question eval set written for the Claude agent, the local engine answe
   * `submit_answer`: final SQL + plain-English answer + chart spec. The SQL is executed again through the guard. If it fails, the error goes back to the model.
 * **Self-correction.** SQL errors and guard rejections come back as `is_error` tool results, so the model can repair the query. A step budget (10) bounds the loop.
 * **Conversation memory.** Follow-up questions ("now split that by channel") continue the same message history. On any failure, history is rolled back to the last complete turn so the conversation stays valid.
-* **Model setup:** Claude Opus 5.5 by default (Sonnet 5.5 and Haiku 5.5 selectable), adaptive thinking, strict tool schemas, prompt caching, server-side refusal fallback.
+* **Model setup:** Opus 5.5 by default (Sonnet 5.5 and Haiku 5.5 selectable), adaptive thinking, strict tool schemas, prompt caching, server-side refusal fallback.
 
 ## Read-only by design: five layers (`src/guard.ts`, `src/db/engine.ts`)
 
@@ -89,7 +89,7 @@ The model proposes a chart (line, bar, pie, scatter, KPI or table). The proposal
 
 ```bash
 npm ci
-npm test            # 204 tests: guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set, local engine
+npm test            # guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set, local engine
 npm run typecheck
 npm run build       # bundles src/ into dist/ (committed, since GitHub Pages serves it directly)
 ```
@@ -107,7 +107,7 @@ It reports accuracy by difficulty, average steps and latency, self-corrections a
 
 ```
 src/
-  agent.ts        Claude tool-use loop, prompt, tool schemas
+  agent.ts        LLM tool-use loop, prompt, tool schemas
   guard.ts        tokenizer + static SQL guard (layer 1)
   pii.ts          PII placeholder shield
   viz.ts          chart inference/validation, CSV, formatting

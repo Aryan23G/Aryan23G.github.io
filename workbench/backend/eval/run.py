@@ -3,7 +3,7 @@
     ANTHROPIC_API_KEY=... python -m eval.run                          # all questions, configured model
     ANTHROPIC_API_KEY=... python -m eval.run --model claude-haiku-5-5 --only h
 
-Runs every question through the real agent (real Claude API, schema RAG, SQLGlot,
+Runs every question through the real agent (real Anthropic API, schema RAG, SQLGlot,
 read-only executor), executes the gold SQL through the same guard and executor,
 and compares result sets with `eval.compare.results_match`. Writes a JSON report
 to eval/results/. This makes real API calls and costs tokens.
