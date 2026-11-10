@@ -237,6 +237,15 @@ def grounded_reply(requester: str, kb_refs: list[str], escalate_to: str | None, 
     return f"Hi {first}, thanks for reaching out. {body}{routed}{ref}"
 
 
+def _plain_reasoning(category: str | None, priority: str, kb_count: int, scan: ScanResult) -> str:
+    """Why the rules engine decided, in words an analyst would use."""
+    kind = f"Reads like {'an' if category[0].lower() in 'aeiou' else 'a'} {category.lower()} request" if category else "Didn't match a known request type"
+    impact = "; several people or a deadline are affected" if priority == "P2" else ""
+    articles = f"{kb_count or 'No'} matching help article{'' if kb_count == 1 else 's'} found"
+    risk = "No security warning signs." if scan.level == "clean" else f"Minor warning signs ({scan.score}/100), not enough to call it an attack."
+    return f"{kind}{impact}. {articles}. {risk}"
+
+
 def triage_with_rules(subject: str, body: str, requester: str, profile: OrgProfile | None = None) -> dict:
     """Offline decision in the same shape the Chairman produces after the guardrail."""
     p = profile or demo_profile()
@@ -248,7 +257,9 @@ def triage_with_rules(subject: str, body: str, requester: str, profile: OrgProfi
         return {
             "category": SECURITY_CATEGORY, "priority": "P1", "security_flag": True, "security_reasons": reasons,
             "escalate_to": p.security_team, "suggested_response": p.analyst_note,
-            "reasoning": f"Rule-based scanner scored {ev.scan.score}/100 and the sender check found: {' '.join(ev.sender.notes)}",
+            "reasoning": f"SentinelDesk's built-in security checks rated this {ev.scan.score}/100 for risk"
+                         + (" and the sender's address imitates your company's." if ev.sender.lookalike else
+                            " and it comes from a personal email account." if ev.sender.free_mail else "."),
             "confidence": round(min(0.95, 0.5 + ev.scan.score / 200), 2), "kb_refs": list(p.security_kb), "overrides": [],
         }
     match = next((c for c in p.categories if c.pattern.search(text)), None)
@@ -261,7 +272,7 @@ def triage_with_rules(subject: str, body: str, requester: str, profile: OrgProfi
     return {
         "category": category, "priority": priority, "security_flag": False, "security_reasons": ev.scan.reasons,
         "escalate_to": team, "suggested_response": grounded_reply(requester, kb_refs, team, p),
-        "reasoning": f"Matched {category} keywords. {len(kb)} related KB article(s) found. Security scan was {ev.scan.level} ({ev.scan.score}/100).",
+        "reasoning": _plain_reasoning(category if match else None, priority, len(kb), ev.scan),
         "confidence": 0.6 if match else 0.3, "kb_refs": kb_refs, "overrides": [],
     }
 

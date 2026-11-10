@@ -138,7 +138,8 @@ def client_for(settings, db, ollama_url, login=True):
 
 def test_dashboard_is_fully_offline(settings_for, db):
     html = client_for(settings_for(), db, "http://127.0.0.1:9").get("/").text
-    assert "Agentic execution log" in html and "Final triage matrix" in html and "Ticket ingestion" in html
+    for text in ("Welcome to SentinelDesk", "Set up SentinelDesk", "Looks right", "How SentinelDesk decided", "Test a ticket", "Download CSV", "Connect Jira"):
+        assert text in html, text
     assert "http://" not in html and "https://" not in html and "<link" not in html
 
 

@@ -3,568 +3,652 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SentinelDesk Local</title>
-<!-- Fully offline: no CDNs, no web fonts, no analytics. Everything below is inline. -->
+<title>SentinelDesk</title>
+<!-- Fully offline: no CDNs, no web fonts, no analytics. Everything is in this file. -->
 <style>
 :root{
-  --bg:#070A14;--panel:#0D1222;--panel2:#111829;--line:#1E2740;--line2:#2B3757;
-  --text:#E6EAF5;--soft:#B7BFD6;--dim:#7D87A6;
-  --ice:#8FDCEB;--amber:#F2B66B;--red:#FF7A85;--green:#7CE8AE;--violet:#B9A6FF;
+  --bg:#0A0E1A;--panel:#111727;--panel2:#161E31;--line:#222C45;--line2:#30406A;
+  --text:#E8ECF6;--soft:#BAC2D8;--dim:#8590AE;
+  --accent:#8FDCEB;--accent-ink:#06121A;--amber:#F2B66B;--red:#FF7A85;--green:#7CE8AE;
   --sans:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
-  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{background:var(--bg);color:var(--text);font:14px/1.5 var(--sans)}
-button,input,textarea{font:inherit;color:inherit}
+html,body{background:var(--bg);color:var(--text);font:15px/1.5 var(--sans)}
+button,input,textarea,select{font:inherit;color:inherit}
+a{color:var(--accent)}
 :focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:6px}
-.wrap{max-width:1500px;margin:0 auto;padding:18px 20px 40px}
-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
-.brand{display:flex;align-items:center;gap:12px}
-.logo{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,#183A4A,#2A1E52);border:1px solid var(--line2);color:var(--ice);font-weight:700}
-h1{font-size:18px;font-weight:650;letter-spacing:.2px}
-h1 small{display:block;font-size:12px;font-weight:400;color:var(--dim)}
-.pills{display:flex;gap:8px;flex-wrap:wrap}
-.pill{font:12px var(--mono);border:1px solid var(--line2);border-radius:999px;padding:4px 10px;color:var(--soft);display:flex;align-items:center;gap:6px;background:var(--panel)}
-.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dim)}
-.pill.ok::before{background:var(--green);box-shadow:0 0 8px var(--green)}
-.pill.warn::before{background:var(--amber)}
-.pill.bad::before{background:var(--red)}
-.grid{display:grid;grid-template-columns:360px 1fr;gap:14px;align-items:start}
-@media(max-width:1050px){.grid{grid-template-columns:1fr}}
-/* Grid items default to min-width:auto, which lets the wide matrix stretch the page on phones. */
-.grid>*,.lanes>*,.detail>*{min-width:0}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
-.ph h2{font-size:13px;font-weight:650;letter-spacing:.4px;text-transform:uppercase;color:var(--soft)}
-.ph .hint{font-size:12px;color:var(--dim)}
-.pb{padding:14px}
-label{display:grid;gap:4px;font-size:12px;color:var(--dim);margin-bottom:10px}
-input,textarea{background:#060912;border:1px solid var(--line2);border-radius:9px;padding:8px 10px;font-size:13px;width:100%}
-textarea{min-height:120px;resize:vertical}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.chip{border:1px dashed var(--line2);background:none;border-radius:999px;padding:3px 9px;font-size:12px;color:var(--ice);cursor:pointer}
-.chip:hover{border-style:solid}
-.btn{border:1px solid var(--ice);background:var(--ice);color:#06121A;font-weight:650;border-radius:9px;padding:8px 14px;cursor:pointer}
-.btn:hover{background:var(--amber);border-color:var(--amber)}
-.btn:disabled{opacity:.5;cursor:progress}
-.err{color:var(--red);font-size:12px;min-height:18px;margin-top:6px}
-.queue{list-style:none;max-height:360px;overflow:auto}
-.queue li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--line);cursor:pointer}
-.queue li:hover{background:var(--panel2)}
-.queue li.sel{background:#14203A}
-.qid{font:12px var(--mono);color:var(--dim)}
-.qs{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.qr{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.st{font:11px var(--mono);border-radius:999px;padding:2px 8px;border:1px solid var(--line2);color:var(--soft);white-space:nowrap}
-.st.running{color:var(--ice);border-color:var(--ice);animation:pulse 1.2s ease-in-out infinite}
-.st.done{color:var(--green);border-color:#2D5A45}
-.st.sec{color:var(--red);border-color:#6B2F3A;background:#2A1219}
-.st.failed{color:var(--red);border-color:var(--red)}
-@keyframes pulse{50%{opacity:.45}}
-/* execution log */
-.lanes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-@media(max-width:760px){.lanes{grid-template-columns:1fr}}
-.lane{background:var(--panel2);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-height:210px}
-.lh{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--line)}
-.lh b{font-size:13px}
-.lh .meta{font:11px var(--mono);color:var(--dim)}
-.lane[data-agent=security] .lh b{color:var(--red)}
-.lane[data-agent=sentiment] .lh b{color:var(--amber)}
-.lane[data-agent=intent] .lh b{color:var(--violet)}
-.lane.wide .lh b{color:var(--ice)}
-.lane.state-running{border-color:var(--ice)}
-.lane.state-failed{border-color:var(--red)}
-.ll{list-style:none;padding:8px 11px;display:grid;gap:6px;font-size:12.5px;max-height:240px;overflow:auto}
-.ll li{display:grid;grid-template-columns:62px 1fr;gap:8px;color:var(--soft)}
-.ll time{font:11px var(--mono);color:var(--dim);padding-top:1px}
-.ll li.warn span{color:var(--amber)}
-.ll li.alert span{color:#FFB3BA}
-.ll li.error span{color:var(--red)}
-.ll .empty{display:block;color:var(--dim);font-style:italic}
-.lane.wide{margin-top:10px;min-height:140px}
-.lane.wide .ll li{grid-template-columns:62px 82px 1fr}
-.ll .who{font:11px var(--mono);color:var(--dim);padding-top:1px;text-transform:uppercase}
-.rep{border-top:1px solid var(--line);padding:8px 11px;font:11.5px var(--mono);color:var(--dim);white-space:pre-wrap;word-break:break-word;max-height:150px;overflow:auto}
-/* matrix */
-.matrix{width:100%;border-collapse:collapse;font-size:13px}
-.matrix th{font:11px var(--mono);text-transform:uppercase;letter-spacing:.5px;color:var(--dim);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-.matrix td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-.matrix tr{cursor:pointer}
-.matrix tbody tr:hover{background:var(--panel2)}
-.matrix tr.sel{background:#14203A}
-.matrix .sub{color:var(--dim);font-size:11.5px}
-.scroll{overflow-x:auto}
-.p{font:700 12px var(--mono);border-radius:6px;padding:2px 7px;display:inline-block}
-.P1{background:#3A1520;color:var(--red)}.P2{background:#3A2A12;color:var(--amber)}.P3{background:#123040;color:var(--ice)}.P4{background:#1D2335;color:var(--soft)}
-.tag{font:11px var(--mono);border-radius:6px;padding:2px 7px;display:inline-block;border:1px solid var(--line2);color:var(--soft)}
-.tag.bad{color:var(--red);border-color:#6B2F3A}
-.tag.good{color:var(--green);border-color:#2D5A45}
-.bar{height:6px;border-radius:3px;background:var(--line);width:70px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:6px}
-.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ice),var(--amber))}
-.detail{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px;border-top:1px solid var(--line)}
-@media(max-width:900px){.detail{grid-template-columns:1fr}}
-.card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px}
-.card h3{font:11px var(--mono);text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin-bottom:8px}
-.card p,.card li{font-size:13px;color:var(--soft)}
-.card ul{list-style:none;display:grid;gap:6px}
-.ov{border-left:3px solid var(--amber);padding-left:8px}
-.ov b{color:var(--text);font-weight:600}
-.verdict{font-size:15px;font-weight:650}
-.verdict.bad{color:var(--red)}.verdict.good{color:var(--green)}
-.empty-state{color:var(--dim);padding:22px 14px;text-align:center}
-.section{margin-top:14px}
-/* sign-in */
-#login{position:fixed;inset:0;background:rgba(4,6,12,.92);display:none;place-items:center;z-index:10;padding:16px}
-#login.show{display:grid}
-#login form{background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:22px;width:min(360px,100%)}
-#login h2{font-size:16px;margin-bottom:4px}
-#login p{color:var(--dim);font-size:12.5px;margin-bottom:14px}
-.userbox{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--soft)}
-.linkbtn{background:none;border:1px solid var(--line2);border-radius:999px;padding:3px 10px;color:var(--soft);cursor:pointer;font-size:12px}
-.linkbtn:hover{border-color:var(--ice);color:var(--ice)}
-a{color:var(--ice)}
-/* review */
-.review{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
-.review .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
-.review select,.review input[type=text]{background:#060912;border:1px solid var(--line2);border-radius:8px;padding:6px 8px;font-size:12.5px;color:var(--text)}
-.review input[type=text]{flex:1;min-width:140px}
-.btn.small{padding:5px 10px;font-size:12.5px}
-.btn.ghost{background:none;color:var(--ice)}
-.btn.ghost:hover{color:#06121A}
-.ok-msg{color:var(--green);font-size:12px}
-/* report */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:14px}
-.kpi{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-.kpi b{display:block;font-size:22px;font-weight:650}
-.kpi span{font-size:11.5px;color:var(--dim)}
-.kpi.good b{color:var(--green)}.kpi.bad b{color:var(--red)}
+[hidden]{display:none!important}
+code{font-family:var(--mono);font-size:.9em;background:#070A13;border:1px solid var(--line);border-radius:5px;padding:0 4px}
+.wrap{max-width:1180px;margin:0 auto;padding:16px 18px 48px}
+header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:linear-gradient(135deg,#183A4A,#2A1E52);border:1px solid var(--line2);color:var(--accent);font-weight:700;font-size:13px;flex:none}
+.brand b{font-size:17px}.brand small{display:block;color:var(--dim);font-size:12px;line-height:1.3}
+nav.tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px}
+nav.tabs button{background:none;border:0;border-radius:7px;padding:6px 14px;cursor:pointer;color:var(--soft)}
+nav.tabs button[aria-current=page]{background:var(--panel2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line2)}
+.status{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--soft)}
+.status i{width:9px;height:9px;border-radius:50%;background:var(--dim);display:inline-block;flex:none}
+.status.ok i{background:var(--green);box-shadow:0 0 8px var(--green)}.status.warn i{background:var(--amber)}.status.bad i{background:var(--red)}
+.user{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--soft)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.pad{padding:18px}
+h1{font-size:24px;line-height:1.25}h2{font-size:18px;line-height:1.3}
+.muted{color:var(--dim)}.small{font-size:13px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:var(--panel2);border-radius:9px;padding:8px 14px;cursor:pointer;color:var(--text);text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:650}
+.btn.primary:hover{background:var(--amber);border-color:var(--amber)}
+.btn.good{background:#16392A;border-color:#2D6A4C;color:var(--green);font-weight:600}
+.btn.small{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.55;cursor:progress}
+.linkbtn{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline}
+label{display:grid;gap:5px;font-size:13px;color:var(--soft);margin-bottom:14px}
+label .hint{color:var(--dim);font-size:12px}
+input,textarea,select{background:#070A13;border:1px solid var(--line2);border-radius:9px;padding:9px 11px;width:100%}
+textarea{min-height:110px;resize:vertical}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.row>label{flex:1 1 180px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
+.err{color:var(--red);font-size:13px;min-height:18px;margin-top:8px}
+.ok-text{color:var(--green)}
+.pill{display:inline-block;font-size:12px;border-radius:999px;padding:2px 9px;border:1px solid var(--line2);color:var(--soft);white-space:nowrap}
+.pill.sec{color:var(--red);border-color:#6B2F3A;background:#2A1219}
+.pill.P1{color:var(--red);border-color:#6B2F3A}.pill.P2{color:var(--amber);border-color:#6A4D24}.pill.P3{color:var(--accent);border-color:#24536A}.pill.P4{color:var(--soft)}
+.pill.done{color:var(--green);border-color:#2D5A45}
+.center{min-height:80vh;display:grid;place-items:center}
+.center .card{width:min(460px,100%)}
+.steps{display:flex;gap:8px;margin:0 0 18px;flex-wrap:wrap}
+.steps span{font-size:12.5px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+.steps span.on{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.steps span.done{color:var(--green);border-color:#2D5A45}
+.wizard{max-width:680px;margin:20px auto}
+.choice{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line2);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.choice input{width:auto;margin-top:4px;flex:none}
+.choice label{margin:0;display:block;color:var(--soft)}
+.choice b{display:block;font-weight:600;color:var(--text)}
+.drop{border:1.5px dashed var(--line2);border-radius:12px;padding:22px;text-align:center;color:var(--soft)}
+.drop.over{border-color:var(--accent);background:#0E1A24}
+details.more{margin:6px 0 14px}
+details.more summary,details.how summary{cursor:pointer;color:var(--accent);font-size:14px}
+table.simple{width:100%;border-collapse:collapse;font-size:13.5px}
+table.simple th{text-align:left;color:var(--dim);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.simple td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+table.simple select{padding:5px 8px;width:auto}
+.inbox{display:grid;grid-template-columns:360px 1fr;gap:14px;align-items:start}
+@media(max-width:900px){.inbox{grid-template-columns:1fr}}
+.inbox>*{min-width:0}
+.filters{display:flex;gap:6px;padding:12px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center}
+.filters button[data-f]{background:none;border:1px solid var(--line2);border-radius:999px;padding:4px 11px;cursor:pointer;color:var(--soft);font-size:13px}
+.filters button[aria-pressed=true]{background:var(--panel2);color:var(--text);border-color:var(--accent)}
+.list{list-style:none;max-height:68vh;overflow:auto}
+.list li{padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;display:grid;gap:4px}
+.list li:hover{background:var(--panel2)}
+.list li[aria-selected=true]{background:#14203A;box-shadow:inset 3px 0 0 var(--accent)}
+.list .subj{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list .meta{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--dim);flex-wrap:wrap}
+.empty{padding:28px 18px;color:var(--dim);text-align:center}
+.verdict{border-radius:12px;padding:16px;margin:14px 0 8px}
+.verdict.sec{background:linear-gradient(135deg,#2A1219,#1A1424);border:1px solid #6B2F3A}
+.verdict.req{background:linear-gradient(135deg,#10251F,#121C2B);border:1px solid #2D5A45}
+.verdict h2{font-size:20px}
+.verdict.sec h2{color:#FFB3BA}
+.verdict p{color:var(--soft);margin-top:6px}
+.reply{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;white-space:pre-wrap;word-break:break-word}
+.reply .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;white-space:normal}
+.reviewbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.reviewbar>span{margin-right:auto}
+.why li{margin-left:18px;color:var(--soft);font-size:14px}
+details.how{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.agents{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+@media(max-width:700px){.agents{grid-template-columns:1fr}}
+.agent{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13.5px;min-width:0}
+.agent b{display:block;margin-bottom:3px}
+.log{list-style:none;margin-top:10px;font-size:12.5px;color:var(--soft);max-height:260px;overflow:auto;display:grid;gap:4px}
+.log time{font-family:var(--mono);color:var(--dim);margin-right:8px}
+.log li.alert{color:#FFB3BA}.log li.warn{color:var(--amber)}.log li.error{color:var(--red)}
+.original{white-space:pre-wrap;background:#070A13;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;color:var(--soft);margin-top:8px;word-break:break-word}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi b{display:block;font-size:28px;font-weight:650}
+.kpi span{color:var(--soft);font-size:13.5px}
+.kpi small{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+.settings{display:grid;gap:14px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:10px 16px;font-size:14px;box-shadow:0 8px 30px #0008;z-index:20;max-width:calc(100% - 32px)}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="brand"><div class="logo">SD</div><h1>SentinelDesk · Agentic Council<small id="subtitle">Local triage on your hardware: Ollama + SQLite, no cloud calls</small></h1></div>
-    <div class="pills" role="status">
-      <span class="pill" id="pOllama">Ollama…</span>
-      <span class="pill" id="pModel">model…</span>
-      <span class="pill" id="pWorker">worker…</span>
-      <span class="pill" id="pQueue">queue…</span>
-      <span class="userbox" id="userbox" hidden><span id="whoami"></span><button class="linkbtn" id="logout" type="button">Sign out</button></span>
-    </div>
-  </header>
-
-  <div class="grid">
-    <div>
-      <section class="panel" aria-labelledby="ingestTitle">
-        <div class="ph"><h2 id="ingestTitle">Ticket ingestion</h2><span class="hint">simulate an incoming request</span></div>
-        <form class="pb" id="form" novalidate>
-          <div class="chips" id="chips" aria-label="Sample tickets"></div>
-          <label>From<input id="fFrom" type="email" maxlength="120" placeholder="name@company.example" autocomplete="off" required></label>
-          <label>Subject<input id="fSubj" maxlength="160" placeholder="What's going on?" autocomplete="off" required></label>
-          <label>Message<textarea id="fBody" maxlength="4000" placeholder="Describe the problem, or paste a suspicious email." required></textarea></label>
-          <button class="btn" id="submit" type="submit">Send to council</button>
-          <p class="err" id="err" role="alert"></p>
-        </form>
-      </section>
-      <section class="panel section" aria-labelledby="queueTitle">
-        <div class="ph"><h2 id="queueTitle">Queue</h2><span class="hint" id="qHint"></span></div>
-        <ul class="queue" id="queue"></ul>
-      </section>
-    </div>
-
-    <div>
-      <section class="panel" aria-labelledby="logTitle">
-        <div class="ph"><h2 id="logTitle">Agentic execution log</h2><span class="hint" id="logFor">no ticket selected</span></div>
-        <div class="pb">
-          <div class="lanes">
-            <div class="lane" data-agent="security"><div class="lh"><b>Security</b><span class="meta" data-meta>idle</span></div><ul class="ll" data-log></ul><div class="rep" data-rep hidden></div></div>
-            <div class="lane" data-agent="sentiment"><div class="lh"><b>Sentiment</b><span class="meta" data-meta>idle</span></div><ul class="ll" data-log></ul><div class="rep" data-rep hidden></div></div>
-            <div class="lane" data-agent="intent"><div class="lh"><b>Intent</b><span class="meta" data-meta>idle</span></div><ul class="ll" data-log></ul><div class="rep" data-rep hidden></div></div>
-          </div>
-          <div class="lane wide" data-agent="chairman"><div class="lh"><b>Chairman · Guardrail · System</b><span class="meta" data-meta>idle</span></div><ul class="ll" data-log></ul></div>
-        </div>
-      </section>
-
-      <section class="panel section" aria-labelledby="mxTitle">
-        <div class="ph"><h2 id="mxTitle">Final triage matrix</h2><span class="hint">subagent signals → Chairman decision → guardrail</span></div>
-        <div class="scroll">
-          <table class="matrix">
-            <thead><tr><th>#</th><th>Ticket</th><th>Security</th><th>Sentiment</th><th>Intent</th><th>Priority</th><th>Route</th><th>Confidence</th><th>Engine</th><th>Overrides</th><th>Review</th></tr></thead>
-            <tbody id="matrix"></tbody>
-          </table>
-        </div>
-        <div id="detail"></div>
-      </section>
-
-      <section class="panel section" aria-labelledby="repTitle">
-        <div class="ph"><h2 id="repTitle">Pilot report</h2>
-          <span class="hint"><select id="repDays" aria-label="Report window"><option value="">all time</option><option value="7">last 7 days</option><option value="30">last 30 days</option></select>
-          · <a id="csv" href="/api/report.csv" download>Download CSV</a></span></div>
-        <div class="kpis" id="kpis"><div class="empty-state">No data yet.</div></div>
-      </section>
-    </div>
-  </div>
-</div>
-
-<div id="login" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
-  <form id="loginForm">
-    <h2 id="loginTitle">Sign in to SentinelDesk</h2>
-    <p>Accounts are created on the server with <code>python run.py --add-user NAME</code>.</p>
-    <label>Username<input id="lUser" autocomplete="username" required></label>
-    <label>Password<input id="lPass" type="password" autocomplete="current-password" required></label>
-    <button class="btn" type="submit" id="lBtn">Sign in</button>
-    <p class="err" id="lErr" role="alert"></p>
-  </form>
-</div>
+<div class="wrap" id="root"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
 "use strict";
+// ---------------------------------------------------------------- helpers
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const time = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "");
-const LANES = ["security", "sentiment", "intent"];
-const laneOf = (agent) => (LANES.includes(agent) ? agent : "chairman");
+const root = $("root");
+const PRIORITY = { P1: ["Critical", "Act now: a security threat or many people stopped."], P2: ["High", "A team or a deadline is affected."], P3: ["Normal", "One person is blocked or slowed down."], P4: ["Low", "Routine request; can wait."] };
+const ATTACK = { phishing: "a phishing attempt", fraud: "a fraud attempt", impersonation: "someone impersonating your company", prompt_injection: "a message trying to trick the AI", malware: "a malware link", other: "a security risk", none: "a security risk" };
+const ago = (iso) => { const s = (Date.now() - new Date(iso)) / 1000; return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 86400 ? `${Math.floor(s / 3600)} h ago` : new Date(iso).toLocaleDateString(); };
+const clock = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 3500); }
+function store(k, v) { try { v === undefined ? (v = sessionStorage.getItem(k)) : sessionStorage.setItem(k, v); } catch { /* private mode */ } return v; }
 
-let tickets = [];
-let selected = null;      // ticket id shown in the log + detail
-let follow = true;        // auto-select the newest ticket until the user picks one
-let detail = null;
-
-let me = null;
-let profile = null;
+const state = { me: null, status: null, tab: "inbox", filter: "review", tickets: [], selected: null, detail: null, profile: null, health: null, settings: null };
 let stream = null;
+let timers = [];
+
 async function api(path, opts = {}) {
   const method = (opts.method || "GET").toUpperCase();
-  const headers = { ...(opts.headers || {}), ...(method === "GET" ? {} : { "X-SentinelDesk": "1" }) };
-  const res = await fetch(path, { ...opts, headers, credentials: "same-origin" });
-  const body = await res.json().catch(() => ({}));
-  if (res.status === 401 && path !== "/api/login") { showLogin(); throw Object.assign(new Error("Sign in required."), { body }); }
-  if (!res.ok) throw Object.assign(new Error(typeof body.detail === "string" ? body.detail : body.detail ? JSON.stringify(body.detail) : `HTTP ${res.status}`), { body });
-  return body;
-}
-function showLogin() {
-  $("login").classList.add("show");
-  $("userbox").hidden = true;
-  if (stream) { stream.close(); stream = null; }
-  setTimeout(() => $("lUser").focus(), 50);
-}
-$("loginForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  $("lErr").textContent = "";
-  $("lBtn").disabled = true;
-  try {
-    await api("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: $("lUser").value, password: $("lPass").value }) });
-    $("lPass").value = "";
-    $("login").classList.remove("show");
-    await boot();
-  } catch (err) {
-    $("lErr").textContent = err.message;
-  } finally {
-    $("lBtn").disabled = false;
+  const headers = { ...(opts.body ? { "Content-Type": "application/json" } : {}), ...(method === "GET" ? {} : { "X-SentinelDesk": "1" }) };
+  const res = await fetch(path, { method, headers, body: opts.body ? JSON.stringify(opts.body) : undefined, credentials: "same-origin" });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && !opts.allow401) { stop(); route(); throw new Error("Please sign in."); }
+  if (!res.ok) {
+    const d = data.detail;
+    throw new Error(typeof d === "string" ? d : Array.isArray(d) ? d.map((x) => `${x.loc?.at(-1)}: ${x.msg}`).join("; ") : `Something went wrong (${res.status}).`);
   }
-});
-$("logout").addEventListener("click", async () => { await api("/api/logout", { method: "POST" }).catch(() => {}); showLogin(); });
-
-// ---------------- health ----------------
-function pill(id, cls, text, title = "") {
-  const el = $(id);
-  el.className = `pill ${cls}`;
-  el.textContent = text;
-  el.title = title;
+  return data;
 }
+function stop() { timers.forEach(clearInterval); timers = []; if (stream) { stream.close(); stream = null; } }
+async function withBusy(btn, fn) { btn.disabled = true; try { return await fn(); } finally { btn.disabled = false; } }
+
+// ---------------------------------------------------------------- routing
+async function route() {
+  const status = await api("/api/setup/status", { allow401: true });
+  if (status.needs_account) return screenAccount();
+  state.me = await api("/api/me", { allow401: true }).catch(() => null);
+  if (!state.me) return screenSignIn();
+  state.status = await api("/api/setup/status");
+  if (state.me.role === "admin" && !state.status.configured && !state.status.managed_by_file && store("skipWizard") !== "1") return screenWizard(0);
+  return screenApp();
+}
+
+// ---------------------------------------------------------------- first account
+function screenAccount() {
+  const token = new URLSearchParams(location.hash.slice(1)).get("setup");
+  root.innerHTML = `<div class="center"><div class="card pad">
+    <div class="brand" style="margin-bottom:14px"><div class="logo">SD</div><div><b>Welcome to SentinelDesk</b><small>Let's create your administrator account.</small></div></div>
+    ${token ? `<form id="f">
+      <label>Username<input id="u" autocomplete="username" value="admin" required></label>
+      <label>Password <span class="hint">At least 12 characters.</span><input id="p" type="password" autocomplete="new-password" required></label>
+      <label>Password again<input id="p2" type="password" autocomplete="new-password" required></label>
+      <button class="btn primary" id="go">Create account</button><p class="err" id="e" role="alert"></p></form>`
+    : `<p>Open the setup link that was shown when SentinelDesk started. It ends with <span class="muted">#setup=…</span></p>
+       <p class="muted small" style="margin-top:10px">Started with Docker? Run <code>docker compose logs sentineldesk</code> to see it again.</p>`}
+  </div></div>`;
+  if (!token) return;
+  $("p").focus();
+  $("f").onsubmit = (e) => {
+    e.preventDefault();
+    $("e").textContent = "";
+    if ($("p").value !== $("p2").value) return void ($("e").textContent = "The two passwords are different.");
+    withBusy($("go"), async () => {
+      try {
+        await api("/api/setup/account", { method: "POST", body: { token, username: $("u").value.trim().toLowerCase(), password: $("p").value } });
+        history.replaceState(null, "", location.pathname);
+        route();
+      } catch (err) { $("e").textContent = err.message; }
+    });
+  };
+}
+
+// ---------------------------------------------------------------- sign in
+function screenSignIn() {
+  stop();
+  root.innerHTML = `<div class="center"><div class="card pad">
+    <div class="brand" style="margin-bottom:14px"><div class="logo">SD</div><div><b>Sign in to SentinelDesk</b><small>Ask your administrator if you need an account.</small></div></div>
+    <form id="f"><label>Username<input id="u" autocomplete="username" required></label>
+    <label>Password<input id="p" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary" id="go">Sign in</button><p class="err" id="e" role="alert"></p></form></div></div>`;
+  $("u").focus();
+  $("f").onsubmit = (e) => {
+    e.preventDefault();
+    withBusy($("go"), async () => {
+      try { await api("/api/login", { method: "POST", body: { username: $("u").value, password: $("p").value }, allow401: true }); route(); }
+      catch (err) { $("e").textContent = err.message; }
+    });
+  };
+}
+
+// ---------------------------------------------------------------- forms shared by the wizard and Settings
+const SUGGESTED_TEAMS = "Service Desk\nSecurity\nNetwork\nDesktop Support\nApplications";
+function orgForm(s) {
+  const teams = (s.teams || []).map((t) => t.name).join("\n") || SUGGESTED_TEAMS;
+  return `<form id="org" onsubmit="return false">
+    <label>Company name<input id="o_name" value="${esc(s.organization?.name || "")}" required placeholder="Acme Corporation"></label>
+    <label>Email domains your staff use <span class="hint">Separate with commas. Look-alikes of these are flagged as impersonation.</span>
+      <input id="o_domains" value="${esc((s.organization?.domains || []).join(", "))}" required placeholder="acme.com, acme.co.uk"></label>
+    <label>Your teams <span class="hint">One per line, using the names your analysts use. Requests are routed to these.</span>
+      <textarea id="o_teams" required>${esc(teams)}</textarea></label>
+    <label>Which team handles phishing and security incidents?<select id="o_sec"></select></label>
+    <p class="err" id="o_err" role="alert"></p>
+  </form>`;
+}
+function wireOrgForm(s) {
+  const fill = () => {
+    const names = $("o_teams").value.split("\n").map((x) => x.trim()).filter(Boolean);
+    const current = $("o_sec").value || s.organization?.security_team || names.find((n) => /secur|soc/i.test(n)) || names[0];
+    $("o_sec").innerHTML = names.map((n) => `<option ${n === current ? "selected" : ""}>${esc(n)}</option>`).join("");
+  };
+  $("o_teams").addEventListener("input", fill);
+  fill();
+}
+async function saveOrg() {
+  $("o_err").textContent = "";
+  const names = $("o_teams").value.split("\n").map((x) => x.trim()).filter(Boolean);
+  const prev = Object.fromEntries((state.settings?.teams || []).map((t) => [t.name, t.handles]));
+  return api("/api/settings/organization", { method: "PUT", body: {
+    name: $("o_name").value.trim(), domains: $("o_domains").value.split(",").map((d) => d.trim()).filter(Boolean),
+    teams: names.map((n) => ({ name: n, handles: prev[n] || "" })), security_team: $("o_sec").value } });
+}
+
+const isCloud = (url) => /\.(atlassian\.net|jira\.com)(:\d+)?(\/|$)/i.test(url.trim().replace(/^https?:\/\//, "") + "/");
+function jiraForm(s) {
+  const j = s.jira || {};
+  const sec = s.secrets || {};
+  return `<form id="jira" onsubmit="return false">
+    <label>Your Jira site<input id="j_url" value="${esc(j.base_url || "")}" placeholder="yourcompany.atlassian.net"></label>
+    <div id="j_cloud">
+      <label>Email of the Jira account SentinelDesk will use <span class="hint">An agent on your service desk. A dedicated account is best.</span>
+        <input id="j_email" type="email" value="${esc(sec.jira_email || "")}" placeholder="sentineldesk@yourcompany.com"></label>
+      <label>API token for that account <span class="hint">Create one at id.atlassian.com → Security → Create and manage API tokens.${sec.jira_api_token ? ` Saved: ${esc(sec.jira_api_token)}. Leave empty to keep it.` : ""}</span>
+        <input id="j_token" type="password" autocomplete="off"></label>
+    </div>
+    <div id="j_dc" hidden>
+      <label>Personal access token <span class="hint">In Jira: your profile picture → Profile → Personal access tokens.${sec.jira_pat ? ` Saved: ${esc(sec.jira_pat)}. Leave empty to keep it.` : ""}</span>
+        <input id="j_pat" type="password" autocomplete="off"></label>
+    </div>
+    <div class="actions"><button type="button" class="btn" id="j_test">Test connection</button><span id="j_testmsg" class="small"></span></div>
+    <div id="j_more" ${j.project_key ? "" : "hidden"} style="margin-top:16px">
+      <label>Which service desk should SentinelDesk watch?<select id="j_desk">${j.project_key ? `<option value="${esc(j.project_key)}">${esc(j.project_key)}</option>` : ""}</select></label>
+      <div class="choice"><input type="radio" name="j_mode" value="shadow" id="m1" ${j.mode !== "read-only" ? "checked" : ""}><label for="m1"><b>Add an internal note to each new request (recommended)</b>Only your agents see it. SentinelDesk never changes the request or replies to the customer.</label></div>
+      <div class="choice"><input type="radio" name="j_mode" value="read-only" id="m2" ${j.mode === "read-only" ? "checked" : ""}><label for="m2"><b>Don't write anything to Jira</b>Suggestions only appear here in SentinelDesk.</label></div>
+      <label style="margin-top:10px">Also check older requests, so the report has numbers from day one?
+        <select id="j_hist">${[[0, "No, only new requests"], [7, "Last 7 days"], [30, "Last 30 days"], [60, "Last 60 days"], [90, "Last 90 days"]].map(([v, t]) => `<option value="${v}" ${Number(j.history_days ?? 30) === v ? "selected" : ""}>${t}</option>`).join("")}</select>
+        <span class="hint">Older requests are only read, never commented on.</span></label>
+      <details class="more"><summary>Priority matching (set automatically)</summary><div id="j_prio" style="margin-top:8px"></div></details>
+    </div>
+    <p class="err" id="j_err" role="alert"></p>
+  </form>`;
+}
+function wireJiraForm(s) {
+  const toggle = () => { const url = $("j_url").value.trim(); const cloud = isCloud(url); $("j_cloud").hidden = !!url && !cloud; $("j_dc").hidden = !url || cloud; };
+  $("j_url").addEventListener("input", toggle);
+  toggle();
+  let pmap = { ...(s.jira?.priority_map || {}) };
+  const drawPrio = (names) => {
+    $("j_prio").innerHTML = names.length ? `<table class="simple"><tr><th>Jira priority</th><th>SentinelDesk priority</th></tr>${names.map((n) => `<tr><td>${esc(n)}</td><td><select data-p="${esc(n)}">${["P1", "P2", "P3", "P4"].map((p) => `<option value="${p}" ${pmap[n] === p ? "selected" : ""}>${p} · ${PRIORITY[p][0]}</option>`).join("")}</select></td></tr>`).join("")}</table>` : `<p class="muted small">Test the connection to load your priorities.</p>`;
+    $("j_prio").querySelectorAll("select").forEach((sel) => sel.addEventListener("change", () => (pmap[sel.dataset.p] = sel.value)));
+  };
+  drawPrio(Object.keys(pmap));
+  $("j_test").onclick = () => withBusy($("j_test"), async () => {
+    $("j_err").textContent = ""; $("j_testmsg").textContent = "Connecting…";
+    try {
+      const r = await api("/api/settings/jira/test", { method: "POST", body: jiraCreds() });
+      $("j_testmsg").innerHTML = `<span class="ok-text">✓ Connected as ${esc(r.account)}</span>`;
+      $("j_url").value = r.base_url;
+      const current = $("j_desk").value;
+      $("j_desk").innerHTML = r.service_desks.length ? r.service_desks.map((d) => `<option value="${esc(d.key)}" ${d.key === current ? "selected" : ""}>${esc(d.name)} (${esc(d.key)})</option>`).join("") : `<option value="">This account can't see any service desks. Make it an agent first.</option>`;
+      for (const n of r.priorities) if (!pmap[n]) pmap[n] = r.suggested_priority_map[n];
+      drawPrio(r.priorities);
+      $("j_more").hidden = false;
+    } catch (err) { $("j_testmsg").textContent = ""; $("j_err").textContent = err.message; }
+  });
+  return () => ({ ...jiraCreds(), enabled: true, project_key: $("j_desk").value, mode: document.querySelector("input[name=j_mode]:checked")?.value || "shadow", history_days: Number($("j_hist").value), priority_map: pmap });
+}
+function jiraCreds() {
+  const url = $("j_url").value.trim();
+  return isCloud(url) ? { base_url: url, email: $("j_email").value.trim() || null, api_token: $("j_token").value || null } : { base_url: url, pat: $("j_pat").value || null };
+}
+
+function kbBlock(s) {
+  return `<div id="kb">
+    <div class="drop" id="kb_drop"><p><b>Drop help articles here</b> or <label class="linkbtn" style="display:inline;margin:0;color:var(--accent)">choose files<input type="file" id="kb_file" multiple accept=".md,.txt,.markdown,text/plain,text/markdown" hidden></label></p>
+      <p class="muted small">Markdown (.md) or text (.txt), one article per file. Suggested replies are based only on these.</p></div>
+    <div id="kb_list" style="margin-top:12px">${kbList(s.kb || [])}</div><p class="err" id="kb_err" role="alert"></p></div>`;
+}
+function kbList(items) {
+  return items.length ? `<table class="simple"><tr><th>Article</th><th></th></tr>${items.map((a) => `<tr><td>${esc(a.title)} <span class="muted small">${esc(a.id)}</span></td><td style="text-align:right"><button class="linkbtn small" data-del="${esc(a.id)}">Remove</button></td></tr>`).join("")}</table>` : `<p class="muted small">No articles yet.</p>`;
+}
+function wireKb() {
+  const upload = async (files) => {
+    $("kb_err").textContent = "";
+    try {
+      const payload = await Promise.all([...files].map((f) => f.text().then((content) => ({ name: f.name, content }))));
+      if (!payload.length) return;
+      const s = await api("/api/settings/kb", { method: "POST", body: { files: payload } });
+      $("kb_list").innerHTML = kbList(s.kb); toast(`Added ${payload.length} article${payload.length === 1 ? "" : "s"}.`);
+    } catch (err) { $("kb_err").textContent = err.message; }
+  };
+  $("kb_file").addEventListener("change", (e) => upload(e.target.files));
+  const drop = $("kb_drop");
+  drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); upload(e.dataTransfer.files); });
+  $("kb_list").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-del]");
+    if (!b) return;
+    try { const s = await api(`/api/settings/kb/${encodeURIComponent(b.dataset.del)}`, { method: "DELETE" }); $("kb_list").innerHTML = kbList(s.kb); }
+    catch (err) { $("kb_err").textContent = err.message; }
+  });
+}
+
+// ---------------------------------------------------------------- setup wizard
+const STEPS = ["Your organisation", "Connect Jira", "Help articles", "Done"];
+async function screenWizard(step) {
+  stop();
+  state.settings = await api("/api/settings");
+  const s = state.settings;
+  const bar = `<div class="steps">${STEPS.map((t, i) => `<span class="${i === step ? "on" : i < step ? "done" : ""}">${i < step ? "✓ " : ""}${i + 1}. ${t}</span>`).join("")}</div>`;
+  const shell = (title, sub, body, buttons) => {
+    root.innerHTML = `<div class="wizard"><div class="brand" style="margin-bottom:16px"><div class="logo">SD</div><div><b>Set up SentinelDesk</b><small>Takes about five minutes. You can change everything later in Settings.</small></div></div>
+      ${bar}<div class="card pad"><h1>${title}</h1><p class="muted" style="margin:4px 0 18px">${sub}</p>${body}<div class="actions" style="margin-top:14px">${buttons}</div></div></div>`;
+  };
+  if (step === 0) {
+    shell("Tell us about your organisation", "SentinelDesk uses this to spot fake senders and to send requests to the right team.", orgForm(s),
+      `<button class="btn primary" id="next">Continue</button>`);
+    wireOrgForm(s);
+    $("o_name").focus();
+    $("next").onclick = () => withBusy($("next"), async () => { try { await saveOrg(); screenWizard(1); } catch (err) { $("o_err").textContent = err.message; } });
+  } else if (step === 1) {
+    shell("Connect Jira Service Management", "SentinelDesk reads new requests and adds its suggestion as an internal note. It never replies to customers or changes requests.", jiraForm(s),
+      `<button class="btn primary" id="next">Save and continue</button><button class="btn" id="skip">Skip for now</button>`);
+    const read = wireJiraForm(s);
+    $("j_url").focus();
+    $("skip").onclick = () => screenWizard(2);
+    $("next").onclick = () => withBusy($("next"), async () => {
+      $("j_err").textContent = "";
+      if ($("j_more").hidden) return void ($("j_err").textContent = "Press “Test connection” first.");
+      try { await api("/api/settings/jira", { method: "PUT", body: read() }); screenWizard(2); } catch (err) { $("j_err").textContent = err.message; }
+    });
+  } else if (step === 2) {
+    shell("Add your help articles", "Suggested replies quote these, so agents can trust them. Ten to thirty common fixes is a great start.", kbBlock(s),
+      `<button class="btn primary" id="next">Continue</button>`);
+    wireKb();
+    $("next").onclick = () => screenWizard(3);
+  } else {
+    const j = s.jira || {};
+    shell("You're all set", "SentinelDesk is running.", `<ul class="why" style="display:grid;gap:6px">
+        <li>${j.enabled ? `Watching <b>${esc(j.project_key)}</b> in Jira. New requests get ${j.mode === "shadow" ? "an internal note" : "a suggestion here"} within about a minute.` : "Jira isn't connected yet. You can connect it any time in Settings, or try a request in the inbox with “+ Test a ticket”."}</li>
+        <li>${(s.kb || []).length} help article${(s.kb || []).length === 1 ? "" : "s"} loaded.</li>
+        <li>Add your analysts in <b>Settings → People</b>.</li></ul>`,
+      `<button class="btn primary" id="next">Open the inbox</button>`);
+    $("next").onclick = () => { store("skipWizard", "1"); screenApp(); };
+  }
+}
+
+// ---------------------------------------------------------------- main app
+function screenApp() {
+  stop();
+  root.innerHTML = `<header class="top">
+      <div class="brand"><div class="logo">SD</div><div><b>SentinelDesk</b><small id="orgname"></small></div></div>
+      <nav class="tabs" aria-label="Sections">
+        <button data-tab="inbox">Inbox</button><button data-tab="report">Report</button>${state.me.role === "admin" ? `<button data-tab="settings">Settings</button>` : ""}
+      </nav>
+      <span class="status" id="sys"><i></i><span>Checking…</span></span>
+      <span class="user">${esc(state.me.username)} <button class="btn small" id="logout">Sign out</button></span>
+    </header><main id="main"></main>`;
+  root.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
+  $("logout").onclick = async () => { await api("/api/logout", { method: "POST" }).catch(() => {}); stop(); route(); };
+  api("/api/profile").then((p) => { state.profile = p; $("orgname").textContent = p.name; }).catch(() => {});
+  refreshHealth();
+  timers.push(setInterval(refreshHealth, 8000));
+  connectStream();
+  if (state.tab === "settings" && state.me.role !== "admin") state.tab = "inbox";
+  showTab(state.tab);
+}
+function showTab(tab) {
+  state.tab = tab;
+  root.querySelectorAll("[data-tab]").forEach((b) => b.setAttribute("aria-current", b.dataset.tab === tab ? "page" : "false"));
+  ({ inbox: renderInbox, report: renderReport, settings: renderSettings })[tab]();
+}
+
 async function refreshHealth() {
   try {
     const h = await api("/api/health");
+    state.health = h;
     const o = h.ollama;
-    pill("pOllama", o.reachable ? "ok" : "bad", o.reachable ? "Ollama online" : "Ollama offline", o.error || o.url);
-    const ready = o.reachable && o.agent_model_ready && o.chairman_model_ready;
-    const models = o.agent_model === o.chairman_model ? o.agent_model : `${o.agent_model} / ${o.chairman_model}`;
-    pill("pModel", ready ? "ok" : "warn", ready ? models : `${models} · rules fallback`, ready ? "" : `Not ready. Run: ollama pull ${o.agent_model}`);
-    pill("pWorker", h.worker.alive ? "ok" : "bad", h.worker.alive ? "worker running" : "worker offline");
-    if (h.profile) $("subtitle").textContent = `${h.profile.name} · local triage with Ollama + SQLite, no cloud calls`;
-    const q = h.queue;
-    pill("pQueue", q.running || q.queued ? "warn" : "ok", `${q.queued} queued · ${q.running} running · ${q.done} done${q.failed ? ` · ${q.failed} failed` : ""}`);
-  } catch {
-    pill("pOllama", "bad", "server unreachable");
-  }
+    let cls = "ok", text = "Running", title = `AI model ${o.agent_model}; ${h.queue.queued} waiting`;
+    if (!h.worker.alive) { cls = "bad"; text = "Stopped: restart SentinelDesk"; title = "The background worker is not running, so new requests are not being checked."; }
+    else if (!o.reachable || !o.agent_model_ready) { cls = "warn"; text = "AI offline, using rules"; title = o.error || `The AI model is not installed. Run: ollama pull ${o.agent_model}`; }
+    else if (h.queue.queued > 3) { cls = "warn"; text = `Busy: ${h.queue.queued} waiting`; }
+    const el = $("sys");
+    if (el) { el.className = `status ${cls}`; el.title = title; el.querySelector("span").textContent = text; }
+  } catch { /* signed out */ }
 }
 
-// ---------------- ingestion ----------------
-async function loadSamples() {
-  const samples = await api("/api/samples");
-  const labels = ["Locked out", "Phishing", "CEO fraud", "Floor can't print", "VPN", "Bank change", "Software", "Tricks the AI"];
-  $("chips").innerHTML = samples.map((s, i) => `<button type="button" class="chip" data-i="${i}">${esc(labels[i] || s.subject)}</button>`).join("");
-  $("chips").onclick = (e) => {
-    const b = e.target.closest(".chip");
-    if (!b) return;
-    const s = samples[Number(b.dataset.i)];
-    $("fFrom").value = s.requester;
-    $("fSubj").value = s.subject;
-    $("fBody").value = s.body;
-  };
-}
-$("form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  $("err").textContent = "";
-  $("submit").disabled = true;
-  try {
-    const r = await api("/api/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requester: $("fFrom").value, subject: $("fSubj").value, body: $("fBody").value }),
+// ---------------------------------------------------------------- inbox
+const verdictLine = (t) => t.status !== "done" ? (t.status === "failed" ? "Failed" : "Checking…") : t.security_flag ? "Security risk" : `${PRIORITY[t.priority]?.[0] || t.priority} · ${t.escalate_to || "Service desk"}`;
+async function renderInbox() {
+  $("main").innerHTML = `<div class="inbox">
+    <section class="card" aria-label="Requests">
+      <div class="filters" role="group" aria-label="Show">
+        <button data-f="review">To review</button><button data-f="security">Security</button><button data-f="all">All</button>
+        <button class="btn small" id="newbtn" style="margin-left:auto">+ Test a ticket</button>
+      </div>
+      <form id="newform" class="pad" hidden style="border-bottom:1px solid var(--line)">
+        <p class="small muted" style="margin-bottom:8px">Paste a request to see what SentinelDesk does with it. <button type="button" class="linkbtn small" id="sample">Use an example</button></p>
+        <label>From (email)<input id="n_from" type="email" required></label>
+        <label>Subject<input id="n_subj" required maxlength="160"></label>
+        <label>Message<textarea id="n_body" required maxlength="4000"></textarea></label>
+        <div class="actions"><button class="btn primary" id="n_go">Check it</button><button type="button" class="btn" id="n_cancel">Cancel</button></div><p class="err" id="n_err"></p>
+      </form>
+      <ul class="list" id="list" role="listbox" aria-label="Requests"></ul>
+    </section>
+    <section class="card pad" id="detail" aria-live="polite"><div class="empty">Select a request to see SentinelDesk's suggestion.</div></section>
+  </div>`;
+  document.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => { state.filter = b.dataset.f; drawList(); }));
+  $("newbtn").onclick = () => { $("newform").hidden = !$("newform").hidden; if (!$("newform").hidden) $("n_from").focus(); };
+  $("n_cancel").onclick = () => ($("newform").hidden = true);
+  let samples = [];
+  api("/api/samples").then((s) => (samples = s)).catch(() => {});
+  $("sample").onclick = () => { const s = samples[Math.floor(Math.random() * samples.length)]; if (s) { $("n_from").value = s.requester; $("n_subj").value = s.subject; $("n_body").value = s.body; } };
+  $("newform").onsubmit = (e) => {
+    e.preventDefault();
+    $("n_err").textContent = "";
+    withBusy($("n_go"), async () => {
+      try {
+        const r = await api("/api/tickets", { method: "POST", body: { requester: $("n_from").value, subject: $("n_subj").value, body: $("n_body").value } });
+        $("newform").reset(); $("newform").hidden = true; state.filter = "all";
+        await refreshTickets(); openTicket(r.id);
+      } catch (err) { $("n_err").textContent = err.message; }
     });
-    follow = false;
-    selected = r.id;
-    $("form").reset();
-    await refreshTickets();
-    await loadDetail();
-  } catch (err) {
-    const d = err.body?.detail;
-    $("err").textContent = Array.isArray(d) ? d.map((x) => `${x.loc?.at(-1)}: ${x.msg}`).join("; ") : err.message;
-  } finally {
-    $("submit").disabled = false;
-  }
-});
-
-// ---------------- queue + matrix ----------------
-function statusTag(t) {
-  if (t.status === "done") return t.security_flag ? `<span class="st sec">security</span>` : `<span class="st done">${esc(t.priority)}</span>`;
-  return `<span class="st ${esc(t.status)}">${esc(t.status)}</span>`;
-}
-function renderQueue() {
-  $("qHint").textContent = `${tickets.length} recent`;
-  $("queue").innerHTML = tickets.length
-    ? tickets.map((t) => `<li class="${t.id === selected ? "sel" : ""}" data-id="${t.id}" tabindex="0"><span class="qid">#${t.id}</span><div style="min-width:0"><div class="qs">${esc(t.subject)}</div><div class="qr">${esc(t.requester)}</div></div>${statusTag(t)}</li>`).join("")
-    : `<li class="empty-state" style="display:block;cursor:default">No tickets yet. Pick a sample above.</li>`;
-}
-function renderMatrix() {
-  $("matrix").innerHTML = tickets.length
-    ? tickets.map((t) => {
-        const r = t.reports || {};
-        const sec = r.security ? `<span class="tag ${r.security.is_attack ? "bad" : "good"}">${r.security.is_attack ? esc(r.security.attack_type) : "clean"}</span><div class="sub">${Math.round(r.security.confidence * 100)}%</div>` : `<span class="sub">—</span>`;
-        const sen = r.sentiment ? `${esc(r.sentiment.sentiment)}<div class="sub">urgency ${esc(r.sentiment.urgency)} · ${esc(r.sentiment.people_affected)}</div>` : `<span class="sub">—</span>`;
-        const intent = r.intent ? `${esc(r.intent.category)}<div class="sub">${esc(r.intent.intent)}</div>` : `<span class="sub">—</span>`;
-        const done = t.status === "done";
-        return `<tr class="${t.id === selected ? "sel" : ""}" data-id="${t.id}">
-          <td class="sub">#${t.id}</td>
-          <td>${t.external_url ? `<a href="${esc(t.external_url)}" target="_blank" rel="noopener noreferrer">${esc(t.external_key)}</a> ` : ""}${esc(t.subject)}<div class="sub">${esc(t.requester)}${t.backfill ? " · historical import" : ""}${t.writeback_status === "posted" ? " · comment posted" : t.writeback_status === "failed" ? " · comment FAILED" : ""}</div></td>
-          <td>${sec}</td><td>${sen}</td><td>${intent}</td>
-          <td>${done ? `<span class="p ${esc(t.priority)}">${esc(t.priority)}</span>${t.security_flag ? ` <span class="tag bad">SOC</span>` : ""}` : statusTag(t)}</td>
-          <td>${done ? esc(t.escalate_to || "Service Desk") : ""}</td>
-          <td>${done ? `<span class="bar"><i style="width:${Math.round((t.confidence || 0) * 100)}%"></i></span>${Math.round((t.confidence || 0) * 100)}%` : ""}</td>
-          <td>${done ? `<span class="tag">${esc(t.mode === "council" ? "council" : "rules")}</span>` : ""}</td>
-          <td>${done ? (t.overrides ? `<span class="tag bad">${t.overrides}</span>` : `<span class="sub">0</span>`) : ""}</td>
-          <td>${t.review ? `<span class="tag ${t.review === "accept" ? "good" : "bad"}">${t.review === "accept" ? "accepted" : "corrected"}</span>` : done ? `<span class="sub">to review</span>` : ""}</td>
-        </tr>`;
-      }).join("")
-    : `<tr><td colspan="11" class="empty-state">Decisions appear here as the council finishes each ticket.</td></tr>`;
+  };
+  $("list").addEventListener("click", (e) => { const li = e.target.closest("li[data-id]"); if (li) openTicket(Number(li.dataset.id)); });
+  $("list").addEventListener("keydown", (e) => { const li = e.target.closest("li[data-id]"); if (li && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openTicket(Number(li.dataset.id)); } });
+  await refreshTickets();
+  if (state.selected) openTicket(state.selected);
 }
 async function refreshTickets() {
-  tickets = await api("/api/tickets?limit=50");
-  if (follow && tickets.length && selected !== tickets[0].id) {
-    selected = tickets[0].id;
-    await loadDetail();
-  }
-  renderQueue();
-  renderMatrix();
+  state.tickets = await api("/api/tickets?limit=200");
+  drawList();
 }
-function pick(id) {
-  follow = false;
-  selected = id;
-  renderQueue();
-  renderMatrix();
-  loadDetail();
+function drawList() {
+  if (!$("list")) return;
+  const t = state.tickets;
+  const counts = { review: t.filter((x) => x.status === "done" && !x.review).length, security: t.filter((x) => x.security_flag).length, all: t.length };
+  document.querySelectorAll("[data-f]").forEach((b) => { b.setAttribute("aria-pressed", String(b.dataset.f === state.filter)); b.textContent = `${{ review: "To review", security: "Security", all: "All" }[b.dataset.f]} (${counts[b.dataset.f]})`; });
+  const shown = t.filter((x) => state.filter === "all" || (state.filter === "security" ? x.security_flag : x.status !== "done" || !x.review));
+  $("list").innerHTML = shown.length ? shown.map((x) => `<li data-id="${x.id}" tabindex="0" role="option" aria-selected="${x.id === state.selected}">
+      <span class="subj">${esc(x.subject)}</span>
+      <span class="meta"><span class="pill ${x.security_flag ? "sec" : x.status === "done" ? esc(x.priority) : ""}">${esc(verdictLine(x))}</span>
+        ${x.review ? `<span class="pill done">${x.review === "accept" ? "✓ reviewed" : "✎ changed"}</span>` : ""}
+        <span>${esc(x.external_key || "")} ${ago(x.created_at)}</span></span></li>`).join("")
+    : `<li class="empty" style="cursor:default">${state.filter === "review" && t.length ? "Nothing to review. Nice work!" : t.length ? "Nothing here." : "No requests yet. Once Jira is connected, new requests appear here automatically. Or press “+ Test a ticket”."}</li>`;
 }
-$("queue").addEventListener("click", (e) => { const li = e.target.closest("li[data-id]"); if (li) pick(Number(li.dataset.id)); });
-$("queue").addEventListener("keydown", (e) => { const li = e.target.closest("li[data-id]"); if (li && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pick(Number(li.dataset.id)); } });
-$("matrix").addEventListener("click", (e) => { const tr = e.target.closest("tr[data-id]"); if (tr) pick(Number(tr.dataset.id)); });
-
-// ---------------- execution log ----------------
-function lane(name) { return document.querySelector(`.lane[data-agent="${name}"]`); }
-// The same event can arrive twice: once in a detail reload and once over the live stream.
-let shownEvents = new Set();
-function resetLanes() {
-  shownEvents = new Set();
-  for (const name of [...LANES, "chairman"]) {
-    const l = lane(name);
-    l.className = `lane${name === "chairman" ? " wide" : ""}`;
-    l.querySelector("[data-log]").innerHTML = `<li class="empty">waiting…</li>`;
-    l.querySelector("[data-meta]").textContent = "idle";
-    const rep = l.querySelector("[data-rep]");
-    if (rep) { rep.hidden = true; rep.textContent = ""; }
-  }
-}
-function appendEvent(e) {
-  if (shownEvents.has(e.id)) return;
-  shownEvents.add(e.id);
-  const name = laneOf(e.agent);
-  const ul = lane(name).querySelector("[data-log]");
-  ul.querySelector(".empty")?.remove();
-  const who = name === "chairman" ? `<span class="who">${esc(e.agent)}</span>` : "";
-  ul.insertAdjacentHTML("beforeend", `<li class="${esc(e.level)}"><time>${time(e.ts)}</time>${who}<span>${esc(e.message)}</span></li>`);
-  ul.scrollTop = ul.scrollHeight;
-  if (LANES.includes(e.agent) && /^Started/.test(e.message)) setLaneState(e.agent, "running", "running…");
-}
-function setLaneState(name, state, meta) {
-  const l = lane(name);
-  l.classList.remove("state-running", "state-failed", "state-done");
-  l.classList.add(`state-${state}`);
-  l.querySelector("[data-meta]").textContent = meta;
-}
-async function loadDetail() {
-  if (selected == null) return;
-  const id = selected;
+async function openTicket(id) {
+  state.selected = id;
+  drawList();
   const t = await api(`/api/tickets/${id}`);
-  if (id !== selected) return;
-  detail = t;
-  $("logFor").textContent = `ticket #${t.id} · ${t.status}`;
-  resetLanes();
-  t.events.forEach(appendEvent);
-  for (const run of t.agent_runs) {
-    const name = laneOf(run.agent);
-    const meta = `${run.model} · ${(run.duration_ms / 1000).toFixed(1)}s · ${run.prompt_tokens + run.output_tokens} tok`;
-    if (LANES.includes(run.agent)) {
-      setLaneState(run.agent, run.status === "ok" ? "done" : "failed", run.status === "ok" ? meta : `failed · ${meta}`);
-      const rep = lane(name).querySelector("[data-rep]");
-      rep.hidden = false;
-      rep.textContent = run.output ? JSON.stringify(run.output, null, 1) : run.error || "";
-    } else {
-      setLaneState("chairman", run.status === "ok" ? "done" : "failed", meta);
-    }
-  }
-  if (t.status === "done" && t.mode === "rules") setLaneState("chairman", "done", "offline rules engine");
-  renderDetail(t);
+  if (state.selected !== id) return;
+  state.detail = t;
+  drawDetail();
 }
-function renderDetail(t) {
-  if (t.status !== "done" || !t.final) {
-    $("detail").innerHTML = t.status === "failed" ? `<div class="detail"><div class="card"><h3>Failed</h3><p>${esc(t.error)}</p></div></div>` : "";
+function drawDetail() {
+  const t = state.detail;
+  const el = $("detail");
+  if (!t || !el) return;
+  const head = `<h2>${esc(t.subject)}</h2><p class="muted small">From ${esc(t.requester)} · ${ago(t.created_at)}${t.external_url ? ` · <a href="${esc(t.external_url)}" target="_blank" rel="noopener noreferrer">Open ${esc(t.external_key)} in Jira</a>` : ""}${t.backfill ? " · older request, read only" : ""}</p>`;
+  if (t.status !== "done") {
+    el.innerHTML = head + `<div class="verdict req"><h2>${t.status === "failed" ? "Something went wrong" : "SentinelDesk is checking this request…"}</h2><p>${t.status === "failed" ? esc(t.error) : "This usually takes a few seconds."}</p></div>${howHTML(t)}`;
     return;
   }
   const f = t.final;
-  const overrides = f.overrides.length
-    ? `<ul>${f.overrides.map((o) => `<li class="ov"><b>${esc(o.field)}</b>: ${esc(JSON.stringify(o.from))} → ${esc(JSON.stringify(o.to))}<div class="sub">${esc(o.reason)}</div></li>`).join("")}</ul>`
-    : `<p>The guardrail accepted the council's decision unchanged.</p>`;
-  $("detail").innerHTML = `<div class="detail">
-    <div class="card"><h3>Final decision · ticket #${t.id}</h3>
-      <p class="verdict ${f.security_flag ? "bad" : "good"}">${f.security_flag ? "Security incident: sent to the SOC, no reply to the sender" : `${esc(f.category)} → ${esc(f.escalate_to || "Service Desk")}`}</p>
-      <p style="margin-top:6px"><span class="p ${esc(f.priority)}">${esc(f.priority)}</span> · confidence ${Math.round(f.confidence * 100)}% · ${esc(t.mode === "council" ? `council (${t.model})` : "offline rules")}</p>
-      ${t.fallback_reason ? `<p class="sub" style="margin-top:6px">${esc(t.fallback_reason)}</p>` : ""}
-      <p style="margin-top:8px"><b>Reasoning:</b> ${esc(f.reasoning)}</p>
-      ${f.security_reasons.length ? `<h3 style="margin-top:10px">Indicators</h3><ul>${f.security_reasons.slice(0, 8).map((r) => `<li>• ${esc(r)}</li>`).join("")}</ul>` : ""}
-    </div>
-    <div class="card"><h3>${f.security_flag ? "Note for the security analyst" : "Suggested reply"}</h3><p>${esc(f.suggested_response)}</p>
-      ${f.kb_refs.length ? `<p class="sub" style="margin-top:6px">Grounded in ${esc(f.kb_refs.join(", "))}</p>` : ""}
-      <h3 style="margin-top:12px">Guardrail</h3>${overrides}
-      ${reviewHTML(t)}
-    </div></div>`;
-}
-function options(list, current, blank) {
-  return (blank ? `<option value="">${esc(blank)}</option>` : "") + list.map((v) => `<option ${v === current ? "selected" : ""}>${esc(v)}</option>`).join("");
-}
-function reviewHTML(t) {
+  const sec = t.agent_runs.find((r) => r.agent === "security" && r.output)?.output;
+  const verdict = f.security_flag
+    ? `<div class="verdict sec"><h2>⚠ This looks like ${esc(ATTACK[sec?.attack_type] || "a security risk")}</h2>
+        <p>Sent to <b>${esc(f.escalate_to)}</b>. Don't reply to the sender, click its links, or do what it asks.</p></div>`
+    : `<div class="verdict req"><h2>${esc(f.category)} → ${esc(f.escalate_to || "Service desk")}</h2>
+        <p><span class="pill ${esc(f.priority)}">${esc(f.priority)} · ${esc(PRIORITY[f.priority][0])}</span> ${esc(PRIORITY[f.priority][1])}</p></div>`;
+  const reasons = f.security_flag ? f.security_reasons.slice(0, 4) : [];
+  const why = `<p class="small"><b>Why:</b> ${esc(f.reasoning || "Matched against your teams and help articles.")}</p>
+    ${reasons.length ? `<ul class="why" style="margin-top:6px">${reasons.map((r) => `<li>${esc(r.replace(/^Prompt injection: /, "Tries to trick the AI: "))}</li>`).join("")}</ul>` : ""}
+    ${f.overrides.some((o) => o.field === "security_flag") ? `<p class="small" style="margin-top:6px;color:var(--amber)">The AI missed this, so SentinelDesk's safety rules overruled it.</p>` : ""}`;
+  const jiraNote = t.source === "jira" ? `<p class="small muted" style="margin-top:8px">${({ posted: "✓ Added as an internal note in Jira.", pending: "Adding an internal note in Jira…", failed: `Couldn't add the note in Jira: ${esc(t.writeback_error || "")}`, skipped: t.backfill ? "Older request: no note was added in Jira." : "Read-only mode: nothing was written to Jira." })[t.writeback_status] || ""}</p>` : "";
+  const reply = `<div class="reply"><div class="head"><b class="small">${f.security_flag ? "Note for your security team" : "Suggested reply"}</b><button class="btn small" id="copy">Copy</button></div>${esc(f.suggested_response)}${f.kb_refs.length && !f.security_flag ? `<p class="small muted" style="margin-top:8px">Based on help article${f.kb_refs.length > 1 ? "s" : ""} ${esc(f.kb_refs.join(", "))}.</p>` : ""}</div>`;
   const fb = t.feedback;
-  const f = t.final;
-  const prior = fb ? `<p class="ok-msg">${fb.verdict === "accept" ? "Accepted" : "Corrected"} by ${esc(fb.username)}${fb.verdict === "correct" ? `: ${esc(fb.priority)} · ${esc(fb.escalate_to || "Service Desk")}${fb.security_flag ? " · security" : ""}` : ""}${fb.note ? ` · "${esc(fb.note)}"` : ""}</p>` : "";
-  if (!profile) return prior;
-  return `<div class="review"><h3>Analyst review</h3>${prior}
-    <div class="row"><button class="btn small" type="button" data-accept="${t.id}">✓ Accept</button><span class="sub">or correct it:</span></div>
-    <form class="row" data-correct="${t.id}">
-      <select name="priority" aria-label="Priority">${options(profile.priorities, f.priority)}</select>
-      <select name="escalate_to" aria-label="Team">${options(profile.teams, f.escalate_to, "Service Desk")}</select>
-      <select name="category" aria-label="Category">${options(profile.categories, f.category)}</select>
-      <label style="display:flex;flex-direction:row;align-items:center;gap:4px;margin:0"><input type="checkbox" name="security_flag" ${f.security_flag ? "checked" : ""} style="width:auto"> security incident</label>
-      <input type="text" name="note" maxlength="1000" placeholder="Note (optional)">
-      <button class="btn small ghost" type="submit">Save correction</button>
-    </form><p class="err" id="revErr"></p></div>`;
+  const review = `<div class="reviewbar">
+      ${fb ? `<span class="small ${fb.verdict === "accept" ? "ok-text" : ""}">${fb.verdict === "accept" ? "✓" : "✎"} ${esc(fb.username)} ${fb.verdict === "accept" ? "said this was right" : `changed it to ${esc(fb.priority)} · ${esc(fb.escalate_to || "Service desk")}${fb.security_flag ? " · security" : ""}`}</span>` : `<span class="small muted">Is this right?</span>`}
+      <button class="btn good" id="accept">✓ Looks right</button><button class="btn" id="change">✎ Change…</button></div>
+    <form id="changeform" hidden class="card pad" style="margin-top:10px;background:var(--panel2)">
+      <div class="row"><label>Priority<select id="c_p">${["P1", "P2", "P3", "P4"].map((p) => `<option value="${p}" ${p === f.priority ? "selected" : ""}>${p} · ${PRIORITY[p][0]}</option>`).join("")}</select></label>
+        <label>Team<select id="c_t"><option value="">Service desk</option>${(state.profile?.teams || []).map((n) => `<option ${n === f.escalate_to ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></label></div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="c_s" style="width:auto" ${f.security_flag ? "checked" : ""}> This is a security issue (phishing, fraud…)</label>
+      <label>Note <span class="hint">Optional: what should it have noticed?</span><input id="c_n" maxlength="1000"></label>
+      <div class="actions"><button class="btn primary" id="c_go">Save</button><button type="button" class="btn" id="c_cancel">Cancel</button></div><p class="err" id="c_err"></p></form>`;
+  el.innerHTML = head + verdict + why + reply + jiraNote + review + howHTML(t);
+  $("copy").onclick = async () => { try { await navigator.clipboard.writeText(f.suggested_response); toast("Copied."); } catch { toast("Select the text and copy it."); } };
+  $("accept").onclick = () => withBusy($("accept"), () => sendReview({ verdict: "accept" }).catch((err) => toast(err.message)));
+  $("change").onclick = () => { $("changeform").hidden = false; $("c_p").focus(); };
+  $("c_cancel").onclick = () => ($("changeform").hidden = true);
+  $("changeform").onsubmit = (e) => {
+    e.preventDefault();
+    const category = $("c_s").checked ? "Security Incident" : f.category === "Security Incident" ? "Other" : f.category;
+    withBusy($("c_go"), () => sendReview({ verdict: "correct", priority: $("c_p").value, escalate_to: $("c_t").value, security_flag: $("c_s").checked, category, note: $("c_n").value || null }).catch((err) => ($("c_err").textContent = err.message)));
+  };
 }
-async function sendReview(id, payload) {
-  try {
-    await api(`/api/tickets/${id}/feedback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    await Promise.all([loadDetail(), refreshTickets(), refreshReport()]);
-  } catch (err) {
-    const el = document.getElementById("revErr");
-    if (el) el.textContent = err.message;
+async function sendReview(body) {
+  await api(`/api/tickets/${state.detail.id}/feedback`, { method: "POST", body });
+  toast(body.verdict === "accept" ? "Thanks, marked as right." : "Thanks, your correction is saved.");
+  await refreshTickets();
+  const next = state.filter === "review" && state.tickets.find((x) => x.status === "done" && !x.review);
+  openTicket(next ? next.id : state.detail.id);
+}
+function howHTML(t) {
+  const run = (a) => t.agent_runs.find((r) => r.agent === a);
+  const card = (a, title, text) => { const r = run(a); return `<div class="agent"><b>${title}</b>${r ? (r.output ? esc(text(r.output)) : `<span class="muted">No answer (${esc(r.error || "error")})</span>`) : `<span class="muted">${t.mode === "rules" ? "Not used: decided by rules" : "Waiting…"}</span>`}</div>`; };
+  return `<details class="how"><summary>How SentinelDesk decided</summary>
+    <p class="small muted" style="margin-top:8px">${t.mode === "council" ? `Three AI checks ran side by side (${esc(t.model)}), a fourth combined them, and safety rules checked the result.` : t.mode === "rules" ? `Decided by SentinelDesk's built-in rules${t.fallback_reason ? ` (${esc(t.fallback_reason)})` : ""}.` : "Not finished yet."}</p>
+    <div class="agents">
+      ${card("security", "Security check", (o) => `${o.is_attack ? "Attack" : "No attack"} (${Math.round(o.confidence * 100)}% sure). ${o.summary}`)}
+      ${card("sentiment", "Urgency check", (o) => `${o.sentiment}, ${o.urgency} urgency, affects ${o.people_affected}. ${o.summary}`)}
+      ${card("intent", "What they need", (o) => `${o.intent} → ${o.suggested_team}`)}
+    </div>
+    ${t.final?.overrides?.length ? `<p class="small" style="margin-top:10px"><b>Safety rules changed:</b> ${t.final.overrides.map((o) => esc(o.reason)).join(" ")}</p>` : ""}
+    <details class="more" style="margin-top:10px"><summary>Original message</summary><div class="original">${esc(t.body)}</div></details>
+    <details class="more"><summary>Activity log</summary><ul class="log">${t.events.map((e) => `<li class="${esc(e.level)}"><time>${clock(e.ts)}</time>${esc(e.message)}</li>`).join("")}</ul></details>
+  </details>`;
+}
+
+// ---------------------------------------------------------------- report
+async function renderReport() {
+  $("main").innerHTML = `<section>
+    <div class="row" style="justify-content:space-between;margin-bottom:12px"><h2>How SentinelDesk is doing</h2>
+      <div class="row"><select id="days" aria-label="Period" style="width:auto"><option value="">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select>
+      <a class="btn" id="csv" href="/api/report.csv" download>Download CSV</a></div></div>
+    <div class="kpis" id="kpis"></div>
+    <p class="small muted" style="margin-top:12px">“Right” means it matched what your analysts chose, either with “Looks right” / “Change” here or with what they set in Jira.</p>
+  </section>`;
+  const draw = async () => {
+    const d = $("days").value;
+    $("csv").href = `/api/report.csv${d ? `?days=${d}` : ""}`;
+    const r = await api(`/api/report${d ? `?days=${d}` : ""}`);
+    const pct = (v) => (v == null ? "—" : `${Math.round(v)}%`);
+    const k = (big, label, small = "") => `<div class="kpi"><b>${big}</b><span>${label}</span>${small ? `<small>${small}</small>` : ""}</div>`;
+    $("kpis").innerHTML = !r.volume.triaged ? `<div class="empty card">No requests handled yet.</div>` : [
+      k(r.volume.triaged, "requests handled", `${r.review.reviewed} reviewed by your team`),
+      k(pct(r.review.acceptance_rate_pct), "marked “looks right”", `of ${r.review.reviewed} reviewed`),
+      k(pct(r.agreement.priority_within_one_pct), "priority right or one level off", `exactly right: ${pct(r.agreement.priority_exact_pct)}`),
+      k(pct(r.agreement.routing_pct), "sent to the right team", `${r.agreement.routing_compared} compared`),
+      k(r.volume.security_flagged, "security risks flagged", r.security.compared ? `${r.security.true_positives} confirmed, ${r.security.false_positives} false alarms` : ""),
+      k(r.security.missed, "security issues it missed", "found by your analysts"),
+      k(r.speed.median_seconds_to_triage == null ? "—" : `${Math.round(r.speed.median_seconds_to_triage)} s`, "typical time per request"),
+    ].join("");
+  };
+  $("days").onchange = draw;
+  draw();
+}
+
+// ---------------------------------------------------------------- settings (admin)
+async function renderSettings() {
+  const s = state.settings = await api("/api/settings");
+  const ro = s.managed_by_file;
+  $("main").innerHTML = `<div class="settings">
+    ${ro ? `<div class="card pad"><b>These settings are managed in a file</b><p class="muted small">${esc(s.path)}. Edit that file to change them; it is reloaded automatically.</p></div>` : ""}
+    <section class="card pad"><h2>Organisation</h2><p class="muted small" style="margin-bottom:12px">Your domains and teams.</p>${orgForm(s)}${ro ? "" : `<button class="btn primary" id="o_save">Save</button>`}</section>
+    <section class="card pad"><h2>Jira</h2><p class="muted small" style="margin-bottom:12px">${s.jira.enabled ? `Connected: watching <b>${esc(s.jira.project_key)}</b> (${s.jira.mode === "shadow" ? "adding internal notes" : "read-only"}).` : "Not connected."}</p>
+      ${jiraForm(s)}${ro ? "" : `<div class="actions"><button class="btn primary" id="j_save">Save</button>${s.jira.enabled ? `<button class="btn" id="j_off">Stop using Jira</button>` : ""}</div>`}</section>
+    <section class="card pad"><h2>Help articles</h2><p class="muted small" style="margin-bottom:12px">${s.kb.length} article${s.kb.length === 1 ? "" : "s"}. Suggested replies are based only on these.</p>${ro ? kbList(s.kb) : kbBlock(s)}</section>
+    <section class="card pad"><h2>People</h2><div id="people"></div>
+      <form id="addu" class="row" style="margin-top:12px;align-items:flex-end">
+        <label>Username<input id="u_name" required></label><label>Temporary password <span class="hint">12+ characters; share it privately.</span><input id="u_pw" required minlength="12"></label>
+        <label>Role<select id="u_role"><option value="analyst">Analyst</option><option value="admin">Administrator</option></select></label>
+        <div style="margin-bottom:14px"><button class="btn primary" id="u_go">Add person</button></div></form><p class="err" id="u_err"></p></section>
+    <section class="card pad"><h2>System</h2><div id="sysinfo" class="small"></div></section>
+  </div>`;
+  wireOrgForm(s);
+  const readJira = wireJiraForm(s);
+  if (!ro) {
+    $("o_save").onclick = () => withBusy($("o_save"), async () => { try { await saveOrg(); toast("Saved."); api("/api/profile").then((p) => { state.profile = p; $("orgname").textContent = p.name; }); } catch (err) { $("o_err").textContent = err.message; } });
+    $("j_save").onclick = () => withBusy($("j_save"), async () => {
+      $("j_err").textContent = "";
+      if ($("j_more").hidden) return void ($("j_err").textContent = "Press “Test connection” first.");
+      try { await api("/api/settings/jira", { method: "PUT", body: readJira() }); toast("Saved. SentinelDesk picks this up within a few seconds."); renderSettings(); } catch (err) { $("j_err").textContent = err.message; }
+    });
+    if ($("j_off")) $("j_off").onclick = () => withBusy($("j_off"), async () => { await api("/api/settings/jira", { method: "PUT", body: { base_url: s.jira.base_url, enabled: false } }); toast("Jira turned off. Nothing more will be written."); renderSettings(); });
+    wireKb();
   }
+  const drawPeople = async () => {
+    const users = await api("/api/users");
+    $("people").innerHTML = `<table class="simple"><tr><th>Name</th><th>Role</th><th>Last sign-in</th><th></th></tr>${users.map((u) => `<tr><td>${esc(u.username)}</td><td>${u.role === "admin" ? "Administrator" : "Analyst"}</td><td>${u.disabled ? "<span class='muted'>access removed</span>" : u.last_login ? ago(u.last_login) : "never"}</td><td style="text-align:right">${u.disabled || u.username === state.me.username ? "" : `<button class="linkbtn small" data-off="${esc(u.username)}">Remove access</button>`}</td></tr>`).join("")}</table>`;
+  };
+  $("people").addEventListener("click", async (e) => { const b = e.target.closest("[data-off]"); if (b && confirm(`Remove access for ${b.dataset.off}?`)) { await api(`/api/users/${encodeURIComponent(b.dataset.off)}/disable`, { method: "POST" }); drawPeople(); } });
+  $("addu").onsubmit = (e) => { e.preventDefault(); withBusy($("u_go"), async () => { $("u_err").textContent = ""; try { await api("/api/users", { method: "POST", body: { username: $("u_name").value.trim().toLowerCase(), password: $("u_pw").value, role: $("u_role").value } }); $("addu").reset(); toast("Added. Share the username and temporary password with them privately."); drawPeople(); } catch (err) { $("u_err").textContent = err.message; } }); };
+  drawPeople();
+  const h = state.health || (await api("/api/health"));
+  $("sysinfo").innerHTML = `<table class="simple">
+    <tr><td>AI model</td><td>${h.ollama.reachable ? (h.ollama.agent_model_ready ? `<span class="ok-text">Ready</span> (${esc(h.ollama.agent_model)})` : `Not installed. Run <code>ollama pull ${esc(h.ollama.agent_model)}</code>`) : `<span style="color:var(--amber)">Offline</span>: requests are decided by rules until it is back.`}</td></tr>
+    <tr><td>Worker</td><td>${h.worker.alive ? `<span class="ok-text">Running</span>` : `<span style="color:var(--red)">Stopped</span>: restart SentinelDesk.`}</td></tr>
+    <tr><td>Queue</td><td>${h.queue.queued} waiting, ${h.queue.running} in progress, ${h.queue.done} done${h.queue.failed ? `, ${h.queue.failed} failed` : ""}</td></tr>
+    <tr><td>Database</td><td><code>${esc(h.db)}</code></td></tr></table>`;
 }
-$("detail").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-accept]");
-  if (b) sendReview(Number(b.dataset.accept), { verdict: "accept" });
-});
-$("detail").addEventListener("submit", (e) => {
-  const form = e.target.closest("[data-correct]");
-  if (!form) return;
-  e.preventDefault();
-  const fd = new FormData(form);
-  sendReview(Number(form.dataset.correct), {
-    verdict: "correct", priority: fd.get("priority"), escalate_to: fd.get("escalate_to") || "", category: fd.get("category"),
-    security_flag: fd.get("security_flag") === "on", note: fd.get("note") || null,
-  });
-});
 
-// ---------------- report ----------------
-function kpi(label, value, cls = "") {
-  return `<div class="kpi ${cls}"><b>${value ?? "—"}</b><span>${esc(label)}</span></div>`;
-}
-const pct = (v) => (v == null ? null : `${v}%`);
-async function refreshReport() {
-  const days = $("repDays").value;
-  $("csv").href = `/api/report.csv${days ? `?days=${days}` : ""}`;
-  const r = await api(`/api/report${days ? `?days=${days}` : ""}`);
-  if (!r.volume.triaged) { $("kpis").innerHTML = `<div class="empty-state">No triaged tickets yet.</div>`; return; }
-  $("kpis").innerHTML = [
-    kpi("tickets triaged", r.volume.triaged),
-    kpi("security incidents flagged", r.volume.security_flagged, r.volume.security_flagged ? "bad" : ""),
-    kpi("attacks the AI missed, caught by rules", r.volume.security_overrides, r.volume.security_overrides ? "bad" : ""),
-    kpi("other guardrail corrections", r.volume.guardrail_corrections),
-    kpi(`reviewed by analysts`, r.review.reviewed),
-    kpi("analysts accepted as-is", pct(r.review.acceptance_rate_pct), "good"),
-    kpi(`priority exact match (${r.agreement.priority_compared})`, pct(r.agreement.priority_exact_pct)),
-    kpi("priority within one level", pct(r.agreement.priority_within_one_pct)),
-    kpi(`routing match (${r.agreement.routing_compared})`, pct(r.agreement.routing_pct)),
-    kpi(`security precision (${r.security.compared})`, pct(r.security.precision_pct)),
-    kpi("security recall", pct(r.security.recall_pct)),
-    kpi("median seconds to triage", r.speed.median_seconds_to_triage),
-    kpi("Jira comments posted", r.jira.comments_posted, r.jira.comments_failed ? "bad" : ""),
-  ].join("");
-}
-$("repDays").addEventListener("change", refreshReport);
-
-// ---------------- live stream ----------------
+// ---------------------------------------------------------------- live updates
 function connectStream() {
   if (stream) stream.close();
   const es = new EventSource("/api/stream");
   stream = es;
-  es.addEventListener("logout", () => { es.close(); showLogin(); });
-  es.addEventListener("log", async (msg) => {
+  let pending = null;
+  es.addEventListener("log", (msg) => {
     const e = JSON.parse(msg.data);
-    if (e.ticket_id != null && e.ticket_id === selected) appendEvent(e);
-    if (e.agent === "system" || e.agent === "chairman") {
-      await refreshTickets();
-      if (e.ticket_id === selected && /done|failed/.test(e.message)) loadDetail();
-    }
-    if (e.ticket_id == null) refreshHealth();
-    if (e.agent === "review" || /done/.test(e.message)) refreshReport().catch(() => {});
+    if (state.tab !== "inbox") return;
+    clearTimeout(pending);
+    pending = setTimeout(async () => {
+      await refreshTickets().catch(() => {});
+      const editing = $("changeform") && !$("changeform").hidden;  // never redraw under someone's cursor
+      if (e.ticket_id != null && e.ticket_id === state.selected && !editing) openTicket(state.selected);
+    }, 300);
   });
-  es.onerror = () => { es.close(); if (stream === es) { stream = null; setTimeout(() => me && connectStream(), 2000); } };
+  es.addEventListener("logout", () => { es.close(); route(); });
+  es.onerror = () => { es.close(); if (stream === es) { stream = null; setTimeout(() => state.me && connectStream(), 3000); } };
 }
 
-let timers = [];
-async function boot() {
-  try {
-    me = await api("/api/me");
-  } catch {
-    return; // showLogin() already ran
-  }
-  $("whoami").textContent = `${me.username} · ${me.role}`;
-  $("userbox").hidden = false;
-  profile = await api("/api/profile");
-  resetLanes();
-  await Promise.all([refreshHealth(), loadSamples(), refreshTickets(), refreshReport()]);
-  connectStream();
-  timers.forEach(clearInterval);
-  timers = [setInterval(refreshHealth, 4000), setInterval(() => refreshTickets().catch(() => {}), 5000)];
-}
-boot();
+// Pasting the setup link into a tab that is already open only changes the #fragment, which does not
+// reload the page, so react to it explicitly.
+window.addEventListener("hashchange", () => { if (location.hash.includes("setup=")) route(); });
+route();
 </script>
 </body>
 </html>

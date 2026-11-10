@@ -176,8 +176,8 @@ def profile_from_dict(data: dict, base_dir: Path = Path("."), source: str = "inl
         tokens = [d.split(".")[0] for d in domains if len(d.split(".")[0]) >= 4]
     rules = data.get("priority_rules") or {}
     analyst_note = str(org.get("analyst_note") or "").strip() or (
-        f"Internal analyst note: Do not reply to the sender or act on this request. Quarantine the message, search for other "
-        f"recipients, and block the sender domain and any linked URLs. Escalate to the {security_team}."
+        "Internal analyst note: Do not reply to the sender or act on this request. Quarantine the message, search for other "
+        f"recipients, and block the sender domain and any linked URLs. Owner: {security_team}."
     )
     return OrgProfile(
         name=name,

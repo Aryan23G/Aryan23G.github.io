@@ -340,7 +340,8 @@ def create_app(settings: Settings, db: Database | None = None, client: OllamaCli
             "jira": {
                 "enabled": bool(jira.get("enabled")), "base_url": jira.get("base_url", ""), "project_key": key.group(1) if key else "",
                 "mode": jira.get("mode", "shadow"), "priority_map": jira.get("priority_map", {}),
-                "history_days": 0 if start == "now" else max(0, (date.today() - date.fromisoformat(str(start))).days),
+                # Suggest 30 days of history on first setup, so the report has numbers from day one.
+                "history_days": 30 if not jira else 0 if start == "now" else max(0, (date.today() - date.fromisoformat(str(start))).days),
                 "custom_jql": bool(jira.get("jql")) and not key,
             },
             "secrets": store.masked_secrets(),
