@@ -1,0 +1,41 @@
+# Render Blueprint for the SentinelDesk API (https://render.com/docs/blueprint-spec).
+# Dashboard -> New -> Blueprint -> pick this repo. Render asks for the values marked sync: false.
+services:
+  - type: web
+    name: sentineldesk-api
+    runtime: node
+    plan: free
+    rootDir: sentineldesk
+    buildCommand: npm ci && npm run build:server
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - sentineldesk/src/**
+        - sentineldesk/package.json
+        - sentineldesk/package-lock.json
+        - sentineldesk/build.mjs
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ANTHROPIC_API_KEY # paste your key in the Render dashboard; never commit it
+        sync: false
+      - key: SENTINEL_MODEL
+        value: claude-opus-5-5
+      - key: SENTINEL_EFFORT
+        value: low
+      - key: ALLOWED_ORIGINS
+        value: https://aryan23g.github.io
+      - key: DAILY_CLAUDE_LIMIT # Claude-backed triages per UTC day before switching to rules-only
+        value: "200"
+      - key: RATE_LIMIT_PER_HOUR # new (uncached) triages per visitor IP per hour
+        value: "20"
+      - key: ADMIN_TOKEN # protects the ServiceNow routes; Render generates a random value
+        generateValue: true
+      - key: SN_INSTANCE_URL # optional, e.g. https://dev12345.service-now.com
+        sync: false
+      - key: SN_USERNAME
+        sync: false
+      - key: SN_PASSWORD
+        sync: false

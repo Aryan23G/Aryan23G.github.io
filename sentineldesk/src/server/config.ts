@@ -26,8 +26,8 @@ function int(env: NodeJS.ProcessEnv, key: string, fallback: number, min = 0): nu
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const effort = (env.CLAUDE_EFFORT || "low") as Effort;
-  if (!EFFORTS.includes(effort)) throw new Error(`CLAUDE_EFFORT must be one of ${EFFORTS.join(", ")}.`);
+  const effort = (env.SENTINEL_EFFORT || "low") as Effort;
+  if (!EFFORTS.includes(effort)) throw new Error(`SENTINEL_EFFORT must be one of ${EFFORTS.join(", ")}.`);
   const sn = env.SN_INSTANCE_URL && env.SN_USERNAME && env.SN_PASSWORD
     ? { instanceUrl: env.SN_INSTANCE_URL, username: env.SN_USERNAME, password: env.SN_PASSWORD }
     : null;
@@ -36,7 +36,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     port: int(env, "PORT", 8787, 1),
     anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() || null,
-    model: env.CLAUDE_MODEL?.trim() || "claude-opus-5-5",
+    model: env.SENTINEL_MODEL?.trim() || "claude-opus-5-5",
     effort,
     allowedOrigins: (env.ALLOWED_ORIGINS ?? "https://aryan23g.github.io")
       .split(",")

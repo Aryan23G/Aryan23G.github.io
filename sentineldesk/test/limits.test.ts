@@ -59,7 +59,7 @@ describe("config", () => {
     expect(c).toMatchObject({ anthropicApiKey: null, model: "claude-opus-5-5", effort: "low", allowedOrigins: ["https://aryan23g.github.io"], serviceNow: null });
   });
   it("rejects bad values", () => {
-    expect(() => loadConfig({ CLAUDE_EFFORT: "turbo" })).toThrow();
+    expect(() => loadConfig({ SENTINEL_EFFORT: "turbo" })).toThrow();
     expect(() => loadConfig({ DAILY_CLAUDE_LIMIT: "-1" })).toThrow();
     expect(() => loadConfig({ ADMIN_TOKEN: "short" })).toThrow();
   });

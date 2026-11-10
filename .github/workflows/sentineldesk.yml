@@ -1,0 +1,32 @@
+name: SentinelDesk CI
+
+on:
+  push:
+    paths: ["sentineldesk/**", ".github/workflows/sentineldesk.yml", "render.yaml"]
+  pull_request:
+    paths: ["sentineldesk/**", ".github/workflows/sentineldesk.yml", "render.yaml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sentineldesk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sentineldesk/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Rules-engine eval (no API key needed)
+        run: npm run eval
+      - name: Server bundle builds
+        run: npm run build:server
+      - name: Demo bundle is up to date
+        run: |
+          npm run build:web
+          git diff --exit-code -- dist || (echo "dist/ is stale: run 'npm run build:web' and commit" && exit 1)
