@@ -1,6 +1,8 @@
-# SentinelDesk on one server:  cp .env.example .env  &&  mkdir -p config  &&  edit config/sentineldesk.toml
+# SentinelDesk on one server. No files to edit:
 #   docker compose up -d                                                     (CPU)
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d    (NVIDIA GPU)
+#   docker compose logs sentineldesk      <- shows the one-time setup link; open it in a browser
+# Everything else (organisation, Jira, help articles, people) is set up in the browser.
 name: sentineldesk
 
 services:
@@ -36,19 +38,19 @@ services:
     depends_on:
       model-pull:
         condition: service_completed_successfully
-    env_file: .env
+    env_file:
+      - path: .env        # optional; see .env.example for the few advanced settings
+        required: false
     environment:
       SENTINEL_OLLAMA_URL: http://ollama:11434
       SENTINEL_MODEL_HOSTS: ollama
-      SENTINEL_CONFIG: /config/sentineldesk.toml
     volumes:
-      - data:/data
-      - ./config:/config:ro
-    # Published on this server's localhost only. Put your HTTPS reverse proxy in front of it,
-    # then set SENTINEL_FORWARDED_ALLOW_IPS in .env. Change to "8765:8765" only on a trusted network.
+      - data:/data        # database, settings, help articles and Jira token (readable only by the service)
+    # Who can open the dashboard: by default only this server (put your HTTPS reverse proxy in front).
+    # To let analysts on your network open http://<server>:8765 directly: SENTINEL_BIND=0.0.0.0 docker compose up -d
     ports:
-      - "127.0.0.1:8765:8765"
-    stop_grace_period: 3m  # the worker finishes the ticket it is on before exiting
+      - "${SENTINEL_BIND:-127.0.0.1}:8765:8765"
+    stop_grace_period: 3m  # the worker finishes the request it is on before exiting
 
 volumes:
   ollama:

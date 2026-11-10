@@ -14,10 +14,10 @@ SentinelDesk's triage matches your analysts and how many phishing or fraud attem
 
 | When | What | Who |
 |---|---|---|
-| Week 0 (2-3 hours) | Install (see INSTALL.md), write the desk profile (teams, domains, priority names), import 10-30 KB articles, run `--check`, create analyst accounts | Your IT admin + us |
-| Week 0 | Import the last 30-60 days of requests read-only (`start_from`) for a baseline accuracy report on decisions your team already made | automatic |
-| Weeks 1-3 | Shadow mode on new requests. Analysts read the internal comments. When they have a minute, they mark the suggestion "accept" or "correct" in the dashboard (optional; Jira outcomes are also captured automatically) | Your analysts |
-| End of week 1 | 30-minute check-in: false alarms, missing teams, KB gaps; adjust the profile | Both |
+| Week 0 (under an hour) | `docker compose up -d`, then the setup page: teams and domains, connect Jira (test + pick the desk), drag in 10-30 help articles, add analysts | Your IT admin + us |
+| Week 0 | The last 30 days of requests are checked read-only (the default in the Jira step), so the report has a baseline from day one | automatic |
+| Weeks 1-3 | Shadow mode on new requests. Analysts read the internal notes. When they have a minute, they press "Looks right" or "Change" in the SentinelDesk inbox (optional: what they set in Jira is also captured automatically) | Your analysts |
+| End of week 1 | 30-minute check-in: false alarms, missing teams, KB gaps; adjust teams and help articles in Settings | Both |
 | Week 4 | Review the pilot report together and decide what happens next | Both |
 
 ## Success criteria (agree on these before starting)
@@ -36,14 +36,14 @@ The report and CSV export come from the dashboard (Pilot report, Download CSV).
 
 1. A Linux server or VM (see INSTALL.md for sizing) with Docker.
 2. A Jira agent account limited to the pilot project, and its API token (Cloud) or personal access token (Data Center).
-3. The project key, your priority names, and your team names (and the Jira field that records the team, if you have one).
+3. Your team names and staff email domains. Service desks and priorities are read from Jira automatically.
 4. 10-30 knowledge-base articles, exported as Markdown or text.
 5. One named contact on your service desk and one in security.
 
 ## Stopping or rolling back
 
-At any time, set `mode = "read-only"` (or `enabled = false`) in the `[jira]` section and restart.
-Nothing more is written. `docker compose down -v` removes everything from the server. Every
+At any time: Settings → Jira → *Stop using Jira*. It takes effect within seconds, and nothing
+more is written. `docker compose down -v` removes everything from the server. Every
 comment SentinelDesk posted starts with `[SentinelDesk AI triage]` and can be found with JQL.
 
 ## After the pilot

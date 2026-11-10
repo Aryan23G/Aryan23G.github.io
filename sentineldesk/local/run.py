@@ -80,7 +80,7 @@ def check_ollama(settings, pull: bool) -> None:
     try:
         models = client.list_models()
     except OllamaError as exc:
-        say("warn", f"{exc} Start it with `ollama serve`. Until then tickets are decided by the offline rules engine.")
+        say("warn", f"The AI engine (Ollama) isn't running at {settings.ollama_url}, so requests are sorted by built-in rules for now. Start Ollama to use AI.")
         return
     say("ok", f"Ollama online at {settings.ollama_url} ({len(models)} model(s) installed)")
     for model in dict.fromkeys([settings.agent_model, settings.chairman_model]):
@@ -93,7 +93,7 @@ def check_ollama(settings, pull: bool) -> None:
             if client.has_model(client.list_models(), model):
                 say("ok", f"Model {model} ready")
                 continue
-        say("warn", f"Model {model} not installed. Run: ollama pull {model}  (or: python run.py --pull). Rules fallback until then.")
+        say("warn", f"The AI model {model} isn't downloaded yet, so built-in rules are used for now. Download it with: ollama pull {model}")
 
 
 def check_profile_and_jira(settings) -> bool:
@@ -113,7 +113,7 @@ def check_profile_and_jira(settings) -> bool:
     else:
         say("ok", f"Organisation: {profile.name} ({', '.join(profile.internal_domains)}; {len(profile.teams)} teams, {len(profile.kb)} help articles)")
     if jira_cfg is None:
-        say("info", "Jira connector off (enable it in the [jira] section of your config).")
+        say("info", "Jira isn't connected yet (connect it in Settings in the browser).")
         return True
     try:
         client = JiraClient(jira_cfg, store.credentials())
@@ -125,9 +125,8 @@ def check_profile_and_jira(settings) -> bool:
     except JiraError as exc:
         say("err", f"Jira: {exc}")
         return False
-    say("ok", f"Jira {jira_cfg.deployment} at {jira_cfg.base_url} as {me.get('displayName', 'unknown')}; JQL works; mode {jira_cfg.mode}")
-    if jira_cfg.mode == "shadow":
-        say("info", "Shadow mode: triage is posted as INTERNAL comments only; no fields are changed.")
+    say("ok", f"Jira connected ({jira_cfg.base_url}) as {me.get('displayName', 'unknown')}: "
+        + ("adding internal notes only; requests are never changed." if jira_cfg.mode == "shadow" else "read-only, nothing is written to Jira."))
     return True
 
 
@@ -233,7 +232,7 @@ def main() -> int:
 
     os.chdir(HERE)
     sys.path.insert(0, str(HERE))
-    print("\nSentinelDesk · local agentic council\n")
+    print("\nSentinelDesk\n")
     if not (check_python() and check_deps(args.install)):
         return 1
 

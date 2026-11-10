@@ -34,7 +34,8 @@ themselves; never set it, and never add a default that would.
 | Checks only | `.venv/bin/python run.py --check` |
 | Run | `.venv/bin/python run.py --open` → http://127.0.0.1:8765 (creates the first admin) |
 | Accounts | `run.py --add-user NAME --role admin\|analyst`, `--reset-password`, `--list-users` |
-| A real desk | `SENTINEL_CONFIG=sentineldesk.toml` (copy `sentineldesk.example.toml`) |
+| User start | `./start.sh` / `start.bat` (laptop) or `docker compose up -d` (server); the setup link is printed |
+| Settings | Done in the browser; stored in `<data dir>/sentineldesk.toml` + `secrets.json` (0600). `SENTINEL_CONFIG` = file-managed, read-only in UI |
 | Container | `docker build --secret id=ca,src=<ca.pem> -t sentineldesk:local .` (secret optional); `docker compose up -d` |
 
 Product rules for the local edition (it is sold to service desks):
@@ -43,6 +44,7 @@ Product rules for the local edition (it is sold to service desks):
 - Secrets only from env (`JIRA_*`, `SENTINEL_NEW_PASSWORD`), never the TOML, the DB or argv.
 - Network exposure and non-loopback model hosts are opt-in (`SENTINEL_ALLOW_NETWORK`, `SENTINEL_MODEL_HOSTS`).
 - Customer docs live in `local/docs/`; update them in the same change as the behaviour they describe.
+- Simplicity is a requirement: nothing a desk needs may require editing a file or reading logs, except the one-time setup link. User-facing text (UI, launcher, errors) is plain English: no "JQL", "TOML", "env var", "profile" or "rules engine". Walk the first-run flow in a browser after any UI change.
 
 Layout: `profile.py` (per-desk TOML), `rules.py` (port of src/core; keep it in parity, see lesson 9), `guardrail.py`, `ollama_client.py`,
 `jira.py` + `connector.py` (JSM), `auth.py`, `report.py`,

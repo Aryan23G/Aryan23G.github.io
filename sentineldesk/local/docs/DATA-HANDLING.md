@@ -26,13 +26,11 @@ the requester can see. In **read-only** mode it writes nothing to Jira at all.
 
 ## What is stored, and for how long
 
-One SQLite file (`/data/sentineldesk.db` in the container):
-- each request's text and evidence;
-- each agent's structured output;
-- the final decision;
-- analyst reviews and the outcome read back from Jira;
-- an activity log;
-- dashboard accounts.
+One data folder (`/data` in the container):
+- `sentineldesk.db` (SQLite): each request's text and evidence, each agent's structured output, the final decision, analyst reviews and the outcome read back from Jira, an activity log, and dashboard accounts;
+- `sentineldesk.toml`: settings;
+- `kb/`: help articles;
+- `secrets.json`: the Jira token.
 
 * **Retention:** with `SENTINEL_RETENTION_DAYS=N` (default 90 in `.env.example`), the worker removes request text, the reporter's email, evidence, model outputs and model log lines after N days. Decisions, timings and reviews stay so the report keeps working.
 * **Deletion:** `docker compose down -v` deletes everything. Posted Jira comments start with `[SentinelDesk AI triage]` and can be found and deleted in Jira.
@@ -46,7 +44,8 @@ One SQLite file (`/data/sentineldesk.db` in the container):
 * State-changing requests need a custom header (CSRF protection). Responses carry a strict Content-Security-Policy and frame-deny headers.
 * The dashboard binds to 127.0.0.1 unless `SENTINEL_ALLOW_NETWORK=1`. The intended setup is behind your HTTPS reverse proxy.
 * The container runs as an unprivileged user (uid 10001). Only `/data` is writable.
-* Jira credentials come from environment variables (`.env`), never from the config file or the database. Use a dedicated agent account with access to the pilot project only.
+* The Jira token is entered once in Settings and stored in `secrets.json` in the data folder, readable only by the service account (file mode 0600). It is never written to the settings file or the database, and never sent back to the browser (only the last 4 characters are shown). Environment variables (`JIRA_*`) override it if you prefer. Use a dedicated agent account with access to the pilot project only.
+* The first administrator is created with a one-time setup link, printed only on the server's console or logs. The link stops working once used.
 
 ## How the AI is kept in check
 

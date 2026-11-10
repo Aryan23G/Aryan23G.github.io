@@ -1,39 +1,29 @@
 # SentinelDesk Local: an agentic triage council on your own hardware
 
-Everything runs on your machine: the models in Ollama, the data in SQLite, the dashboard on
-127.0.0.1. There is no API key, no cloud call, and nothing to pay for.
+SentinelDesk reads new service-desk requests and suggests a priority, a team and a reply. It
+catches phishing and fraud, and adds its suggestion as an internal note in Jira Service
+Management. Everything runs on your own hardware: no cloud AI, no API key, nothing to pay for.
 
-**For a service desk:** `docs/INSTALL.md` (Docker Compose on one server, Jira Service Management
-in shadow mode), `docs/DATA-HANDLING.md` (for security reviewers) and `docs/PILOT-PLAN.md`
-(a 4-week pilot). Per-desk settings live in one file: copy `sentineldesk.example.toml`.
+## Start
 
-What a desk gets:
-* **Its own profile:** domains, teams, categories and a Markdown knowledge base. The AI can only choose that desk's teams and categories.
-* **Jira Service Management, shadow mode:**
-  - triage posted as an internal comment, exactly once;
-  - nothing else in Jira is changed;
-  - older requests can be imported read-only for a baseline;
-  - the priority and team analysts actually set are read back.
-* **Analyst review and a pilot report:**
-  - accept or correct each suggestion;
-  - agreement on priority and routing;
-  - security precision and recall;
-  - attacks the AI missed that the rules caught;
-  - CSV export.
-* **Sign-in with admin and analyst roles,** data retention, and a hardened container.
+* **Server:** `docker compose up -d`, then `docker compose logs sentineldesk` shows a setup link.
+* **One computer:** `./start.sh` (Mac/Linux) or double-click `start.bat` (Windows). It opens the setup page itself.
+
+The setup page asks for your account, your teams and email domains, your Jira site and token
+(press *Test*, pick your service desk), and optionally your help articles. That's all. Analysts
+then work in a simple inbox: each request shows SentinelDesk's suggestion and two buttons,
+**Looks right** and **Change**.
+
+Read next: `docs/INSTALL.md` (details and everyday tasks), `docs/DATA-HANDLING.md` (for your
+security team), `docs/PILOT-PLAN.md` (a 4-week trial).
+
+## For developers
 
 ```bash
-# one-time setup (these two steps download software; both are free)
-ollama pull llama3.2                     # or: mistral
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-
-# every time
-.venv/bin/python run.py --open           # checks, creates sentineldesk.db, asks for the first admin, starts worker + dashboard
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q        # fake Ollama and fake Jira speak the real HTTP APIs
+.venv/bin/python run.py --open
 ```
-
-The dashboard is at http://127.0.0.1:8765. `run.py --check` runs the checks only. If Ollama
-isn't running or a model is missing, everything still works: the offline rules engine decides
-and the dashboard says why.
 
 ## How a ticket flows
 

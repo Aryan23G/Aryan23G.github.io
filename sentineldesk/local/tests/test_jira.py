@@ -281,7 +281,7 @@ def test_launcher_checks_jira_credentials(tmp_path, jira, ollama):
                JIRA_EMAIL="bot@acme.com", JIRA_API_TOKEN="token")
     ok = subprocess.run([sys.executable, str(here / "run.py"), "--check"], capture_output=True, text=True, env=env, timeout=60)
     assert ok.returncode == 0, ok.stdout
-    assert "Organisation: Acme Corporation" in ok.stdout and "JQL works; mode shadow" in ok.stdout
+    assert "Organisation: Acme Corporation" in ok.stdout and "adding internal notes only" in ok.stdout
     env["JIRA_API_TOKEN"] = "wrong"
     bad = subprocess.run([sys.executable, str(here / "run.py"), "--check"], capture_output=True, text=True, env=env, timeout=60)
     assert bad.returncode == 1 and "check the Jira credentials" in bad.stdout

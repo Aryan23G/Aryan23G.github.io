@@ -1,90 +1,102 @@
-# Installing SentinelDesk on your server
+# Installing SentinelDesk
 
-SentinelDesk runs as three containers on one Linux server: the Ollama model server, a one-time
-model download, and SentinelDesk itself (triage worker, Jira connector and dashboard). Ticket data
-stays on this server and in your own Jira.
+Pick the way that suits you. Both take a few minutes, and everything after starting is done in
+your browser.
 
-## 1. Server
+## On a server (recommended for a team): Docker
 
-Rough starting points; measure in the first week of the pilot (the dashboard reports the median
-seconds per ticket):
-
-| | Minimum | Recommended |
-|---|---|---|
-| CPU / RAM | 4 cores, 16 GB | 8 cores, 32 GB |
-| GPU | none (CPU works, but each ticket makes 4 model calls, so expect tens of seconds) | NVIDIA, 8 GB+ VRAM |
-| Disk | 20 GB | 50 GB (models, plus the database grows by a few KB per ticket) |
-| Software | Docker Engine with Compose v2; for a GPU, the NVIDIA Container Toolkit |
-
-Outbound access is needed **only at install time**: Docker Hub and PyPI (to build) and the Ollama
-model library (one model download). At run time the only destination is your Jira.
-
-## 2. Configure
+You need a Linux server with Docker. A GPU is optional; see "Sizing" below.
 
 ```bash
 cd sentineldesk/local
-cp .env.example .env                    # then fill it in (see below)
-mkdir -p config
-cp sentineldesk.example.toml config/sentineldesk.toml   # then edit it for your desk
+docker compose up -d
+docker compose logs sentineldesk
 ```
 
-**`config/sentineldesk.toml`** describes your desk:
-* `[organization]`: your company name, every email domain your staff use, and the security team.
-* `[[teams]]`: the teams tickets are routed to. Use the names your analysts use.
-* `[[categories]]` and `[priority_rules]`: keyword rules for the offline fallback.
-* `[knowledge_base]`: a folder of Markdown articles (see `kb-example/`), or inline articles. Replies are grounded only in these.
-* `[jira]`: set `enabled = true`, your `base_url`, the `jql` for the project(s) to watch (no status filter), `mode = "shadow"`, your priority names in `[jira.priority_map]`, and `start_from` (a date imports older requests read-only for the accuracy report).
+The last command shows a **setup link**. Open it in your browser. If the server isn't your own
+computer, open `http://<server>:8765/#setup=…` from a machine that can reach it (see "Letting
+analysts in" below). The setup then asks for:
 
-**`.env`** holds the secrets:
-* Jira Cloud: `JIRA_EMAIL` and `JIRA_API_TOKEN` for an **agent** account (create the token at id.atlassian.com, Security, API tokens). Jira Data Center: `JIRA_PAT`.
-* `SENTINEL_ADMIN_USER` and `SENTINEL_NEW_PASSWORD` create the first admin on first start. **Delete both lines after the first start.**
-* `SENTINEL_RETENTION_DAYS`: how long ticket text is kept (default 90).
+1. **Your account:** a username and password.
+2. **Your organisation:** company name, email domains, and your teams.
+3. **Jira:** your site address and an API token. Press *Test*, choose your service desk, done.
+4. **Help articles:** drag in your how-to articles (Markdown or text). You can skip this.
 
-Behind a TLS-inspecting corporate proxy, build with your CA (it is not stored in the image):
+New Jira requests then get an internal note from SentinelDesk within about a minute.
+
+With an NVIDIA GPU: `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d`.
+
+## On one computer (to try it, or for a small desk)
+
+1. Install [Ollama](https://ollama.com/download), the free local AI engine. It's optional: without it, SentinelDesk uses its built-in rules.
+2. In the `sentineldesk/local` folder, run **`./start.sh`** (Mac or Linux) or double-click **`start.bat`** (Windows).
+
+It prepares everything it needs the first time, downloads the AI model, and opens your browser
+at the setup page. Run the same command any time to start SentinelDesk again.
+
+## The Jira account
+
+Use an agent account on your service desk (a dedicated one such as `sentineldesk@yourcompany.com`
+is best, so its notes are easy to recognise):
+* **Jira Cloud** (`…atlassian.net`): sign in as that account at id.atlassian.com, then Security, then *Create and manage API tokens*.
+* **Jira Data Center / Server:** in Jira, your profile picture, then Profile, then *Personal access tokens*.
+
+The token is stored on the server in a file only SentinelDesk can read. It is never shown again
+in the browser and never written to the settings file.
+
+## Everyday tasks
+
+| To… | Do this |
+|---|---|
+| Add an analyst | Settings → People → Add person (give them the temporary password privately) |
+| Stop writing to Jira | Settings → Jira → *Stop using Jira*, or choose "Don't write anything to Jira" |
+| Change teams or domains | Settings → Organisation |
+| Add help articles | Settings → Help articles (drag and drop) |
+| See whether it's working | The dot next to your name: green = running. Settings → System has details |
+| Reset a forgotten password | `docker compose exec sentineldesk python run.py --reset-password NAME` |
+
+## Letting analysts in
+
+By default the dashboard only answers on the server itself, which is the safe choice. Either:
+* **Recommended:** put it behind your HTTPS reverse proxy (nginx, IIS, Traefik…) pointing to `127.0.0.1:8765`, and set `SENTINEL_FORWARDED_ALLOW_IPS` to the proxy's address in `.env` (see `.env.example`); or
+* **On a trusted internal network:** `SENTINEL_BIND=0.0.0.0 docker compose up -d`, then analysts open `http://<server>:8765`. Everyone still has to sign in.
+
+## Sizing
+
+| | Small desk / pilot | Busier desk |
+|---|---|---|
+| CPU / RAM | 4 cores, 16 GB | 8 cores, 32 GB |
+| GPU | none: works, but each request takes tens of seconds | NVIDIA with 8 GB+: a few seconds per request |
+| Disk | 20 GB | 50 GB |
+
+The Report tab shows the typical time per request, so you can see whether it keeps up.
+
+## Behind a corporate proxy
+
+If your network inspects HTTPS, building the image needs your company's CA certificate
+(it is not stored in the image):
+
 ```bash
-docker build --secret id=ca,src=corporate-ca.pem -t sentineldesk:local .
+docker build --secret id=ca,src=corporate-ca.pem -t sentineldesk:local . && docker compose up -d
 ```
 
-## 3. Check, then start
+## Backup, upgrade, uninstall
 
-```bash
-docker compose run --rm sentineldesk python run.py --check
-docker compose up -d                                                     # CPU
-docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d     # NVIDIA GPU
-docker compose logs -f sentineldesk
-```
+* **Backup:** everything (settings, database, help articles, Jira token) is in the `data` volume:
+  `docker run --rm -v sentineldesk_data:/data -v "$PWD":/backup alpine tar czf /backup/sentineldesk-backup.tgz -C /data .`
+* **Upgrade:** get the new version, then `docker compose up -d --build`. Updates to the database happen automatically.
+* **Uninstall:** `docker compose down -v` removes everything from the server. Notes already posted stay in Jira and start with `[SentinelDesk AI triage]`, so they are easy to find.
 
-`--check` validates the profile, signs in to Jira, runs your JQL once, and confirms the model is
-installed. Fix anything it reports before starting.
+## For administrators who prefer files
 
-The dashboard listens on `127.0.0.1:8765` on the server. Give analysts access through your HTTPS
-reverse proxy (nginx, IIS, Traefik, …), then set `SENTINEL_FORWARDED_ALLOW_IPS` in `.env` to the
-proxy's address so session cookies are marked Secure.
-
-## 4. Accounts
-
-```bash
-docker compose exec sentineldesk python run.py --add-user dana --role analyst   # prompts for a password
-docker compose exec sentineldesk python run.py --reset-password dana
-docker compose exec sentineldesk python run.py --list-users
-```
-Admins can also add and disable users through the API. Passwords need at least 12 characters, and
-five failed sign-ins lock an account for 15 minutes.
-
-## 5. Operate
-
-* **Status:** the dashboard header shows the model, the worker and the queue. `docker compose ps` shows container health.
-* **Storage:** compose uses a named volume (`data`). If you change it to a folder on the host, the container runs as uid 10001, so run `sudo chown -R 10001 <folder>` first.
-* **Backup:** the whole state is one SQLite file in the `data` volume:
-  `docker compose exec sentineldesk python -c "import sqlite3; s=sqlite3.connect('/data/sentineldesk.db'); s.backup(sqlite3.connect('/data/backup.db'))"`
-  then copy `/data/backup.db` off the server.
-* **Stop shadow mode immediately:** set `mode = "read-only"` (or `enabled = false`) in the `[jira]` section and run `docker compose restart sentineldesk`. Nothing more is written to Jira.
-* **Upgrade:** `git pull && docker compose build && docker compose up -d`. Database migrations run automatically on start.
-* **Uninstall:** `docker compose down -v` removes the containers, the model and the database. Comments already posted stay in Jira and all start with `[SentinelDesk AI triage]`, so they can be found with JQL.
+Settings are stored as `sentineldesk.toml` in the data folder and can be edited by hand
+(`sentineldesk.example.toml` documents every option). To manage them entirely from a file you
+control, set `SENTINEL_CONFIG=/path/to/file.toml`; the browser then shows settings read-only.
+Advanced environment variables are listed in `.env.example`.
 
 ## Model licences
 
-The default model, Llama 3.2, is distributed under the Llama 3.2 Community License, which permits
+The default model, Llama 3.2, is distributed under the Llama 3.2 Community License, which allows
 commercial use under conditions (including attribution and an acceptable-use policy). Mistral 7B
 (`SENTINEL_AGENT_MODEL=mistral`) is Apache 2.0. Have whoever approves software in your organisation
-review the licence of the model you choose.
+review the licence of the model you use.

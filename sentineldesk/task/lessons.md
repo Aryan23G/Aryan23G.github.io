@@ -56,3 +56,11 @@ Each entry: what went wrong → the rule that prevents it. Newest last.
 20. **Corporate TLS inspection breaks builds.** Support it explicitly (an optional BuildKit secret CA) rather than disabling verification, and never bake the CA into the image.
 
 21. **Messages must match reality.** "Network access allowed" was printed while bound to 127.0.0.1, because the image sets the opt-in by default. Warn about the actual state, not the flag.
+
+22. **Setup was correct but too hard.** Editing a TOML file, a `.env` file and a JQL string is fine for us and fatal for a service-desk manager. Discover what can be discovered (service desks, priorities, Cloud vs Data Center from the URL), default the rest, and put the remaining choices in the browser.
+
+23. **Pasting a `#fragment` link into an open tab does not reload the page.** A link-driven flow needs a `hashchange` listener. Found only by walking the first run in a real browser: start at the bare URL, then paste the link.
+
+24. **Messages meant for users leaked implementation words** ("in the environment", "rules engine", "[jira] section"). Every message a user can see is written for the person who sees it; tests assert on the plain wording.
+
+25. **Defaults decide outcomes.** Defaulting the history import to "none" would have left the pilot report empty for weeks. Choose defaults that make the product succeed, and say what they do.
