@@ -39,3 +39,7 @@ services:
         sync: false
       - key: SN_PASSWORD
         sync: false
+      - key: SN_WEBHOOK_SECRET # HMAC secret shared with the ServiceNow Business Rule (integrations/servicenow)
+        generateValue: true
+      - key: SN_POLL_INTERVAL_SEC # backup polling for missed webhooks; 0 disables
+        value: "300"

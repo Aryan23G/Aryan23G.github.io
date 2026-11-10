@@ -26,13 +26,20 @@ export interface SnIncident {
 }
 
 export class ServiceNowError extends Error {
+  /** True for failures worth retrying: network/timeouts, 429 and 5xx. */
+  readonly retryable: boolean;
   constructor(
     message: string,
     readonly status?: number,
+    retryable?: boolean,
   ) {
     super(message);
+    this.retryable = retryable ?? (status === 429 || (status !== undefined && status >= 500));
   }
 }
+
+/** Marker at the start of every work note SentinelDesk writes; used to detect earlier runs. */
+export const WORK_NOTE_MARKER = "[SentinelDesk AI triage]";
 
 const SYS_ID = /^[0-9a-f]{32}$/;
 const FIELDS = ["sys_id", "number", "short_description", "description", "caller_id.email", "priority", "state", "sys_created_on"];
@@ -63,12 +70,18 @@ export class ServiceNowClient {
   }
 
   private async request<T>(method: "GET" | "PATCH", path: string, body?: unknown): Promise<T> {
-    const res = await this.fetchImpl(this.base + path, {
-      method,
-      headers: { Authorization: this.auth, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(this.timeoutMs),
-    });
+    let res: Response;
+    try {
+      res = await this.fetchImpl(this.base + path, {
+        method,
+        headers: { Authorization: this.auth, Accept: "application/json", ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (err) {
+      const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+      throw new ServiceNowError(`ServiceNow ${method} ${path.split("?")[0]} ${timedOut ? "timed out" : "was unreachable"}.`, undefined, true);
+    }
     if (!res.ok) {
       // Never echo the response body: it can contain instance details.
       const hint = res.status === 401 ? " (check SN_USERNAME / SN_PASSWORD)" : res.status === 403 ? " (the user needs the itil role)" : "";
@@ -95,6 +108,27 @@ export class ServiceNowClient {
     if (!isSysId(sysId)) throw new ServiceNowError("Invalid sys_id.", 400);
     const params = new URLSearchParams({ sysparm_fields: FIELDS.join(","), sysparm_exclude_reference_link: "true" });
     return toIncident(await this.request<Record<string, string>>("GET", `/api/now/table/incident/${sysId}?${params}`));
+  }
+
+  /**
+   * Whether SentinelDesk already wrote a work note on this incident, read from the journal.
+   * Returns null when the account cannot read sys_journal_field (needs more than the itil role);
+   * callers then rely on their local processed store alone.
+   */
+  async hasTriageNote(sysId: string): Promise<boolean | null> {
+    if (!isSysId(sysId)) throw new ServiceNowError("Invalid sys_id.", 400);
+    const params = new URLSearchParams({
+      sysparm_query: `element_id=${sysId}^element=work_notes^valueSTARTSWITH${WORK_NOTE_MARKER}`,
+      sysparm_fields: "sys_id",
+      sysparm_limit: "1",
+    });
+    try {
+      const rows = await this.request<unknown[]>("GET", `/api/now/table/sys_journal_field?${params}`);
+      return rows.length > 0;
+    } catch (err) {
+      if (err instanceof ServiceNowError && err.status === 403) return null;
+      throw err;
+    }
   }
 
   /** Appends a work note (internal, not visible to the caller) to the incident. */
@@ -129,7 +163,7 @@ export function incidentToTicket(inc: SnIncident): Ticket {
 
 export function formatWorkNote(r: TriageResult): string {
   const lines = [
-    `[SentinelDesk AI triage] ${r.securityFlag ? "SECURITY INCIDENT" : "Triage"} via ${r.mode === "claude" ? `Claude (${r.model})` : "offline rules"}`,
+    `${WORK_NOTE_MARKER} ${r.securityFlag ? "SECURITY INCIDENT" : "Triage"} via ${r.mode === "claude" ? `Claude (${r.model})` : "offline rules"}`,
     `Priority: ${r.priority} | Category: ${r.category} | Route to: ${r.escalateTo ?? "Service Desk"} | Confidence: ${Math.round(r.confidence * 100)}%`,
   ];
   if (r.securityReasons.length) lines.push(`Indicators: ${r.securityReasons.slice(0, 6).join("; ")}`);

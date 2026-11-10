@@ -77,6 +77,27 @@ curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://<api>/api/serviceno
 
 A free Personal Developer Instance is available at https://developer.servicenow.com.
 
+### Real-time ingestion (webhook + poller)
+
+```
+ServiceNow Business Rule (after insert, state New)          SentinelDesk API
+  sign HMAC-SHA256("<ts>.<body>") ── POST /api/ingest/servicenow ──► verify signature + 5-min window
+  body: {"sys_id", "number"}                                         │ 202 {"status":"queued"|"duplicate"}
+                                                                     ▼
+                         poller (every SN_POLL_INTERVAL_SEC) ──► TriageQueue (dedupe, bounded, retry 5xx/429/network
+                                                                     │            with exponential backoff, dead letters)
+                                                                     ▼
+          GET incident (Table API) ─► state still New? ─► journal already has a SentinelDesk note? ─► pipeline
+                                                                     ▼
+                                    PATCH work_notes ─► processed store (servicenow:<sys_id>)
+```
+
+* **Trust boundary:** the webhook only carries a `sys_id`. The incident is always fetched from the Table API, so a forged or replayed body cannot inject ticket content. Signatures cover the timestamp, so deliveries older than 5 minutes are rejected.
+* **Exactly one note per incident:** the queue refuses a key that is still active, the processed store short-circuits finished ones, and on hosts with an ephemeral disk (Render free) the `sys_journal_field` check finds notes written before a restart.
+* **Shared limits:** webhook and poller traffic use the same daily budget, cache and concurrency cap as the web demo, and fall back to rules the same way.
+* **Setup:** paste `integrations/servicenow/business-rule.js` into a Business Rule on `incident` (after insert, filter State is New). Set the system properties `sentineldesk.endpoint` and `sentineldesk.webhook_secret` (= `SN_WEBHOOK_SECRET`). The poller (`SN_POLL_INTERVAL_SEC`, default 300 on Render) catches anything the webhook missed.
+* **Observe:** `GET /api/ingest/status` with the admin token shows queue counts, recent jobs, dead letters and processed incidents.
+
 ## Evaluation
 
 `eval/tickets.json` has 38 labelled tickets: real requests, users reporting a security problem, phishing, fraud, and prompt injection, including hard cases with no obvious keywords. `npm run eval` scores the rules engine, and `npm run eval -- --claude` also runs the Claude agent with the guardrail.
@@ -97,7 +118,7 @@ The rules are tuned for precision: they never flag a real user, and they cannot 
 
 ```bash
 npm ci
-npm test              # 106 tests: scanner, guardrail, agent loop (scripted fake Claude), red-team suite, API, ServiceNow, eval gate
+npm test              # 138 tests: scanner, guardrail, agent loop (scripted fake Claude), red-team suite, API, ServiceNow, ingestion, eval gate
 npm run typecheck
 npm run eval
 npm run dev           # http://localhost:8787 (page + API); rules-only unless ANTHROPIC_API_KEY is set
@@ -119,7 +140,9 @@ On the free plan the service sleeps when idle. The page shows "waking up" and us
 
 ```
 src/core/      shared, dependency-free: scanner, sender check, KB, tools, rules triage, guardrail
-src/server/    agent.ts (Claude loop), app.ts (Express), limits.ts, servicenow.ts, config.ts
+src/server/    agent.ts (Claude loop), pipeline.ts, app.ts (Express), limits.ts, servicenow.ts, config.ts
+src/server/ingest/  queue.ts, store.ts, webhook.ts (HMAC), servicenow.ts (ingestor + poller)
+integrations/servicenow/  business-rule.js (runs inside ServiceNow)
 src/web/       demo page logic (bundled to dist/app.js)
 test/          vitest suites      eval/  labelled set + runner      scripts/  ServiceNow sync
 ```

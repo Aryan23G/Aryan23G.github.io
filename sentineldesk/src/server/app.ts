@@ -1,15 +1,15 @@
 import express, { type NextFunction, type Request, type Response } from "express";
-import { createHash, timingSafeEqual } from "node:crypto";
-import { triageWithRules } from "../core/rules.ts";
+import { timingSafeEqual } from "node:crypto";
 import type { Ticket, TriageResult } from "../core/types.ts";
-import type { AgentEvent } from "./agent.ts";
 import { DailyBudget, RateLimiter, Semaphore, TtlCache } from "./limits.ts";
+import { TriagePipeline, type AgentRunner, type Emit } from "./pipeline.ts";
 import { formatWorkNote, incidentToTicket, isSysId, ServiceNowError, type ServiceNowClient } from "./servicenow.ts";
+import type { ServiceNowIngestor } from "./ingest/servicenow.ts";
+import { SIGNATURE_HEADER, TIMESTAMP_HEADER, verifyWebhook } from "./ingest/webhook.ts";
 
-export interface AgentRunner {
-  model: string;
-  run(ticket: Ticket, onEvent: (e: AgentEvent) => void, signal: AbortSignal): Promise<TriageResult>;
-}
+export type { AgentRunner } from "./pipeline.ts";
+
+type RawRequest = Request & { rawBody?: Buffer };
 
 export interface AppDeps {
   /** null when no API key is configured: everything runs on the rules engine. */
@@ -21,6 +21,8 @@ export interface AppDeps {
   semaphore: Semaphore;
   serviceNow: ServiceNowClient | null;
   adminToken: string | null;
+  /** Webhook + poller ingestion; null/absent disables the /api/ingest routes. */
+  ingest?: { ingestor: ServiceNowIngestor; webhookSecret: string | null } | null;
   /** Directory with the demo page to serve at "/", for local development. */
   staticDir?: string;
   log?: (entry: Record<string, unknown>) => void;
@@ -39,22 +41,20 @@ export function validateTicketInput(body: unknown): { ok: true; ticket: Ticket }
   return { ok: true, ticket: { id, subject, body: text, requester, createdAt: new Date().toISOString() } };
 }
 
-const cacheKey = (t: Ticket): string =>
-  createHash("sha256").update(JSON.stringify([t.requester.toLowerCase(), t.subject, t.body])).digest("hex");
-
 function safeEqual(a: string, b: string): boolean {
   const x = Buffer.from(a), y = Buffer.from(b);
   return x.length === y.length && timingSafeEqual(x, y);
 }
 
-type Emit = (event: string, data: unknown) => void;
-
 export function createApp(deps: AppDeps): express.Express {
   const app = express();
   const log = deps.log ?? ((e) => console.log(JSON.stringify(e)));
+  const pipeline = new TriagePipeline({ agent: deps.agent, budget: deps.budget, cache: deps.cache, semaphore: deps.semaphore, log });
+  const triage = (ticket: Ticket, emit: Emit, signal: AbortSignal) => pipeline.run(ticket, emit, signal);
   app.disable("x-powered-by");
   app.set("trust proxy", 1); // Render (and most hosts) put one proxy in front; req.ip is the client.
-  app.use(express.json({ limit: "16kb" }));
+  // Keep the exact bytes: webhook signatures are computed over the raw body, not re-serialized JSON.
+  app.use(express.json({ limit: "16kb", verify: (req, _res, buf) => void ((req as RawRequest).rawBody = Buffer.from(buf)) }));
 
   app.use((req, res, next) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -80,61 +80,19 @@ export function createApp(deps: AppDeps): express.Express {
   app.get("/api/health", (_req, res) => {
     res.json({
       ok: true,
-      mode: deps.agent && deps.budget.remaining() > 0 ? "claude" : "rules",
-      model: deps.agent?.model ?? "offline-rules",
-      dailyRemaining: deps.agent ? deps.budget.remaining() : 0,
+      mode: pipeline.liveAvailable ? "claude" : "rules",
+      model: pipeline.model,
+      dailyRemaining: pipeline.dailyRemaining,
       serviceNow: Boolean(deps.serviceNow),
+      ingest: Boolean(deps.ingest),
     });
   });
-
-  /**
-   * Core triage pipeline shared by the public endpoint and the ServiceNow route.
-   * Order: cache -> budget -> concurrency -> Claude agent -> (any failure) rules engine.
-   */
-  async function triage(ticket: Ticket, emit: Emit, signal: AbortSignal): Promise<TriageResult & { cached?: boolean; fallbackReason?: string }> {
-    const started = Date.now();
-    const key = cacheKey(ticket);
-    const cached = deps.cache.get(key);
-    if (cached) {
-      emit("meta", { mode: cached.mode, model: cached.model, cached: true });
-      for (const call of cached.toolCalls) emit("tool", { call });
-      return { ...cached, cached: true };
-    }
-
-    const rules = (reason: string) => {
-      emit("meta", { mode: "rules", model: "offline-rules", reason });
-      const r = triageWithRules(ticket);
-      for (const call of r.toolCalls) emit("tool", { call });
-      return { ...r, fallbackReason: reason };
-    };
-
-    if (!deps.agent) return rules("The live AI is not configured on this server.");
-    if (!deps.budget.tryConsume()) return rules("Today's live-AI budget is used up. It resets at midnight UTC.");
-    if (!deps.semaphore.tryAcquire()) {
-      deps.budget.refund();
-      return rules("The live AI is busy right now.");
-    }
-    try {
-      emit("meta", { mode: "claude", model: deps.agent.model });
-      const result = await deps.agent.run(ticket, (e) => emit(e.type, e), signal);
-      deps.cache.set(key, result);
-      log({ evt: "triage", mode: result.mode, model: result.model, ms: Date.now() - started, steps: result.usage?.steps, inTok: result.usage?.inputTokens, outTok: result.usage?.outputTokens, overrides: result.overrides.length, security: result.securityFlag });
-      return result;
-    } catch (err) {
-      if (signal.aborted) throw err;
-      // Never leak provider error details to the client; log the class name only.
-      log({ evt: "agent_error", error: err instanceof Error ? err.constructor.name : "unknown", message: err instanceof Error ? err.message.slice(0, 200) : "" });
-      return rules("The live AI could not be reached.");
-    } finally {
-      deps.semaphore.release();
-    }
-  }
 
   app.post("/api/triage", async (req: Request, res: Response) => {
     const parsed = validateTicketInput(req.body);
     if (!parsed.ok) return void res.status(400).json({ error: parsed.error });
     // Cached answers (e.g. the demo samples) are free, so only new work counts against the limit.
-    if (!deps.cache.get(cacheKey(parsed.ticket))) {
+    if (!pipeline.isCached(parsed.ticket)) {
       const limit = deps.rateLimiter.check(req.ip ?? "unknown");
       if (!limit.ok) {
         res.setHeader("Retry-After", String(limit.retryAfterSec));
@@ -211,6 +169,35 @@ export function createApp(deps: AppDeps): express.Express {
     } catch (err) {
       snError(res, err);
     }
+  });
+
+  // ---- Ingestion: signed webhook from ServiceNow, and an admin status view ----
+  app.post("/api/ingest/servicenow", (req: RawRequest, res: Response) => {
+    const ingest = deps.ingest;
+    if (!ingest?.webhookSecret) return void res.status(404).json({ error: "Webhook ingestion is not configured." });
+    const check = verifyWebhook({
+      secret: ingest.webhookSecret,
+      signature: req.get(SIGNATURE_HEADER),
+      timestamp: req.get(TIMESTAMP_HEADER),
+      rawBody: req.rawBody,
+    });
+    if (!check.ok) {
+      log({ evt: "webhook_rejected", reason: check.reason });
+      return void res.status(401).json({ error: "Invalid webhook signature." });
+    }
+    const sysId = (req.body as { sys_id?: unknown } | undefined)?.sys_id;
+    const outcome = typeof sysId === "string" ? ingest.ingestor.submit(sysId) : "invalid";
+    if (outcome === "invalid") return void res.status(400).json({ error: "Body must be {\"sys_id\": \"<32 hex chars>\"}." });
+    if (outcome === "full" || outcome === "closed") {
+      res.setHeader("Retry-After", "30");
+      return void res.status(503).json({ error: "Ingestion queue is unavailable, retry later.", status: outcome });
+    }
+    res.status(202).json({ status: outcome, key: `servicenow:${sysId as string}` });
+  });
+
+  app.get("/api/ingest/status", requireAdmin, async (_req, res) => {
+    if (!deps.ingest) return void res.status(404).json({ error: "Ingestion is not configured." });
+    res.json(await deps.ingest.ingestor.status());
   });
 
   if (deps.staticDir) {

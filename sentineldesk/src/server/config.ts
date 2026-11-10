@@ -13,6 +13,12 @@ export interface Config {
   cacheTtlMs: number;
   adminToken: string | null;
   serviceNow: { instanceUrl: string; username: string; password: string } | null;
+  /** HMAC secret for POST /api/ingest/servicenow; null disables the webhook. */
+  webhookSecret: string | null;
+  /** Poll ServiceNow for new incidents every N ms; 0 disables polling. */
+  pollIntervalMs: number;
+  /** JSON file recording processed incidents. */
+  storePath: string;
 }
 
 const EFFORTS: Effort[] = ["low", "medium", "high", "xhigh", "max"];
@@ -33,6 +39,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     : null;
   const adminToken = env.ADMIN_TOKEN?.trim() || null;
   if (adminToken && adminToken.length < 24) throw new Error("ADMIN_TOKEN must be at least 24 characters.");
+  const webhookSecret = env.SN_WEBHOOK_SECRET?.trim() || null;
+  if (webhookSecret && webhookSecret.length < 32) throw new Error("SN_WEBHOOK_SECRET must be at least 32 characters.");
+  const pollSec = int(env, "SN_POLL_INTERVAL_SEC", 0);
+  if (pollSec > 0 && pollSec < 30) throw new Error("SN_POLL_INTERVAL_SEC must be 0 (off) or at least 30.");
+  if ((webhookSecret || pollSec > 0) && !sn) throw new Error("SN_WEBHOOK_SECRET / SN_POLL_INTERVAL_SEC need SN_INSTANCE_URL, SN_USERNAME and SN_PASSWORD.");
   return {
     port: int(env, "PORT", 8787, 1),
     anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() || null,
@@ -48,5 +59,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     cacheTtlMs: int(env, "CACHE_TTL_HOURS", 24) * 3_600_000,
     adminToken,
     serviceNow: sn,
+    webhookSecret,
+    pollIntervalMs: pollSec * 1000,
+    storePath: env.SENTINEL_STORE_PATH?.trim() || ".sentineldesk-store.json",
   };
 }

@@ -18,7 +18,7 @@
 |---|---|
 | Claude tool-use agent with five tools; priority, routing, grounded reply | `src/server/agent.ts`: `TOOLS`, `SYSTEM_PROMPT`, `runAgent` loop; grounding check in `policy.ts` (`kb_refs` must exist) |
 | Prompt-injection defences; rules-based guardrail overrides the AI | `src/core/scanner.ts` (`INJECTION` patterns), `renderTicket` escaping, input-less security tools, `src/core/policy.ts` `enforcePolicy`; proven by `test/injection.test.ts` |
-| ServiceNow integration: Table API in, work notes out | `src/server/servicenow.ts`, `scripts/servicenow-sync.ts`, admin routes in `app.ts` |
+| ServiceNow integration: Table API in, work notes out | `src/server/servicenow.ts`; real-time ingestion in `src/server/ingest/` (signed webhook, queue with retries, poller, idempotent store); `integrations/servicenow/business-rule.js` |
 | Stack: TypeScript, Node.js, Express, Claude API, ServiceNow | `package.json`, `src/server/app.ts` |
 
 The last bullet ("led the roadmap, reviewed and merged contributions") is about your team process. Be ready to describe it in your own words: how work was split, what you looked for in reviews, and a PR you pushed back on.
@@ -49,7 +49,7 @@ Every failure path ends in the rules engine: API error, refusal, `max_tokens`, n
 An origin allowlist, a per-IP sliding-window rate limit, a daily budget after which the service switches to rules-only, a response cache (the demo samples cost one call each per day), a concurrency cap, input size limits, and a spend limit in the Anthropic Console as the hard backstop. Origin can be spoofed by scripts, which is why the per-IP limit and budget exist too.
 
 **How would you scale it?**
-Move the rate limiter, budget and cache to Redis so several instances share them. Put ServiceNow sync behind a queue (or a ServiceNow Business Rule that calls the API when an incident is created), with retries and idempotency on `sys_id` (today that's a local ledger file). Use OAuth instead of basic auth for ServiceNow. Stream traces to an observability backend.
+Move the rate limiter, budget and cache to Redis so several instances share them. Ingestion already runs through a bounded queue with retries and dedupe; at scale it would move to SQS or a Redis stream so several workers share it, and the processed store would move to a database. Use OAuth instead of basic auth for ServiceNow. Stream traces to an observability backend.
 
 **How do you know it works?**
 106 tests: unit tests for the scanner and guardrail, the agent loop against a scripted fake Claude (including schema errors, premature submits, refusals and the step budget), the HTTP API, ServiceNow with a mocked `fetch`, and the red-team suite. A labelled eval of 38 tickets runs in CI for the rules baseline, and `npm run eval -- --claude` compares Claude.
@@ -62,11 +62,17 @@ Move the rate limiter, budget and cache to Redis so several instances share them
 - ServiceNow uses basic auth.
 
 **What would you do next?**
-Run the Claude eval across models and effort levels and pick the cheapest setup that holds recall. Grow the eval with real (anonymised) tickets. Add a human-review queue for low-confidence decisions. Add a ServiceNow Business Rule for real-time triage instead of polling.
+Run the Claude eval across models and effort levels and pick the cheapest setup that holds recall. Grow the eval with real (anonymised) tickets. Add a human-review queue for low-confidence decisions. Move the ingestion queue to a managed broker and add OAuth for ServiceNow.
 
 ## Numbers to remember
 
 - 5 tools, step budget of 8, effort `low`, Claude Opus 5.5.
-- 106 tests, including 8 attack patterns × 3 checks each in the red-team suite.
+- 138 tests, including 8 attack patterns × 3 checks each in the red-team suite.
 - Eval: 38 tickets. Rules baseline: 0% false positives, 100% injection containment, 72% attack recall.
 - Limits: 20 new triages per IP per hour, 200 Claude triages per day, 24-hour cache.
+
+**How do you make sure an incident never gets two AI notes?**
+Three layers. The queue rejects a key that's already queued, running or retrying. A processed store (written atomically to a file) short-circuits finished incidents. Because Render's free disk is wiped on deploy, the ingestor also asks ServiceNow's journal (`sys_journal_field`) whether a note starting with `[SentinelDesk AI triage]` already exists. The tests deliver the same webhook several times concurrently and assert exactly one note.
+
+**Why does the webhook only send a sys_id?**
+Never trust the payload. Even with a valid signature, the server fetches the incident from the Table API, so the content it triages is ServiceNow's record, not whatever was posted. The signature (HMAC over timestamp and body, 5-minute window, constant-time compare) stops forgery and replay.

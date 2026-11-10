@@ -103,7 +103,7 @@ describe("HTTP API", () => {
     expect(result.fallbackReason).toMatch(/budget/);
   });
 
-  it("falls back to rules (and refunds the budget) when Claude errors", async () => {
+  it("falls back to rules when Claude errors, without refunding the budget", async () => {
     const broken: AgentRunner = { model: "claude-opus-5-5", run: async () => { throw new Error("upstream down"); } };
     const { url, deps } = await start({ agent: broken });
     const { result } = await (await post(url, ticketBody(4))).json();
