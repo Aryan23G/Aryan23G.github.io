@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast
 
-import anthropic
 from sqlalchemy import Engine
 
 from app.agent.graph import build_graph
 from app.agent.history import RunStore
-from app.agent.llm import AnthropicSqlGenerator, SqlGenerator
+from app.agent.llm import OpenAICompatibleSqlGenerator, SqlGenerator
 from app.agent.nodes import AgentConfig, AgentDeps
 from app.agent.runner import AgentRunner
 from app.config import Settings
-from app.observability.tracing import anthropic_otel_option, configure_tracing
+from app.observability.tracing import configure_tracing
 from app.rag.documents import TableMeta, introspect, sqlglot_schema
 from app.rag.embeddings import Embedder, build_embedder
 from app.rag.store import SchemaIndex
@@ -63,10 +61,10 @@ def build_container(
         tables, embedder or build_embedder(settings.embedder, settings.embedding_model),
         qdrant_url=settings.qdrant_url, qdrant_path=None if settings.qdrant_url else settings.qdrant_path)
     if generator is None:
-        client = anthropic.AsyncAnthropic(open_telemetry=cast(Any, anthropic_otel_option(settings)), max_retries=3)
-        generator = AnthropicSqlGenerator(
-            client, model=settings.anthropic_model, effort=settings.anthropic_effort,
-            max_tokens=settings.anthropic_max_tokens, server_fallbacks=settings.anthropic_fallbacks)
+        generator = OpenAICompatibleSqlGenerator(
+            base_url=settings.llm_base_url, model=settings.llm_model, api_key=settings.llm_api_key,
+            max_tokens=settings.llm_max_tokens, timeout_s=settings.llm_timeout_s,
+            trace_content=settings.trace_content)
     config = AgentConfig(
         dialect=settings.sql_dialect, max_rows=settings.max_rows, statement_timeout_ms=settings.statement_timeout_ms,
         max_static_retries=settings.max_static_retries, max_runtime_retries=settings.max_runtime_retries,

@@ -8,11 +8,11 @@
 
 **Ask a business question in plain English and get back validated, read-only SQL, the result set, and a full audit trail of how the agent got there.**
 
-A deterministic Text-to-SQL agent: a **LangGraph** state machine drives **LLM** structured generation, a **SQLGlot** static compiler checks every query against the real schema before it runs, **SQLAlchemy** executes on a connection that cannot write, and **Qdrant** retrieves only the tables a question needs. A dense three-pane **Next.js** workbench shows every step live.
+A deterministic Text-to-SQL agent: a **LangGraph** state machine drives structured SQL generation from **any OpenAI-compatible LLM** (a local Ollama model by default, so no API key and no data leaves the machine), a **SQLGlot** static compiler checks every query against the real schema before it runs, **SQLAlchemy** executes on a connection that cannot write, and **Qdrant** retrieves only the tables a question needs. A dense three-pane **Next.js** workbench shows every step live.
 
 ![QueryPilot Workbench: a request that fails static compilation, self-corrects and returns results](docs/demo.gif)
 
-<sub>Captured from the real UI and API with the scripted test generator standing in for the model (`tests/e2e_server.py`). Its first draft deliberately references a non-existent column so the self-correction loop is visible.</sub>
+<sub>Captured from the real UI and API with the scripted test generator standing in for the LLM (`tests/e2e_server.py`). Its first draft deliberately references a non-existent column so the self-correction loop is visible.</sub>
 
 ## Features
 
@@ -23,7 +23,7 @@ A deterministic Text-to-SQL agent: a **LangGraph** state machine drives **LLM** 
 - **Schema RAG.** Table- and column-level vectors in Qdrant, lexical pinning, and foreign-key join-path closure, so the prompt carries 4-7 of 14 tables instead of all of them.
 - **Observability.** OpenTelemetry span per node (Langfuse/OTLP or OpenLLMetry), plus the same trace in the UI: tokens and cache hits, per-node latency, injected tables with scores, reasoning chain, every correction, JSON export.
 - **Operable API.** SSE streaming, run history, optional bearer auth, per-client rate limiting and a concurrent-run cap.
-- **Tested.** 103 backend tests (mypy strict), 16 frontend unit tests, and Playwright end-to-end and accessibility suites against the real API. A 20-question execution-accuracy benchmark is included.
+- **Tested.** 107 backend tests (mypy strict), 16 frontend unit tests, and Playwright end-to-end and accessibility suites against the real API. A 20-question execution-accuracy benchmark is included.
 
 <p align="center"><img src="docs/override.png" alt="Manual SQL override with the run history tab open" width="900"></p>
 
@@ -31,7 +31,8 @@ A deterministic Text-to-SQL agent: a **LangGraph** state machine drives **LLM** 
 
 ```bash
 cd workbench
-cp backend/.env.example backend/.env      # add ANTHROPIC_API_KEY
+ollama pull qwen2.5-coder:7b              # or point QP_LLM_BASE_URL at any OpenAI-compatible endpoint
+cp backend/.env.example backend/.env
 docker compose --env-file backend/.env up --build   # UI on http://localhost:3000, API on :8000
 ```
 
@@ -58,8 +59,8 @@ workbench/
 │   │   │   ├── state.py             AgentState (TypedDict + reducers), SqlDraft, telemetry models
 │   │   │   ├── graph.py             StateGraph wiring + pure routing functions
 │   │   │   ├── nodes.py             States 1-5 + fail node (spans, live step events)
-│   │   │   ├── llm.py               SqlGenerator protocol + AnthropicSqlGenerator (structured outputs)
-│   │   │   ├── prompts.py           cached system prompt, bounded per-attempt user prompt
+│   │   │   ├── llm.py               SqlGenerator protocol + OpenAI-compatible generator (JSON schema output)
+│   │   │   ├── prompts.py           static system prompt, bounded per-attempt user prompt
 │   │   │   ├── runner.py            runs the graph in a task, streams events, builds RunTrace
 │   │   │   └── history.py           bounded in-memory store of recent RunTraces
 │   │   ├── rag/
@@ -77,8 +78,8 @@ workbench/
 │   ├── eval/
 │   │   ├── questions.json           20 questions (easy/medium/hard) with gold SQL
 │   │   ├── compare.py               execution-accuracy comparator
-│   │   └── run.py                   `python -m eval.run`: live evaluation (needs ANTHROPIC_API_KEY)
-│   └── tests/                       pytest suite + e2e_server.py (real API, scripted generator)
+│   │   └── run.py                   `python -m eval.run`: live evaluation against the configured LLM
+│   └── tests/                       103 tests (pytest) + e2e_server.py (real API, scripted generator)
 └── frontend/                        Next.js 14 (App Router) · Tailwind · shadcn/ui · Tremor · CodeMirror 6
     ├── app/                         layout.tsx, page.tsx, globals.css (dark IDE tokens)
     ├── components/
@@ -123,7 +124,7 @@ Control flow is decided only by pure routing functions over typed state (`agent/
 | State | Node | What happens |
 |---|---|---|
 | 1 | `retrieve_context` | Vector search over table **and** column documents in Qdrant → per-table score aggregation → lexical pinning of tables named in the question → relative cutoff → FK-neighbour relaxation → **FK join-path closure** (adds bridge tables such as `order_items` between `returns` and `products`). Only these tables' DDL goes into the prompt. |
-| 2 | `generate_sql` | The model returns a schema-validated `SqlDraft` (`reasoning_chain`, `sql_query`, `tables_used`, `answerable`, `clarification`) through structured outputs. System prompt is static per dialect and prompt-cached; every retry is a fresh, bounded prompt that carries all failed attempts with their logs. |
+| 2 | `generate_sql` | The LLM returns a `SqlDraft` (`reasoning_chain`, `sql_query`, `tables_used`, `answerable`, `clarification`) as JSON constrained to the schema, validated with Pydantic. The system prompt is static per dialect, so servers with prefix caching reuse it; every retry is a fresh, bounded prompt that carries all failed attempts with their logs. |
 | 3 | `validate_sql` | SQLGlot parses in the target dialect, requires one read-only statement, walks the AST for write/DDL/session nodes (including data-modifying CTEs) and denylisted functions, checks tables against the catalogue, **qualifies every column against the real schema** (hallucinated columns fail here, before the DB), and injects an outer `LIMIT`. Failures produce a compiler-style log. |
 | 4 | `execute_sql` | SQLAlchemy engine whose connections cannot write: SQLite opened `mode=ro` + `PRAGMA query_only`; Postgres `SET TRANSACTION READ ONLY` + `statement_timeout`; transaction always rolled back. Statement deadline (SQLite progress handler), `fetchmany` row cap, structured error + trimmed stack trace for self-correction. |
 | 5 | `format_response` | Rows → array of objects + typed column metadata + row count, truncation flag and DB latency. |
@@ -153,8 +154,7 @@ Every run produces one trace:
 ```
 agent.run                         outcome, llm_calls, static/runtime retries, gen_ai.usage.*
 ├── agent.node.retrieve_context   rag.selected_tables, rag.candidates
-├── agent.node.generate_sql       agent.attempt, agent.trigger, gen_ai.usage.*
-│   └── anthropic.messages.create   ← emitted by the Anthropic SDK itself (native OTel)
+├── agent.node.generate_sql       agent.attempt, agent.trigger, gen_ai.usage.* (+ prompt/completion with QP_TRACE_CONTENT)
 ├── agent.node.validate_sql       sql.compile.ok, sql.compile.diagnostics
 ├── agent.node.generate_sql       agent.trigger = static_error      ← self-correction cycle
 ├── ...
@@ -164,7 +164,7 @@ agent.run                         outcome, llm_calls, static/runtime retries, ge
 | `QP_OTEL_EXPORTER` | Use |
 |---|---|
 | `otlp` | Any OTLP/HTTP backend. **Langfuse**: `QP_OTEL_ENDPOINT=https://cloud.langfuse.com/api/public/otel`, `QP_OTEL_HEADERS=Authorization=Basic <base64(pk:sk)>`. Also Jaeger, Tempo, Honeycomb, Datadog. |
-| `traceloop` | **OpenLLMetry** auto-instrumentation (`pip install '.[openllmetry]'`). It patches the Anthropic SDK, so the SDK's native spans are switched off to avoid duplicate LLM spans. |
+| `traceloop` | **OpenLLMetry** auto-instrumentation of LangGraph (`pip install '.[openllmetry]'`), alongside the node spans above. |
 | `console` | Print spans locally. |
 | `none` | Default. |
 
@@ -178,7 +178,7 @@ The same data is returned to the UI in `RunTrace`: token usage (including cache 
 cd workbench/backend
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev,fastembed]"
-cp .env.example .env    # set ANTHROPIC_API_KEY (all QP_* settings are listed there)
+cp .env.example .env    # LLM endpoint + model; all QP_* settings are listed there
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -196,21 +196,21 @@ NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev    # http://localhost:3000
 
 ```bash
 cd workbench
-ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
+ollama pull qwen2.5-coder:7b && docker compose up --build    # uses Ollama on the host by default
 ```
 
 ## Tests and quality gates
 
 ```bash
-cd backend  && ruff check app tests eval && mypy app eval && pytest -q    # mypy --strict
+cd backend  && ruff check app tests eval && mypy app eval && pytest -q    # 107 tests, mypy --strict
 cd frontend && npm run typecheck && npm run lint && npm test && npm run build
 cd frontend && npm run e2e    # Playwright: starts the API (scripted generator, auth on) + a production build
 ```
 
 Set `E2E_PYTHON` to the backend's Python interpreter if it isn't on `PATH` as `python`.
 
-The test suite needs no network. A scripted `SqlGenerator` replaces the model, so every routing path is exercised deterministically: happy path, static retry (with the compiler log in the next prompt), static budget exhaustion, runtime retry (with the stack trace), runtime budget, write attempts that never reach the DB, unanswerable questions, and refusals. Separate tests cover:
-- the exact Anthropic API request (structured-output schema, effort, cache control, refusal-fallback beta) against a mocked HTTP transport,
+The test suite needs no network. A scripted `SqlGenerator` replaces the LLM, so every routing path is exercised deterministically: happy path, static retry (with the compiler log in the next prompt), static budget exhaustion, runtime retry (with the stack trace), runtime budget, write attempts that never reach the DB, unanswerable questions, and refusals. Separate tests cover:
+- the exact LLM request (JSON-schema response format, messages, bearer key only when set) and reply handling (refusals, truncation, fenced or invalid JSON, HTTP and connection errors) against a mocked HTTP transport,
 - the read-only connection with the guard bypassed,
 - the statement timeout,
 - retrieval quality and FK join-path closure,
@@ -221,13 +221,13 @@ The test suite needs no network. A scripted `SqlGenerator` replaces the model, s
 
 The browser suite covers a self-correcting run, the manual override, a blocked `DROP TABLE`, run history and JSON export, the unauthenticated-request check, landmarks/labels, and a keyboard-only run.
 
-**Evaluation.** `ANTHROPIC_API_KEY=... python -m eval.run [--model ...] [--only h]` runs the 20-question benchmark through the real agent and writes an accuracy report (by difficulty, latency, self-corrections, tokens) to `eval/results/`. It costs real API tokens and has not been run in this repository yet, so no accuracy figure is claimed.
+**Evaluation.** `python -m eval.run [--model ...] [--only h]` runs the 20-question benchmark through the real agent and the configured LLM, and writes an accuracy report (by difficulty, latency, self-corrections, tokens) to `eval/results/`. It has not been run in this repository yet, so no accuracy figure is claimed.
 
 CI: `.github/workflows/workbench.yml`.
 
 ## Design notes and limits
 
-- **Model.** Opus 5.5 by default (`QP_ANTHROPIC_MODEL`), `effort=medium`, adaptive thinking (always on for this model), structured outputs, and server-side refusal fallback (`fallbacks: "default"`, not used on Haiku).
+- **Model.** Any OpenAI-compatible `/chat/completions` endpoint (`QP_LLM_BASE_URL`, `QP_LLM_MODEL`, optional `QP_LLM_API_KEY`). The default is `qwen2.5-coder:7b` on a local Ollama server, at temperature 0 with a JSON-schema response format. Small local models make more first-draft mistakes, which the SQLGlot compiler and the retry loop catch; larger models need fewer retries.
 - **Embeddings.** Production uses FastEmbed `BAAI/bge-small-en-v1.5` (local ONNX, no API). If the model can't be loaded, for example because there's no network on first start, the service logs a warning and falls back to the built-in IDF-weighted hashing embedder. `/api/health` reports which one is active. The retrieval tests run on the hashing embedder; bge-small retrieval quality has not been benchmarked in this repo.
 - **Retries** are bounded separately for static (`QP_MAX_STATIC_RETRIES`, default 2) and runtime (`QP_MAX_RUNTIME_RETRIES`, default 2) failures.
 - **Embedded Qdrant** is single-process. Run Qdrant as a server (`QP_QDRANT_URL`) for multiple API workers.
@@ -236,7 +236,7 @@ CI: `.github/workflows/workbench.yml`.
 
 ## Roadmap
 
-- **Accuracy report.** Run `python -m eval.run` against the live model and publish execution accuracy by difficulty, plus a model comparison (Opus / Sonnet / Haiku).
+- **Accuracy report.** Run `python -m eval.run` and publish execution accuracy by difficulty, plus a comparison across local and hosted models.
 - **Grid virtualization.** Replace the Radix tabs in the results pane with plain controls, then window the rows. Virtualizing inside Radix Tabs re-rendered endlessly under the React 19 runtime that Next 14 bundles.
 - **Accessibility.** A custom CodeMirror `HighlightStyle` with AA contrast for every SQL token, and editor-owned scrolling. Then enable the all-states axe test (currently `test.fixme` in `frontend/e2e/a11y.spec.ts`).
 - **Conversation.** Follow-up questions that carry the previous question and SQL into the next run, and clarifying questions for ambiguous metrics.

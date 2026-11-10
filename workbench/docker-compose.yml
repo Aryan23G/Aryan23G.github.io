@@ -1,5 +1,6 @@
 # Full stack: Qdrant (schema index) + FastAPI agent + Next.js workbench.
-#   ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
+# The LLM is any OpenAI-compatible endpoint; by default Ollama running on the host:
+#   ollama pull qwen2.5-coder:7b && docker compose up --build
 services:
   qdrant:
     image: qdrant/qdrant:v1.15.4
@@ -9,13 +10,16 @@ services:
   api:
     build: ./backend
     environment:
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY}
+      QP_LLM_BASE_URL: ${QP_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      QP_LLM_MODEL: ${QP_LLM_MODEL:-qwen2.5-coder:7b}
+      QP_LLM_API_KEY: ${QP_LLM_API_KEY:-}
       QP_QDRANT_URL: http://qdrant:6333
       QP_CORS_ORIGINS: '["http://localhost:3000"]'
       QP_OTEL_EXPORTER: ${QP_OTEL_EXPORTER:-none}
       QP_OTEL_ENDPOINT: ${QP_OTEL_ENDPOINT:-}
       QP_OTEL_HEADERS: ${QP_OTEL_HEADERS:-}
       QP_API_TOKEN: ${QP_API_TOKEN:-}
+    extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["8000:8000"]
     depends_on: [qdrant]
 
