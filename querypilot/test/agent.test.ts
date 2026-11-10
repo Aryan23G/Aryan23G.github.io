@@ -114,7 +114,10 @@ describe("runAgent", () => {
     expect(String(r1[0]!.content)).toMatch(/rejected_by":"guard/);
     const r2 = requests[2]!.messages.at(-1)!.content as Anthropic.Beta.Messages.BetaToolResultBlockParam[];
     expect(String(r2[0]!.content)).toMatch(/Fix the SQL/);
-    expect(engine.execute("SELECT count(*) FROM orders")).toEqual(before);
+    // Compare rows only: the result also carries elapsedMs, which varies run to run.
+    const after = engine.execute("SELECT count(*) FROM orders");
+    expect(after.ok && before.ok).toBe(true);
+    expect(after.ok && before.ok && after.result.rows).toEqual(before.ok && before.result.rows);
   });
 
   it("starts a follow-up turn with the owed tool_result, then the question", async () => {

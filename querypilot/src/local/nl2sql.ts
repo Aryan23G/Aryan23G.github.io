@@ -15,11 +15,12 @@
 
 export type MetricId =
   | "revenue" | "margin" | "margin_pct" | "aov" | "units" | "orders" | "return_rate" | "cancel_rate"
-  | "customers" | "new_customers" | "rating" | "reviews" | "shipping" | "discount" | "avg_price" | "products";
+  | "customers" | "new_customers" | "rating" | "reviews" | "shipping" | "avg_shipping" | "discount" | "avg_price" | "products"
+  | "items_per_order" | "orders_per_customer";
 
 export type DimId =
   | "year" | "quarter" | "month" | "weekday" | "category" | "product" | "channel" | "country" | "city"
-  | "segment" | "status" | "customer" | "rating";
+  | "segment" | "status" | "customer" | "rating" | "week";
 
 type Scope = "order" | "review" | "customer" | "product";
 type Format = "money" | "int" | "ratio" | "decimal";
@@ -30,6 +31,8 @@ export interface Filter {
   negate?: boolean;
   /** Character offset of the match in the normalised question (used to find a "share of" subject). */
   at?: number;
+  /** How the filter reads in answers when its values are long ("tents", "summer"). */
+  label?: string;
 }
 
 export type PlanKind = "aggregate" | "growth" | "top_per_group" | "share" | "retention";
@@ -45,9 +48,11 @@ export interface Plan {
   minCount?: number;
   /** "customers who never placed an order" → anti-join. */
   neverOrdered?: boolean;
+  /** "products with no reviews" / "products that never sold" → anti-join on the catalogue. */
+  productsWithout?: "reviews" | "orders";
   /** Multi-step shape; plain aggregates are "aggregate". */
   kind: PlanKind;
-  growth?: { period: Period; pick?: "max" | "min" };
+  growth?: { period: Period; pick?: "max" | "min"; by?: DimId; years?: [string, string] };
   topPerGroup?: { outer: DimId; entity: DimId; n: number };
   /** Share kind: the subset (numerator) conditions; plan.filters stay the base population. */
   subset?: Filter[];
@@ -141,6 +146,17 @@ const METRICS: MetricDef[] = [
     expr: "ROUND(AVG(r.rating), 2)", definition: "average rating = mean review stars (1-5)" },
   { id: "reviews", label: "reviews", column: "reviews", scope: "review", format: "int",
     pattern: /\breviews?\b/, expr: "COUNT(*)", definition: "reviews = number of product reviews" },
+  { id: "items_per_order", label: "units per order", column: "units_per_order", scope: "order", format: "decimal",
+    pattern: /\b(items|units|products|pieces) (per|in an?|in each) order\b/,
+    expr: "ROUND(1.0 * SUM(oi.quantity) / COUNT(DISTINCT o.order_id), 2)", needsItems: true, realisedOnly: true,
+    definition: "units per order = units sold / orders, excluding cancelled and returned orders" },
+  { id: "orders_per_customer", label: "orders per customer", column: "orders_per_customer", scope: "order", format: "decimal",
+    pattern: /\b(orders|purchases) (per|by an?|for each) (customer|buyer|shopper|client)\b|\bpurchase frequency\b/,
+    expr: "ROUND(1.0 * COUNT(DISTINCT o.order_id) / COUNT(DISTINCT o.customer_id), 2)",
+    definition: "orders per customer = orders / customers who ordered" },
+  { id: "avg_shipping", label: "average shipping charged", column: "avg_shipping", scope: "order", format: "money",
+    pattern: /\b(average|avg|mean|typical) shipping\b/, expr: "ROUND(AVG(o.shipping_cost), 2)",
+    definition: "average shipping = mean shipping charged per order" },
   { id: "shipping", label: "shipping charged", column: "shipping", scope: "order", format: "money",
     pattern: /\bshipping\b/, expr: "ROUND(SUM(o.shipping_cost), 2)", definition: "shipping = shipping charged to customers" },
   { id: "discount", label: "average discount", column: "avg_discount", scope: "order", format: "ratio",
@@ -151,7 +167,7 @@ const METRICS: MetricDef[] = [
     expr: "SUM(oi.quantity)", needsItems: true, realisedOnly: true,
     definition: "units sold = total quantity, excluding cancelled and returned orders" },
   { id: "revenue", label: "revenue", column: "revenue", scope: "order", format: "money",
-    pattern: /\b(revenue|revenues|sales|income|turnover|gmv|earn(ed|ings)?|made|make|spend|spent|spending|lifetime value|ltv|money)\b/,
+    pattern: /\b(revenue|revenues|sales|income|turnover|gmv|earn(ed|ings)?|made|make|spend|spent|spending|lifetime value|ltv|money)\b|\bhow much\b.*\b(sell|sold|sales)\b/,
     expr: `ROUND(SUM(${REV}), 2)`, needsItems: true, realisedOnly: true,
     definition: "revenue = Σ quantity × unit price × (1 − discount), excluding cancelled and returned orders" },
   { id: "avg_price", label: "average price", column: "avg_price", scope: "product", format: "money",
@@ -162,7 +178,7 @@ const METRICS: MetricDef[] = [
     definition: "orders = number of distinct orders" },
   { id: "customers", label: "customers", column: "customers", scope: "customer", format: "int",
     pattern: /\b(customers?|buyers?|clients?|shoppers?|users?|accounts?)\b/, expr: "COUNT(*)",
-    definition: "customers = number of customer accounts" },
+    definition: "customers = number of customer accounts (or, in a period or order context, customers who ordered)" },
   { id: "products", label: "products", column: "products", scope: "product", format: "int",
     pattern: /\b(products?|items?|skus?)\b/, expr: "COUNT(*)", definition: "products = number of catalogue products" },
 ];
@@ -180,7 +196,8 @@ const DIMS: DimDef[] = [
   { id: "month", column: "month", temporal: true, words: /\b(months?|monthly|over time|trend|trends|time series)\b/ },
   { id: "quarter", column: "quarter", temporal: true, words: /\b(quarters?|quarterly)\b/ },
   { id: "year", column: "year", temporal: true, words: /\b(years?|yearly|annual|annually|year over year|yoy)\b/ },
-  { id: "weekday", column: "weekday", words: /\b(weekdays?|day of (the )?week|days of (the )?week)\b/ },
+  { id: "weekday", column: "weekday", words: /\b(weekdays?|weekends?|day of (the )?week|days of (the )?week)\b/ },
+  { id: "week", column: "week", temporal: true, words: /\b(weeks|weekly|week)\b/ },
   { id: "category", column: "category", words: /\b(product categor(y|ies)|categor(y|ies)|product (line|type|group)s?|departments?)\b/ },
   { id: "product", column: "product", words: /\b(products?|items?|skus?)\b/ },
   { id: "channel", column: "channel", words: /\b(sales channels?|channels?|platforms?)\b/ },
@@ -195,7 +212,7 @@ const DIMS: DimDef[] = [
 // Loose cues may sit up to two words before the dimension ("by product category", "top 5 selling products");
 // "which/what" must be directly followed by it (optionally a number): "what is the average product rating"
 // is a question about ratings, not a grouping by product.
-const LOOSE_CUE = String.raw`(by|per|each|every|across|for each|for every|split by|broken down by|breakdown by|breakdown of|grouped by|top|bottom|best|worst|most|least|highest|lowest|cheapest|compare|comparing|between|of all)`;
+const LOOSE_CUE = String.raw`(by|per|each|every|across|for each|for every|split by|broken down by|breakdown by|breakdown of|grouped by|top|bottom|best|worst|most|least|highest|lowest|cheapest|compare|comparing|between|of all|fastest|slowest|fastest[- ]growing|slowest[- ]growing|growing|growth|performing|list|list all|show all|list of|declined|grew)`;
 const TIGHT_CUE = String.raw`(which|what)(\s+\d+)?`;
 
 const COUNTRY_ALIASES: Record<string, string> = {
@@ -215,6 +232,7 @@ const sqlStr = (s: string) => `'${s.replace(/'/g, "''")}'`;
  */
 const MULTI_STEP: [RegExp, string][] = [
   [/\b(why|predict|forecast|will be|next (month|year|quarter)|correlat\w*|regression|causes?)\b/, "explanation or prediction"],
+  [/\breviews?\b.*\b(mention\w*|contain\w*|say|says|saying|keywords?|words?|text|complain\w*)\b|\b(mention\w*|say|says|complain\w*)\b.*\breviews?\b/, "searching review text"],
 ];
 
 // ------------------------------------------------------------------ parsing
@@ -233,7 +251,7 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   for (const [re, what] of MULTI_STEP) {
     if (re.test(q)) {
       throw new NotUnderstood(
-        `This needs ${what}, which the free local engine does not do: it answers from the data, it does not explain or predict. Add an Anthropic API key in Settings to ask the Claude agent, or ask about what the data shows.`,
+        `This needs ${what}, which the free local engine does not do: it answers from the numbers in the data${what === "explanation or prediction" ? ", it does not explain or predict" : " (reviews have star ratings, not searchable text)"}. Add an Anthropic API key in Settings to ask the Claude agent, or ask about what the data shows.`,
         SUGGESTIONS,
       );
     }
@@ -270,6 +288,29 @@ export function parse(question: string, vocab: Vocabulary): Plan {
     if (neg.length) filters.push({ field, values: neg, negate: true, at: Math.min(...negF.map((f) => f.at)) });
   };
   take("product", vocab.products);
+  // Product types ("tents", "hiking boots", "helmets"): the name without brand and Lite/Pro variant.
+  // Values still come from the vocabulary; only the words that pick them come from the question.
+  if (!filters.some((f) => f.field === "product")) {
+    const hits = { pos: { values: new Set<string>(), labels: [] as string[], at: Infinity }, neg: { values: new Set<string>(), labels: [] as string[], at: Infinity } };
+    const matched: string[] = [];
+    for (const [phrase, names] of productTypes(vocab.products)) {
+      const re = new RegExp(`(\\b(excluding|except|without|other than|not|non)\\s+(the\\s+)?)?\\b${esc(phrase)}(s|es)?\\b`);
+      const m = rest.match(re);
+      if (!m) continue;
+      // "helmets excluding bike helmets": a longer phrase already matched inside the negated span doesn't negate "helmet".
+      const word = new RegExp(`\\b${esc(phrase)}(s|es)?\\b`);
+      const inNegSpan = negSpans.some((span) => word.test(matched.reduce((sp, longer) => sp.replace(new RegExp(`\\b${esc(longer)}(s|es)?\\b`, "g"), " "), span)));
+      matched.push(phrase);
+      const h = Boolean(m[1]) || inNegSpan ? hits.neg : hits.pos;
+      names.forEach((n) => h.values.add(n));
+      h.labels.push(phrase.endsWith("s") ? phrase : `${phrase}s`);
+      h.at = Math.min(h.at, Math.max(0, q.search(re)));
+      rest = rest.replace(m[0], " ");
+    }
+    for (const [h, negate] of [[hits.pos, false], [hits.neg, true]] as const) {
+      if (h.values.size) filters.push({ field: "product", values: [...h.values], negate, at: h.at, label: h.labels.join(" and ") });
+    }
+  }
   take("category", vocab.categories);
   take("country", vocab.countries, COUNTRY_ALIASES);
   take("city", vocab.cities);
@@ -287,6 +328,22 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   const years = [...new Set([...rest.matchAll(/\b(20\d\d)\b/g)].map((m) => m[1]!))];
   if (/\b(this|current) year\b|\bytd\b|\byear to date\b/.test(rest)) years.push(String(DATA_END_YEAR));
   if (/\b(last|previous|prior) year\b/.test(rest)) years.push(String(DATA_END_YEAR - 1));
+  const SEASONS: [RegExp, string[], string][] = [
+    [/\b(holiday season|holidays|holiday sales|christmas season|black friday)\b/, ["11", "12"], "holiday season (Nov-Dec)"],
+    [/\bsummer\b/, ["06", "07", "08"], "summer (Jun-Aug)"],
+    [/\bwinter\b(?! boot)/, ["12", "01", "02"], "winter (Dec-Feb)"],
+    [/\bspring\b/, ["03", "04", "05"], "spring (Mar-May)"],
+    [/\b(autumn|(in|during) (the )?fall|fall (season|months|20\d\d))\b/, ["09", "10", "11"], "autumn (Sep-Nov)"],
+  ];
+  const season = SEASONS.find(([re]) => re.test(rest));
+  if (season) rest = rest.replace(season[0], " ");
+  let halfLabel: string | undefined;
+  const half = rest.match(/\b(h([12])|(first|second|1st|2nd) half)\b/);
+  if (half) {
+    rest = rest.replace(half[0], " ");
+    rest += /^(2|second|2nd)/.test(half[2] ?? half[3]!) ? " q3 q4 " : " q1 q2 ";
+    halfLabel = /^(2|second|2nd)/.test(half[2] ?? half[3]!) ? "H2 (Jul-Dec)" : "H1 (Jan-Jun)";
+  }
   const quarterMatches = [...rest.matchAll(/\b(q([1-4])|(first|second|third|fourth|1st|2nd|3rd|4th) quarter)\b/g)];
   const monthMatches = MONTHS.filter((m, i) => {
     const short = m.slice(0, 3);
@@ -304,10 +361,12 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   if (quarterMatches.length) {
     const ord: Record<string, string> = { first: "1", "1st": "1", second: "2", "2nd": "2", third: "3", "3rd": "3", fourth: "4", "4th": "4" };
     const qs = [...new Set(quarterMatches.map((m) => { const w = m[2] ?? m[3]!; return ord[w] ?? w; }))].sort();
-    filters.push({ field: "quarter", values: qs });
+    filters.push({ field: "quarter", values: qs, ...(halfLabel ? { label: halfLabel } : {}) });
   }
   if (monthMatches.length) {
     filters.push({ field: "month", values: monthMatches.map((m) => String(MONTHS.indexOf(m) + 1).padStart(2, "0")) });
+  } else if (season) {
+    filters.push({ field: "month", values: season[1], label: season[2] });
   }
 
   // Grouping dimensions: a dimension word next to a grouping cue ("by month", "which category",
@@ -320,10 +379,10 @@ export function parse(question: string, vocab: Vocabulary): Plan {
     const cued = new RegExp(`\\b${LOOSE_CUE}\\b(\\s+\\S+){0,2}\\s+${word}`).test(rest)
       || new RegExp(`\\b${TIGHT_CUE}\\s+${word}`).test(rest)
       || new RegExp(`${word}\\s+(with|has|had|have|that|generated|brought|made|drove|sold|spent|is|are|was|were)\\b`).test(rest)
-      || /^(monthly|over time|trend|trends|time series|quarterly|yearly|annual|annually|year over year|yoy)$/.test(m[0]);
+      || /^(monthly|weekly|weekends?|over time|trend|trends|time series|quarterly|yearly|annual|annually|year over year|yoy)$/.test(m[0]);
     if (!cued) continue;
     // "how many customers per country": customers is the measure, not a grouping.
-    if (d.id === "customer" && (metricDef.id === "customers" || metricDef.id === "new_customers")) continue;
+    if (d.id === "customer" && (metricDef.id === "customers" || metricDef.id === "new_customers" || metricDef.id === "orders_per_customer")) continue;
     if (d.id === "product" && metricDef.id === "products") continue;
     if (d.id === "rating" && (metricDef.id === "rating")) continue;
     // "in 2025" / "Q4" already pin the period; "this year" is a filter, not a grouping.
@@ -338,7 +397,7 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   for (const f of filters) {
     const dim = f.field as DimId;
     if (!f.negate && f.values.length >= 2 && DIMS.some((d) => d.id === dim) && !dims.includes(dim) && dims.length < 2
-        && (comparing || f.field !== "year")) {
+        && (comparing || f.field !== "year") && !f.label) {
       dims.push(dim);
     }
   }
@@ -347,7 +406,8 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   const metric = metricDef.id;
 
   // "with at least 20 reviews" is a group threshold, not a ranking: consume it first.
-  const min = rest.match(/\b(at least|minimum of|a minimum of|min|more than|over)\s+(\d+)\s+(reviews?|orders?|ratings?)\b/);
+  const min = rest.match(/\b(at least|minimum of|a minimum of|min|more than|over)\s+(\d+)\s+(reviews?|orders?|ratings?|times|purchases)\b/)
+    ?? rest.match(/\b()(\d+)\s+or more\s+(reviews?|orders?|ratings?|times|purchases)\b/);
   const minCount = min ? Number(min[2]) + (/more than|over/.test(min[1]!) ? 1 : 0) : undefined;
   if (min) rest = rest.replace(min[0], " ");
 
@@ -363,7 +423,11 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   else if (/\b(top|best|highest|largest|biggest|most|maximum|max|leading)\b/.test(rest)) rank = { dir: "desc", limit: /\btop\b/.test(rest) ? 10 : undefined };
 
   const share = /\b(share|split|mix|proportion|percentage of|breakdown|distribution)\b/.test(rest);
-  const neverOrdered = /\bnever\s+(placed|made|ordered|purchased|bought)\b|\b(without|with no|zero|no)\s+(any\s+)?orders?\b|\bhaven'?t (ordered|purchased|bought)\b/.test(rest);
+  const productsWithout: Plan["productsWithout"] = /\b(products?|items?)\b/.test(rest) || /\b(products?|items?)\b/.test(q)
+    ? (/\b(no|without|zero|never (been )?|not )\s*(any )?(reviews?|reviewed|ratings?|rated)\b|\bunreviewed\b/.test(q) ? "reviews"
+      : /\b(never|not)\s+(been\s+)?(sold|ordered|bought|purchased)\b|\b(no|without|zero)\s+(any\s+)?(sales|orders)\b/.test(q) ? "orders" : undefined)
+    : undefined;
+  const neverOrdered = !productsWithout && /\bnever\s+(placed|made|ordered|purchased|bought)\b|\b(without|with no|zero|no)\s+(any\s+)?orders?\b|\bhaven'?t (ordered|purchased|bought)\b/.test(rest);
 
   if (!dims.length && !filters.length && metricDef.fallback) {
     throw new NotUnderstood(
@@ -379,7 +443,10 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   if (rank) notes.push(`ranking: ${rank.dir === "desc" ? "highest" : "lowest"} first${rank.limit ? `, top ${rank.limit}` : ""}`);
   if (minCount) notes.push(`only groups with at least ${minCount} ${metricDef.scope === "review" ? "reviews" : "orders"}`);
   if (neverOrdered) notes.push("only customers with no orders");
-  const plan: Plan = { metric, dims, filters, rank, share, minCount, neverOrdered, kind: "aggregate", notes };
+  if (productsWithout) notes.push(`only products with no ${productsWithout}`);
+  const plan: Plan = productsWithout
+    ? { metric: "products", dims: dims.filter((d) => d !== "product" && d !== "rating"), filters, share: false, productsWithout, kind: "aggregate", notes }
+    : { metric, dims, filters, rank, share, minCount, neverOrdered, kind: "aggregate", notes };
   detectMultiStep(plan, q, metricDef.fallback === true);
   return plan;
 }
@@ -412,13 +479,27 @@ function detectMultiStep(plan: Plan, q: string, metricWasGuessed: boolean) {
   }
 
   // Growth between periods.
-  if (/\b(growth|grew|grow|increase|increased|decrease|decreased|decline|change|changed|jump|drop|dropped)\b|\b(month|quarter|year)[- ]over[- ](month|quarter|year)\b|\b(mom|qoq|yoy)\b/.test(q)) {
+  if (/\b(growth|grew|grow|growing|increase|increased|decrease|decreased|decline|declined|declining|change|changed|jump|drop|dropped|fell|shrank|shrink)\b|\b(month|quarter|year)[- ]over[- ](month|quarter|year)\b|\b(mom|qoq|yoy)\b/.test(q)) {
     const period: Period = /\b(year[- ]over[- ]year|yoy|annual|yearly|by year|per year)\b/.test(q) ? "year"
       : /\b(quarter[- ]over[- ]quarter|qoq|quarter|quarterly)\b/.test(q) ? "quarter" : "month";
     const pick = /\b(largest|biggest|highest|fastest|most|best|strongest|which|what)\b/.test(q) ? "max"
       : /\b(smallest|lowest|weakest|least|worst|slowest|biggest drop|largest drop)\b/.test(q) ? "min" : undefined;
     plan.kind = "growth";
-    plan.growth = { period, pick: /\b(drop|decline|decrease|fell|worst)\b/.test(q) && pick === "max" ? "min" : pick };
+    plan.growth = { period, pick: /\b(drop|dropped|decline|declined|declining|decrease|decreased|fell|shrank|worst)\b/.test(q) && pick === "max" ? "min" : pick };
+    // "fastest growing category": growth per group between the last two years (or the years named).
+    const by = plan.dims.find((d) => !DIMS.find((x) => x.id === d)!.temporal && d !== "weekday");
+    if (by) {
+      const ys = years.length >= 2 ? [years[years.length - 2]!, years[years.length - 1]!] : years.length === 1
+        ? [String(Number(years[0]) - 1), years[0]!] : [String(DATA_END_YEAR - 1), String(DATA_END_YEAR)];
+      plan.growth = { period: "year", pick: plan.growth.pick, by, years: ys as [string, string] };
+      if (metricWasGuessed || ["customers", "products"].includes(plan.metric)) plan.metric = "revenue";
+      plan.dims = [by];
+      plan.rank = undefined;
+      plan.notes = [`${METRICS.find((m) => m.id === plan.metric)!.definition}`,
+        `growth: ${ys[0]} → ${ys[1]} change for each ${by}`,
+        ...plan.notes.filter((n) => n.startsWith("filter:") && !n.startsWith("filter: year"))];
+      return;
+    }
     if (metricWasGuessed) plan.metric = "revenue";
     plan.dims = [period];
     plan.rank = undefined;
@@ -477,6 +558,26 @@ function detectMultiStep(plan: Plan, q: string, metricWasGuessed: boolean) {
   }
 }
 
+const AMBIGUOUS_HEADS = new Set(["set", "device", "light", "layer", "bank", "shell", "bag", "watch", "runner", "messenger", "pump", "filter"]);
+
+/** Product type phrases → product names, longest phrase first: "sleeping bag", "tent", "boot". */
+export function productTypes(products: readonly string[]): [string, string[]][] {
+  const map = new Map<string, Set<string>>();
+  const add = (phrase: string, name: string) => {
+    if (phrase.length < 3) return;
+    if (!map.has(phrase)) map.set(phrase, new Set());
+    map.get(phrase)!.add(name);
+  };
+  for (const name of products) {
+    const words = name.toLowerCase().split(" ").slice(1).filter((w) => !/^(lite|pro|\d+\w*)$/.test(w));
+    if (!words.length) continue;
+    add(words.join(" "), name);
+    const head = words[words.length - 1]!;
+    if (!AMBIGUOUS_HEADS.has(head)) add(head, name);
+  }
+  return [...map].map(([k, v]) => [k, [...v]] as [string, string[]]).sort((a, b) => b[0].length - a[0].length);
+}
+
 function pickMetric(text: string): MetricDef & { fallback?: boolean } {
   // "how many customers ..." / "number of customers" → count customers even if "orders" appears later.
   if (/\b(how many|number of|count of|count) (new )?(customers|buyers|clients|shoppers|accounts)\b/.test(text)) {
@@ -495,7 +596,8 @@ function pickMetric(text: string): MetricDef & { fallback?: boolean } {
   for (const m of METRICS) if (!GENERIC.has(m.id) && m.pattern.test(text)) return m;
   // "top 10 customers", "best products", "biggest categories" with no measure → rank by revenue.
   // ("most customers" is still a count: the cue must directly precede the ranked entity.)
-  if (/\b(top|best|biggest|largest|leading)\s+(\d+\s+)?(customers?|clients?|buyers?|products?|items?|categor(y|ies)|countr(y|ies)|cit(y|ies)|segments?|channels?)\b/.test(text)) {
+  if (/\b(top|best|biggest|largest|leading|worst|weakest|bottom|poorest)\s+(\d+\s+)?((performing|selling)\s+)?(customers?|clients?|buyers?|products?|items?|categor(y|ies)|countr(y|ies)|cit(y|ies)|segments?|channels?|months?|quarters?|years?|days?|weeks?|weekdays?)\b/.test(text)
+      || /\b(best|worst|top|under|poorly|well)[- ]?performing\b|\b(fastest|slowest)[- ]growing\b/.test(text)) {
     return METRICS.find((m) => m.id === "revenue")!;
   }
   for (const m of METRICS) if (GENERIC.has(m.id) && m.pattern.test(text)) return m;
@@ -540,7 +642,9 @@ export function compile(plan: Plan): Compiled {
     case "top_per_group": return compileTopPerGroup(plan);
     case "retention": return compileRetention(plan);
     case "share": return compileAggregate(plan, { subset: plan.subset });
-    default: return compileAggregate(plan);
+    default:
+      if (plan.metric === "customers" && plan.minCount && !plan.dims.length) return compileFrequentCustomers(plan);
+      return compileAggregate(plan);
   }
 }
 
@@ -550,8 +654,9 @@ function compileAggregate(plan: Plan, opts: AggOptions = {}): Compiled {
   let metricExpr = def.expr;
 
   // Customer counts with order context ("customers who ordered on mobile in 2025") are counted from orders.
-  const orderContext = [...plan.filters, ...(opts.subset ?? [])].some((f) => ORDER_ONLY_FILTERS.has(f.field) || f.field === "category" || f.field === "product")
-    || plan.dims.some((d) => ["channel", "status", "category", "product"].includes(d));
+  // So are customers in a period ("customers by month", "customers in 2025"): active customers, not signups.
+  const orderContext = [...plan.filters, ...(opts.subset ?? [])].some((f) => ORDER_ONLY_FILTERS.has(f.field) || ["category", "product", "year", "quarter", "month"].includes(f.field))
+    || plan.dims.some((d) => ["channel", "status", "category", "product", "month", "quarter", "year", "week", "weekday"].includes(d));
   if (scope === "customer" && plan.metric === "customers" && orderContext) {
     scope = "order";
     metricExpr = "COUNT(DISTINCT o.customer_id)";
@@ -630,6 +735,11 @@ function compileAggregate(plan: Plan, opts: AggOptions = {}): Compiled {
     plan.notes.push("long list: showing the top 15");
   }
 
+  if (plan.productsWithout && scope === "product") {
+    ctx.where.push(plan.productsWithout === "reviews"
+      ? "NOT EXISTS (SELECT 1 FROM reviews r2 WHERE r2.product_id = p.product_id)"
+      : "NOT EXISTS (SELECT 1 FROM order_items oi2 WHERE oi2.product_id = p.product_id)");
+  }
   if (plan.neverOrdered && scope === "customer") {
     ctx.where.push("NOT EXISTS (SELECT 1 FROM orders o2 WHERE o2.customer_id = c.customer_id)");
   }
@@ -657,9 +767,47 @@ function compileAggregate(plan: Plan, opts: AggOptions = {}): Compiled {
   return { plan, sql: lines.join("\n"), chart, metricColumn: column, format };
 }
 
+/** "How many customers ordered at least N times": per-customer order counts, then count those over N. */
+function compileFrequentCustomers(plan: Plan): Compiled {
+  const base = compileAggregate({ ...plan, metric: "orders", dims: ["customer"], rank: undefined }, { bare: true });
+  const sql = ["WITH per_customer AS (", base.sql.split("\n").map((l) => `  ${l}`).join("\n"), ")",
+    "SELECT COUNT(*) AS customers", "FROM per_customer"].join("\n");
+  return { plan, sql, metricColumn: "customers", format: "int",
+    chart: { type: "kpi", x: "", y: ["customers"], title: `Customers with at least ${plan.minCount} orders${describeFilters(plan.filters)}` } };
+}
+
+/** Growth by group: per (group, year) aggregate, pivoted to two years, then % change per group. */
+function compileGroupGrowth(plan: Plan): Compiled {
+  const g = plan.growth!;
+  const [a, b] = g.years!;
+  const by = g.by!;
+  const byCol = DIMS.find((d) => d.id === by)!.column;
+  const filters = [...plan.filters.filter((f) => f.field !== "year"), { field: "year" as const, values: [a, b] }];
+  const base = compileAggregate({ ...plan, kind: "aggregate", dims: [by, "year"], filters, rank: undefined, share: false }, { bare: true });
+  const m = base.metricColumn;
+  const sql = [
+    "WITH per_year AS (",
+    base.sql.split("\n").map((l) => `  ${l}`).join("\n"),
+    "), pivoted AS (",
+    `  SELECT ${byCol},`,
+    `         SUM(CASE WHEN year = '${a}' THEN ${m} END) AS ${m}_${a},`,
+    `         SUM(CASE WHEN year = '${b}' THEN ${m} END) AS ${m}_${b}`,
+    "  FROM per_year",
+    `  GROUP BY ${byCol}`,
+    ")",
+    `SELECT ${byCol}, ${m}_${a}, ${m}_${b}, ROUND(${m}_${b} * 1.0 / ${m}_${a} - 1, 4) AS growth`,
+    "FROM pivoted",
+    `ORDER BY growth ${g.pick === "min" ? "ASC" : "DESC"}`,
+  ].join("\n");
+  const def = METRICS.find((d) => d.id === plan.metric)!;
+  const title = `${capitalize(def.label)} growth ${a} → ${b} by ${by}${describeFilters(plan.filters.filter((f) => f.field !== "year"))}`;
+  return { plan, sql, metricColumn: "growth", format: "ratio", chart: { type: "bar", x: byCol, y: ["growth"], title } };
+}
+
 /** Growth: aggregate per period → LAG() → % change; optionally keep only the largest/smallest. */
 function compileGrowth(plan: Plan): Compiled {
   const g = plan.growth!;
+  if (g.by) return compileGroupGrowth(plan);
   const base = compileAggregate({ ...plan, kind: "aggregate", dims: [g.period], rank: undefined }, { bare: true });
   const m = base.metricColumn;
   const lines = [
@@ -746,6 +894,7 @@ function dimExpr(d: DimId, ctx: Ctx): [string, string] {
   const needP = () => { if (ctx.scope === "order") { ctx.joins.add("oi"); ctx.joins.add("p"); } };
   switch (d) {
     case "month": return [`strftime('%Y-%m', ${date})`, `strftime('%Y-%m', ${date})`];
+    case "week": return [`strftime('%Y-W%W', ${date})`, `strftime('%Y-W%W', ${date})`];
     case "year": return [`strftime('%Y', ${date})`, `strftime('%Y', ${date})`];
     case "quarter": {
       const e = `strftime('%Y', ${date}) || '-Q' || ((CAST(strftime('%m', ${date}) AS INTEGER) + 2) / 3)`;
@@ -790,7 +939,11 @@ function applyFilter(f: Filter, ctx: Ctx, plan: Plan) {
 
 function describeFilters(filters: Filter[], dims: DimId[] = []): string {
   // A filter that also became the grouping ("Canada vs United States") is shown by the grouping itself.
-  const parts = filters.filter((f) => !dims.includes(f.field as DimId)).map((f) => (f.field === "month" ? `month ${f.values.join("/")}` : f.field === "quarter" ? `Q${f.values.join("/Q")}` : `${f.negate ? "excl. " : ""}${f.values.join("/")}`));
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const parts = filters.filter((f) => !dims.includes(f.field as DimId)).map((f) => `${f.negate ? "excl. " : ""}${
+    f.label ?? (f.field === "month" ? f.values.map((v) => MON[Number(v) - 1]).join("/")
+      : f.field === "quarter" ? `Q${f.values.join("/Q")}`
+      : f.field === "status" && !f.negate ? `${f.values.join("/")} orders` : f.values.join("/"))}`);
   return parts.length ? `, ${parts.join(", ")}` : "";
 }
 
@@ -825,10 +978,23 @@ export function describeResult(c: Compiled, columns: string[], rows: Cell[][]): 
   const shown = scopeNote ? c.plan.filters.filter((f) => !(f.field === "status" && f.negate)) : c.plan.filters;
   const filt = describeFilters(shown, c.plan.dims).replace(/^, /, " for ");
   if (!rows.length) return `No data matched${filt}.`;
+  if (c.plan.productsWithout && !c.plan.dims.length) {
+    const n = Number(rows[0]![mi]);
+    return n === 0 ? `Every product has ${c.plan.productsWithout === "reviews" ? "at least one review" : "been ordered at least once"}${filt}.`
+      : `${n} product${n === 1 ? "" : "s"} ha${n === 1 ? "s" : "ve"} no ${c.plan.productsWithout}${filt}.`;
+  }
+  if (c.plan.metric === "customers" && c.plan.minCount && !c.plan.dims.length) {
+    return `${fmt(rows[0]![mi]!)} customers placed at least ${c.plan.minCount} orders${filt}.`;
+  }
+  const status = c.plan.filters.find((f) => f.field === "status" && !f.negate);
+  if (!c.plan.dims.length && c.plan.metric === "orders" && status) {
+    const others = describeFilters(c.plan.filters.filter((f) => f !== status)).replace(/^, /, " for ");
+    return `${capitalize(status.values.join("/"))} orders${others}: ${fmt(rows[0]![mi]!)}.`;
+  }
   if (!c.plan.dims.length) return `${capitalize(def.label)}${filt}: ${fmt(rows[0]![mi]!)}${scopeNote}.`;
   if (c.plan.dims.length === 2) return `${capitalize(def.label)} by ${c.plan.dims.join(" and ")}${filt}: ${rows.length} rows${scopeNote}.`;
 
-  const label = (r: Cell[]) => String(r[0]);
+  const label = (r: Cell[]) => String(r[0]).replace(/^\d (?=[A-Z][a-z]{2}$)/, "");
   // Only sums are additive across groups: a total of averages, rates or distinct customer counts means nothing.
   const additive = ["revenue", "margin", "shipping", "units", "orders", "reviews", "new_customers", "products"].includes(c.plan.metric);
   const total = additive ? rows.reduce((s, r) => s + Number(r[mi] ?? 0), 0) : null;
@@ -883,8 +1049,17 @@ function describeMultiStep(c: Compiled, columns: string[], rows: Cell[][]): stri
 
   if (plan.kind === "growth") {
     const g = plan.growth!;
-    const mi = columns.findIndex((x) => x !== g.period && x !== "growth");
     const gi = col("growth");
+    if (g.by) {
+      const [a, b] = g.years!;
+      const valid = rows.filter((r) => r[gi] !== null);
+      if (!valid.length) return `No ${def.label} in both ${a} and ${b} to compare.`;
+      const first = valid[0]!, last = valid[valid.length - 1]!;
+      const scope = describeFilters(plan.filters.filter((f) => f.field !== "year"), plan.dims).replace(/^, /, " for ");
+      return `${capitalize(def.label)} growth from ${a} to ${b} by ${g.by}${scope}: ${g.pick === "min" ? "slowest" : "fastest"} is ${first[0]} (${signed(first[gi]!)}), `
+        + `${g.pick === "min" ? "fastest" : "slowest"} is ${last[0]} (${signed(last[gi]!)}).`;
+    }
+    const mi = columns.findIndex((x) => x !== g.period && x !== "growth");
     if (g.pick) {
       const r = rows[0]!;
       return `${r[0]} had the ${g.pick === "max" ? "largest" : "smallest"} ${def.label} growth: ${signed(r[gi]!)} vs the previous ${g.period} (${formatMetric(r[mi]!, def.format)}).`;

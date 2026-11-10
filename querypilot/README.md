@@ -26,9 +26,9 @@ answer ◄── chart validator ◄── full result (real values, shown only 
 
 A deterministic semantic parser. It does no LLM call and needs no model download.
 - **Parse:** the question becomes a plan made of:
-  - a **measure**: revenue, orders, average order value, units, gross margin and margin %, return and cancellation rate, customers, new customers, rating, reviews, shipping, discount, or price;
-  - up to two **groupings**: month, quarter, year, weekday, category, product, channel, country, city, segment, status, customer, or rating;
-  - **filters**: years, quarters, months, and real values loaded from the database, including negation ("excluding Footwear");
+  - a **measure**: revenue, orders, average order value, units, units per order, orders per customer, gross margin and margin %, return and cancellation rate, customers (active customers when a period is given), new customers, rating, reviews, shipping (total or average), discount, or price;
+  - up to two **groupings**: week, month, quarter, year, weekday, category, product, channel, country, city, segment, status, customer, or rating;
+  - **filters**: years, quarters, halves ("H1"), months, seasons ("summer", "holiday season"), product types ("tents", "hiking boots"), and real values loaded from the database, including negation ("helmets excluding bike helmets");
   - an optional **ranking**: "top 5", "cheapest", "which 5", and a minimum group size ("with at least 20 reviews").
 - **Compile:** the plan is compiled to SQL from a fixed join graph.
 - **Run:** that SQL goes through the same five-layer guard as the agent.
@@ -41,11 +41,12 @@ Beyond single aggregates, a plan can be one of four **multi-step shapes**. Each 
 | Shape | Example | SQL |
 |---|---|---|
 | growth | "which month had the biggest revenue growth" | `LAG()` over a per-period aggregate |
+| growth by group | "fastest growing category" | per (group, year) aggregate pivoted to two years |
 | top per group | "best selling product in each category" | `ROW_NUMBER() OVER (PARTITION BY …)` |
 | share of a subset | "mobile's share of orders in Q4 2024 vs Q4 2025" | conditional sum / total |
 | retention | "customer retention from 2024 to 2025", "repeat customers" | cohort CTEs with `LEFT JOIN` |
 
-Questions asking *why* something happened, or for a forecast or correlation, are **declined with an explanation** instead of answered with a guess.
+Questions asking *why* something happened, for a forecast or correlation, or to search review text are **declined with an explanation** instead of answered with a guess. SQL typed into the question box is pointed to the SQL console.
 
 On the 20-question eval set written for the Claude agent, the local engine answers **all 20 correctly**, including the 4 multi-step ones. It also passes 8 more multi-step questions phrased differently from the eval set, each checked against independently written gold SQL. Tests enforce both.
 
@@ -88,7 +89,7 @@ The model proposes a chart (line, bar, pie, scatter, KPI or table). The proposal
 
 ```bash
 npm ci
-npm test            # 189 tests: guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set, local engine
+npm test            # 204 tests: guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set, local engine
 npm run typecheck
 npm run build       # bundles src/ into dist/ (committed, since GitHub Pages serves it directly)
 ```
