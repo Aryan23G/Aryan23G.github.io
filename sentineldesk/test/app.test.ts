@@ -125,6 +125,12 @@ describe("HTTP API", () => {
     expect(res.status).toBe(403);
   });
 
+  it("allows same-origin requests (the page served by the API itself)", async () => {
+    const { url } = await start({ allowedOrigins: [] });
+    const res = await post(url, ticketBody(0), { Origin: url });
+    expect(res.status).toBe(200);
+  });
+
   it("answers CORS preflight", async () => {
     const { url } = await start();
     const res = await fetch(`${url}/api/triage`, { method: "OPTIONS", headers: { Origin: ORIGIN } });
@@ -132,10 +138,11 @@ describe("HTTP API", () => {
     expect(res.headers.get("access-control-allow-methods")).toContain("POST");
   });
 
-  it("rate-limits per client", async () => {
+  it("rate-limits per client, but not for cached answers", async () => {
     const { url } = await start({ rateLimiter: new RateLimiter(1, 60_000) });
     expect((await post(url, ticketBody(0))).status).toBe(200);
-    const res = await post(url, ticketBody(0));
+    expect((await post(url, ticketBody(0))).status).toBe(200); // cached: free
+    const res = await post(url, ticketBody(4));
     expect(res.status).toBe(429);
     expect(res.headers.get("retry-after")).toBeTruthy();
   });

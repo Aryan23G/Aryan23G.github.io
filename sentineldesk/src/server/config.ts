@@ -43,7 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .map((s) => s.trim().replace(/\/$/, ""))
       .filter(Boolean),
     dailyClaudeLimit: int(env, "DAILY_CLAUDE_LIMIT", 200),
-    ratePerHour: int(env, "RATE_LIMIT_PER_HOUR", 12, 1),
+    ratePerHour: int(env, "RATE_LIMIT_PER_HOUR", 20, 1),
     maxConcurrent: int(env, "MAX_CONCURRENT", 4, 1),
     cacheTtlMs: int(env, "CACHE_TTL_HOURS", 24) * 3_600_000,
     adminToken,

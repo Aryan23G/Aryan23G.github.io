@@ -60,7 +60,9 @@ export function createApp(deps: AppDeps): express.Express {
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Referrer-Policy", "no-referrer");
     const origin = req.headers.origin;
-    if (origin) {
+    // Browsers send Origin on same-origin POSTs too, so the server's own origin is always allowed.
+    const sameOrigin = origin === `${req.protocol}://${req.get("host")}`;
+    if (origin && !sameOrigin) {
       if (!deps.allowedOrigins.includes(origin)) {
         if (req.path.startsWith("/api/")) return void res.status(403).json({ error: "Origin not allowed." });
       } else {
@@ -129,13 +131,16 @@ export function createApp(deps: AppDeps): express.Express {
   }
 
   app.post("/api/triage", async (req: Request, res: Response) => {
-    const limit = deps.rateLimiter.check(req.ip ?? "unknown");
-    if (!limit.ok) {
-      res.setHeader("Retry-After", String(limit.retryAfterSec));
-      return void res.status(429).json({ error: `Too many requests. Try again in ${limit.retryAfterSec}s.` });
-    }
     const parsed = validateTicketInput(req.body);
     if (!parsed.ok) return void res.status(400).json({ error: parsed.error });
+    // Cached answers (e.g. the demo samples) are free, so only new work counts against the limit.
+    if (!deps.cache.get(cacheKey(parsed.ticket))) {
+      const limit = deps.rateLimiter.check(req.ip ?? "unknown");
+      if (!limit.ok) {
+        res.setHeader("Retry-After", String(limit.retryAfterSec));
+        return void res.status(429).json({ error: `Too many requests. Try again in ${limit.retryAfterSec}s.` });
+      }
+    }
 
     const controller = new AbortController();
     res.on("close", () => {
