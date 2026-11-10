@@ -164,3 +164,11 @@ footer{margin-top:3rem;text-align:center;color:var(--dust);font-size:.82rem}
   .turn{padding:1rem}
   .chart-box{height:260px}
 }
+
+/* ---------- local engine ---------- */
+.chip.local{border-style:dashed}
+.chips.suggest{margin-top:.6rem;align-items:center}
+.chips.suggest .label{margin:0 .3rem 0 0}
+ul.plan{list-style:none;margin:.3rem 0 .2rem;display:flex;flex-direction:column;gap:.15rem}
+ul.plan li{font-family:'Space Mono',monospace;font-size:.72rem;color:var(--soft)}
+ul.plan li::before{content:"› ";color:var(--ice)}

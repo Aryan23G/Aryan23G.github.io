@@ -4,7 +4,12 @@
 
 QueryPilot answers business questions in plain English. A Claude agent explores the schema, writes SQLite, reads the result, fixes its own mistakes and submits an answer with a chart. Every query the model writes goes through a five-layer read-only guard before it touches data, and customer PII never reaches the model.
 
-It runs entirely in the browser: SQLite (compiled to WebAssembly) lives in a Web Worker, and the agent calls the Claude API directly with the visitor's own key. Without a key, the sample questions run as scripted demos through the same safety pipeline.
+It runs entirely in the browser and is **free to use with no API key**: SQLite (compiled to WebAssembly) lives in a Web Worker, and questions are answered by a built-in local NL→SQL engine. Visitors who add their own Anthropic key get the Claude agent for open-ended, multi-step questions.
+
+| Mode | Cost | Handles |
+|---|---|---|
+| **Local engine** (default, no key) | Free, offline, instant | Aggregates ("revenue by month in 2025", "top 5 products by units", "Canada vs United States") **and** multi-step analysis: period growth, top-N within each group, share of a subset, cohort retention, repeat customers |
+| **Claude agent** (your key) | Your API usage | Anything, including follow-up questions and open-ended exploration |
 
 ```
 question ──► Claude (tool loop) ──► run_sql / get_column_values / submit_answer
@@ -16,6 +21,33 @@ question ──► Claude (tool loop) ──► run_sql / get_column_values / su
                                                                     (query_only, row cap, 4s kill)
 answer ◄── chart validator ◄── full result (real values, shown only to the user)
 ```
+
+## Free local engine (`src/local/nl2sql.ts`)
+
+A deterministic semantic parser. It does no LLM call and needs no model download.
+- **Parse:** the question becomes a plan made of:
+  - a **measure**: revenue, orders, average order value, units, gross margin and margin %, return and cancellation rate, customers, new customers, rating, reviews, shipping, discount, or price;
+  - up to two **groupings**: month, quarter, year, weekday, category, product, channel, country, city, segment, status, customer, or rating;
+  - **filters**: years, quarters, months, and real values loaded from the database, including negation ("excluding Footwear");
+  - an optional **ranking**: "top 5", "cheapest", "which 5", and a minimum group size ("with at least 20 reviews").
+- **Compile:** the plan is compiled to SQL from a fixed join graph.
+- **Run:** that SQL goes through the same five-layer guard as the agent.
+- **Answer:** the reply is written from the actual result rows.
+
+The trace shows exactly how the question was understood. Values in the SQL come from the database vocabulary, never from the user's text.
+
+Beyond single aggregates, a plan can be one of four **multi-step shapes**. Each compiles to a CTE around the same aggregate builder:
+
+| Shape | Example | SQL |
+|---|---|---|
+| growth | "which month had the biggest revenue growth" | `LAG()` over a per-period aggregate |
+| top per group | "best selling product in each category" | `ROW_NUMBER() OVER (PARTITION BY …)` |
+| share of a subset | "mobile's share of orders in Q4 2024 vs Q4 2025" | conditional sum / total |
+| retention | "customer retention from 2024 to 2025", "repeat customers" | cohort CTEs with `LEFT JOIN` |
+
+Questions asking *why* something happened, or for a forecast or correlation, are **declined with an explanation** instead of answered with a guess.
+
+On the 20-question eval set written for the Claude agent, the local engine answers **all 20 correctly**, including the 4 multi-step ones. It also passes 8 more multi-step questions phrased differently from the eval set, each checked against independently written gold SQL. Tests enforce both.
 
 ## How the agent works (`src/agent.ts`)
 
@@ -56,7 +88,7 @@ The model proposes a chart (line, bar, pie, scatter, KPI or table). The proposal
 
 ```bash
 npm ci
-npm test            # 137 tests: guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set
+npm test            # 189 tests: guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set, local engine
 npm run typecheck
 npm run build       # bundles src/ into dist/ (committed, since GitHub Pages serves it directly)
 ```
@@ -79,6 +111,7 @@ src/
   pii.ts          PII placeholder shield
   viz.ts          chart inference/validation, CSV, formatting
   demo.ts         scripted demo questions + guard "attack" examples
+  local/nl2sql.ts free local NL→SQL engine (parse → plan → SQL → answer)
   main.ts         browser UI
   db/
     schema.ts     tables + data dictionary
@@ -92,4 +125,4 @@ eval/             questions.json, compare.ts, run.ts
 
 ## Privacy note
 
-The API key is kept in `sessionStorage` for the current tab and is only sent to `api.anthropic.com`. There is no backend.
+No key is needed. If you add one, the API key is kept in `sessionStorage` for the current tab and is only sent to `api.anthropic.com`. There is no backend.
