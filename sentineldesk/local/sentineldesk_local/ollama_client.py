@@ -31,8 +31,8 @@ class ChatResult:
 
 
 class OllamaClient:
-    def __init__(self, base_url: str, timeout_s: int = 180, session: requests.Session | None = None):
-        self.base_url = assert_loopback_url(base_url)
+    def __init__(self, base_url: str, timeout_s: int = 180, session: requests.Session | None = None, allowed_hosts: tuple[str, ...] = ()):
+        self.base_url = assert_loopback_url(base_url, allowed_hosts)
         self.timeout_s = timeout_s
         self.session = session or requests.Session()
         # Never route localhost traffic through an HTTP(S)_PROXY from the environment.

@@ -76,7 +76,7 @@ def port_free(host: str, port: int) -> bool:
 def check_ollama(settings, pull: bool) -> None:
     from sentineldesk_local.ollama_client import OllamaClient, OllamaError
 
-    client = OllamaClient(settings.ollama_url, settings.request_timeout_s)
+    client = settings.ollama_client()
     try:
         models = client.list_models()
     except OllamaError as exc:
@@ -245,6 +245,11 @@ def main() -> int:
         say("err", str(exc))
         return 1
 
+    db_dir = settings.db_path.resolve().parent
+    if db_dir.exists() and not os.access(db_dir, os.W_OK):
+        say("err", f"The database folder {db_dir} is not writable by this user (uid {os.getuid()}). "
+            f"With a Docker bind mount, run on the host: sudo chown -R {os.getuid()} <that folder>")
+        return 1
     db = Database(settings.db_path)
     existed = db.is_initialized()
     db.init()
@@ -261,6 +266,13 @@ def main() -> int:
         say("err", f"Port {settings.port} on {settings.host} is in use. Stop the other process or set SENTINEL_PORT.")
         return 1
     say("ok", f"Port {settings.port} free")
+    if settings.allow_network and settings.host not in ("127.0.0.1", "localhost", "::1"):
+        say("warn", f"Dashboard binds to {settings.host} (network access allowed). Serve it only through an HTTPS reverse proxy"
+            + ("" if settings.forwarded_allow_ips else " and set SENTINEL_FORWARDED_ALLOW_IPS to the proxy's address") + ".")
+    if settings.model_hosts:
+        say("info", f"Model hosts allowed besides this machine: {', '.join(settings.model_hosts)}")
+    if settings.retention_days:
+        say("info", f"Retention: ticket text and model output are removed after {settings.retention_days} days.")
     if args.check:
         from sentineldesk_local.auth import Auth
 
@@ -274,13 +286,14 @@ def main() -> int:
     env = {k: v for k, v in os.environ.items() if k != "SENTINEL_NEW_PASSWORD"}  # children never see it
     env.update({"PYTHONUNBUFFERED": "1", "SENTINEL_DB": str(settings.db_path.resolve())})
     worker = subprocess.Popen([sys.executable, "-m", "sentineldesk_local.worker"], cwd=HERE, env=env)
-    web = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "sentineldesk_local.web:app_from_env", "--factory",
-         "--host", settings.host, "--port", str(settings.port), "--log-level", "warning", "--no-access-log"],
-        cwd=HERE, env=env,
-    )
+    uvicorn_args = [sys.executable, "-m", "uvicorn", "sentineldesk_local.web:app_from_env", "--factory",
+                    "--host", settings.host, "--port", str(settings.port), "--log-level", "warning", "--no-access-log"]
+    if settings.forwarded_allow_ips:
+        # Behind a TLS reverse proxy: trust its X-Forwarded-Proto so session cookies get the Secure flag.
+        uvicorn_args += ["--proxy-headers", "--forwarded-allow-ips", settings.forwarded_allow_ips]
+    web = subprocess.Popen(uvicorn_args, cwd=HERE, env=env)
     procs = [worker, web]
-    url = f"http://{settings.host}:{settings.port}"
+    url = f"http://{'127.0.0.1' if settings.host in ('0.0.0.0', '::') else settings.host}:{settings.port}"
 
     stopping = False
 

@@ -32,9 +32,20 @@ themselves; never set it, and never add a default that would.
 | Setup | `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt` |
 | Tests | `.venv/bin/python -m pytest -q` (fake Ollama; no model needed) |
 | Checks only | `.venv/bin/python run.py --check` |
-| Run | `.venv/bin/python run.py --open` → http://127.0.0.1:8765 |
+| Run | `.venv/bin/python run.py --open` → http://127.0.0.1:8765 (creates the first admin) |
+| Accounts | `run.py --add-user NAME --role admin\|analyst`, `--reset-password`, `--list-users` |
+| A real desk | `SENTINEL_CONFIG=sentineldesk.toml` (copy `sentineldesk.example.toml`) |
+| Container | `docker build --secret id=ca,src=<ca.pem> -t sentineldesk:local .` (secret optional); `docker compose up -d` |
 
-Layout: `rules.py` (port of src/core; keep it in parity, see lesson 9), `guardrail.py`, `ollama_client.py`,
+Product rules for the local edition (it is sold to service desks):
+- Shadow mode writes ONLY internal Jira comments (`public: false`), once per request, never fields. Requests created before activation are read-only.
+- Every dashboard/API route requires a session, except `/`, `POST /api/login` and the minimal anonymous `/api/health`. State changes need the `X-SentinelDesk: 1` header.
+- Secrets only from env (`JIRA_*`, `SENTINEL_NEW_PASSWORD`), never the TOML, the DB or argv.
+- Network exposure and non-loopback model hosts are opt-in (`SENTINEL_ALLOW_NETWORK`, `SENTINEL_MODEL_HOSTS`).
+- Customer docs live in `local/docs/`; update them in the same change as the behaviour they describe.
+
+Layout: `profile.py` (per-desk TOML), `rules.py` (port of src/core; keep it in parity, see lesson 9), `guardrail.py`, `ollama_client.py`,
+`jira.py` + `connector.py` (JSM), `auth.py`, `report.py`,
 `council.py` (Security/Sentiment/Intent in parallel → Chairman → guardrail), `db.py` (SQLite, WAL,
 atomic claim), `worker.py`, `web.py` (FastAPI + SSE), `static/dashboard.html` (no external assets), `run.py`.
 Local-only invariants: model URL and dashboard host must be loopback (`config.py`); `requests` sessions

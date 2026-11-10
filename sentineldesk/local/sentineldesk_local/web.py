@@ -73,7 +73,7 @@ class UserIn(BaseModel):
 def create_app(settings: Settings, db: Database | None = None, client: OllamaClient | None = None) -> FastAPI:
     db = db or Database(settings.db_path)
     db.init()
-    client = client or OllamaClient(settings.ollama_url, settings.request_timeout_s)
+    client = client or settings.ollama_client()
     profile = settings.load_profile()
     auth = Auth(db)
     app = FastAPI(title="SentinelDesk Local", docs_url=None, redoc_url=None, openapi_url=None)

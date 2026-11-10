@@ -3,13 +3,32 @@
 Everything runs on your machine: the models in Ollama, the data in SQLite, the dashboard on
 127.0.0.1. There is no API key, no cloud call, and nothing to pay for.
 
+**For a service desk:** `docs/INSTALL.md` (Docker Compose on one server, Jira Service Management
+in shadow mode), `docs/DATA-HANDLING.md` (for security reviewers) and `docs/PILOT-PLAN.md`
+(a 4-week pilot). Per-desk settings live in one file: copy `sentineldesk.example.toml`.
+
+What a desk gets:
+* **Its own profile:** domains, teams, categories and a Markdown knowledge base. The AI can only choose that desk's teams and categories.
+* **Jira Service Management, shadow mode:**
+  - triage posted as an internal comment, exactly once;
+  - nothing else in Jira is changed;
+  - older requests can be imported read-only for a baseline;
+  - the priority and team analysts actually set are read back.
+* **Analyst review and a pilot report:**
+  - accept or correct each suggestion;
+  - agreement on priority and routing;
+  - security precision and recall;
+  - attacks the AI missed that the rules caught;
+  - CSV export.
+* **Sign-in with admin and analyst roles,** data retention, and a hardened container.
+
 ```bash
 # one-time setup (these two steps download software; both are free)
 ollama pull llama3.2                     # or: mistral
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 # every time
-.venv/bin/python run.py --open           # checks, creates sentineldesk.db, starts worker + dashboard
+.venv/bin/python run.py --open           # checks, creates sentineldesk.db, asks for the first admin, starts worker + dashboard
 ```
 
 The dashboard is at http://127.0.0.1:8765. `run.py --check` runs the checks only. If Ollama
@@ -79,7 +98,7 @@ sqlite3 sentineldesk.db "select id, priority, security_flag, escalate_to, overri
 
 ```bash
 .venv/bin/pip install -r requirements-dev.txt
-.venv/bin/python -m pytest -q        # 51 tests; a fake Ollama speaks the real HTTP API, so no model needed
+.venv/bin/python -m pytest -q        # 106 tests; fake Ollama and fake Jira speak the real HTTP APIs
 ```
 
 They cover:

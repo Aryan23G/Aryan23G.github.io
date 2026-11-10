@@ -324,6 +324,28 @@ class Database:
             rows = c.execute("SELECT * FROM events WHERE id > ? ORDER BY id LIMIT ?", (after_id, limit)).fetchall()
         return [dict(r) for r in rows]
 
+    def purge_older_than(self, days: int) -> int:
+        """Data retention: remove ticket text, scanner evidence, model outputs and per-ticket model log
+        lines older than `days`. Decisions, timings and reviews stay, so the report still works."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="milliseconds")
+        marker = f"[removed after {days} days by the retention policy]"
+        with self.connect() as c:
+            c.execute("BEGIN IMMEDIATE")
+            try:
+                ids = [r[0] for r in c.execute(
+                    "SELECT id FROM tickets WHERE created_at < ? AND status IN ('done', 'failed') AND body NOT LIKE '[removed after %'", (cutoff,))]
+                for chunk in range(0, len(ids), 500):
+                    part = ids[chunk : chunk + 500]
+                    marks = ",".join("?" * len(part))
+                    c.execute(f"UPDATE tickets SET body = ?, evidence_json = NULL, requester = 'removed@retention.invalid' WHERE id IN ({marks})", [marker, *part])
+                    c.execute(f"UPDATE agent_runs SET output_json = NULL WHERE ticket_id IN ({marks})", part)
+                    c.execute(f"DELETE FROM events WHERE ticket_id IN ({marks}) AND agent NOT IN ('system', 'review')", part)
+                c.execute("COMMIT")
+            except BaseException:
+                c.execute("ROLLBACK")
+                raise
+        return len(ids)
+
     def set_meta(self, key: str, value: str) -> None:
         with self.connect() as c:
             c.execute("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value))

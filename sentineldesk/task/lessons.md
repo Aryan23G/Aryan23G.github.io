@@ -48,3 +48,11 @@ Each entry: what went wrong → the rule that prevents it. Newest last.
 16. **Live UIs that both reload and stream will show duplicates.** A review event arrived in the detail reload and again over SSE. Dedupe streamed items by id on the client.
 
 17. **Browser-test waits:** `waitForSelector("#x:not(.show)")` waits for *visible*, which a hidden overlay never is. To wait for something to close, use `waitForFunction` on its state.
+
+18. **A health check hardcoded the default port.** The Dockerfile probed :8765, so any customer who changed `SENTINEL_PORT` would get a permanently "unhealthy" container. Health checks and probes read the same configuration as the server they check, and the test runs on a non-default port.
+
+19. **The container user cannot write a root-owned bind mount.** Running as uid 10001 is right, but it failed with SQLite's cryptic "unable to open database file". Check that writable paths really are writable at startup, and print the exact fix (`chown 10001`).
+
+20. **Corporate TLS inspection breaks builds.** Support it explicitly (an optional BuildKit secret CA) rather than disabling verification, and never bake the CA into the image.
+
+21. **Messages must match reality.** "Network access allowed" was printed while bound to 127.0.0.1, because the image sets the opt-in by default. Warn about the actual state, not the flag.

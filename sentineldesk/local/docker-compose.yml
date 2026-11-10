@@ -1,0 +1,55 @@
+# SentinelDesk on one server:  cp .env.example .env  &&  mkdir -p config  &&  edit config/sentineldesk.toml
+#   docker compose up -d                                                     (CPU)
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d    (NVIDIA GPU)
+name: sentineldesk
+
+services:
+  ollama:
+    image: ollama/ollama:${OLLAMA_VERSION:-0.5.7}  # pin to the release you have tested
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: 10m
+    volumes:
+      - ollama:/root/.ollama
+    # No ports: only the sentineldesk service can reach the model.
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # One-time download of the model weights from the Ollama library (free). Skipped when present.
+  model-pull:
+    image: ollama/ollama:${OLLAMA_VERSION:-0.5.7}
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull ${SENTINEL_AGENT_MODEL:-llama3.2} && ollama pull ${SENTINEL_CHAIRMAN_MODEL:-llama3.2}"]
+    restart: "no"
+
+  sentineldesk:
+    build: .
+    image: sentineldesk:local
+    restart: unless-stopped
+    depends_on:
+      model-pull:
+        condition: service_completed_successfully
+    env_file: .env
+    environment:
+      SENTINEL_OLLAMA_URL: http://ollama:11434
+      SENTINEL_MODEL_HOSTS: ollama
+      SENTINEL_CONFIG: /config/sentineldesk.toml
+    volumes:
+      - data:/data
+      - ./config:/config:ro
+    # Published on this server's localhost only. Put your HTTPS reverse proxy in front of it,
+    # then set SENTINEL_FORWARDED_ALLOW_IPS in .env. Change to "8765:8765" only on a trusted network.
+    ports:
+      - "127.0.0.1:8765:8765"
+    stop_grace_period: 3m  # the worker finishes the ticket it is on before exiting
+
+volumes:
+  ollama:
+  data:

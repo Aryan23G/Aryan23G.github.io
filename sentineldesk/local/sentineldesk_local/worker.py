@@ -34,8 +34,9 @@ class DbObserver:
 
 class Worker:
     def __init__(self, db: Database, client: OllamaClient, agent_model: str, chairman_model: str, poll_ms: int = 500, stale_after_s: int = 900,
-                 profile: OrgProfile | None = None, jira: JiraSync | None = None):
+                 profile: OrgProfile | None = None, jira: JiraSync | None = None, retention_days: int = 0):
         self.db = db
+        self.retention_days = retention_days
         self.profile = profile or demo_profile()
         self.jira = jira
         self.client = client
@@ -109,7 +110,13 @@ class Worker:
         if recovered:
             self.db.add_event(None, "system", "warn", f"Worker requeued {recovered} ticket(s) left running by a previous worker.")
         self.db.add_event(None, "system", "info", f"Worker online for {self.profile.name}: subagents on {self.agent_model}, Chairman on {self.chairman_model}.")
+        next_purge = 0.0
         while not self.stop_event.is_set():
+            if self.retention_days and time.monotonic() >= next_purge:
+                purged = self.db.purge_older_than(self.retention_days)
+                if purged:
+                    self.db.add_event(None, "system", "info", f"Retention: removed ticket text and model output from {purged} ticket(s) older than {self.retention_days} days.")
+                next_purge = time.monotonic() + 6 * 3600
             if self.process_one() is None:
                 self.stop_event.wait(self.poll_s)
         beat.join(timeout=5)  # so its last write cannot land after the "stopped" marker below
@@ -132,7 +139,7 @@ def main() -> None:
         jira = JiraSync(db, JiraClient(jira_cfg, JiraCredentials.from_env(dict(os.environ))), jira_cfg, profile.name)
     worker = Worker(
         db,
-        OllamaClient(settings.ollama_url, settings.request_timeout_s),
+        settings.ollama_client(),
         settings.agent_model,
         settings.chairman_model,
         settings.worker_poll_ms,
@@ -140,6 +147,7 @@ def main() -> None:
         max(settings.stale_after_s, settings.request_timeout_s * 10),
         profile=profile,
         jira=jira,
+        retention_days=settings.retention_days,
     )
     # Finish the current ticket, then exit, on Ctrl+C or a terminate from run.py.
     signal.signal(signal.SIGTERM, lambda *_: worker.stop_event.set())
