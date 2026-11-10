@@ -6,7 +6,7 @@ Span tree for one run:
     ├── agent.node.retrieve_context    tables selected, candidates
     ├── agent.node.generate_sql        attempt, trigger, gen_ai.usage.*
     │   └── anthropic.messages.create  (emitted by the Anthropic SDK itself)
-    │       └── anthropic.model_request (emitted by the Claude API, when API tracing is on)
+    │       └── anthropic.model_request (emitted by the Anthropic API, when API tracing is on)
     ├── agent.node.validate_sql        ok, diagnostics
     ├── agent.node.generate_sql        attempt=2, trigger=static_error   <- self-correction cycle
     ├── ...

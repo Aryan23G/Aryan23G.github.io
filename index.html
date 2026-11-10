@@ -171,10 +171,10 @@
         <div class="top"><span class="badge m">Agentic AI</span><span class="tag">2026</span></div>
         <h3>QueryPilot<small>Text-to-SQL Analytics Agent</small></h3>
         <ul>
-          <li>Built a <strong>text-to-SQL analytics agent</strong> that turns plain-English questions into SQL through a <strong>Claude tool-calling loop</strong>: it grounds itself in the schema, looks up real column values, <strong>fixes its own SQL errors</strong> and picks a chart that is checked against the result.</li>
+          <li>Built a <strong>text-to-SQL analytics agent</strong> that turns plain-English questions into SQL through an <strong>LLM tool-calling loop</strong>: it grounds itself in the schema, looks up real column values, <strong>fixes its own SQL errors</strong> and picks a chart that is checked against the result.</li>
           <li>Made it <strong>read-only by design</strong> with <strong>5 layers of defence</strong>, including a tokenizer-based SQL guard and <strong>SQLite bytecode (EXPLAIN) verification</strong>, and added a <strong>PII shield</strong> so customer names and emails never reach the LLM. Backed by <strong>204 automated tests</strong> and a 20-question accuracy eval.</li>
         </ul>
-        <div class="chips"><span>TypeScript</span><span>Claude API</span><span>SQLite / WASM</span><span>Web Workers</span><span>Chart.js</span><span>Vitest</span></div>
+        <div class="chips"><span>TypeScript</span><span>Anthropic API</span><span>SQLite / WASM</span><span>Web Workers</span><span>Chart.js</span><span>Vitest</span></div>
         <p class="note">Free to try with no API key: a built-in local engine answers in your browser.</p>
         <div class="links"><a class="btn primary magnetic" href="querypilot/">Try the live demo →</a><a class="textlink" href="https://github.com/Aryan23G/Aryan23G.github.io/tree/main/querypilot" target="_blank" rel="noopener">Source →</a></div>
       </div>
@@ -196,10 +196,10 @@
         <div class="top"><span class="badge m">Agentic AI</span><span class="tag">2026</span></div>
         <h3>SentinelDesk<small>Agentic AI Service Desk</small></h3>
         <ul>
-          <li>Built an <strong>agentic AI analyst</strong> that triages IT tickets through a <strong>Claude tool-calling loop across 5 tools</strong>, logging every tool call so a reviewer can trace how each decision was made.</li>
+          <li>Built an <strong>agentic AI analyst</strong> that triages IT tickets through an <strong>LLM tool-calling loop across 5 tools</strong>, logging every tool call so a reviewer can trace how each decision was made.</li>
           <li>Added <strong>guardrails</strong> for safe use: ticket text handled as untrusted input to block <strong>prompt injection</strong>, a rule-based scanner that overrides the model on high-risk tickets, and <strong>10 automated tests</strong>.</li>
         </ul>
-        <div class="chips"><span>TypeScript</span><span>Node.js</span><span>Express</span><span>Claude API</span></div>
+        <div class="chips"><span>TypeScript</span><span>Node.js</span><span>Express</span><span>Anthropic API</span></div>
         <div class="links"><a class="btn primary magnetic" href="sentineldesk/">Try the live demo →</a></div>
       </div>
       <div class="terminal" aria-label="Example SentinelDesk trace for a phishing ticket">
@@ -219,7 +219,7 @@
       <div class="top"><span class="badge m">Agentic AI</span><span class="tag">2026</span></div>
       <h3>QueryPilot Workbench<small>Self-Hosted Text-to-SQL Agent System</small></h3>
       <ul>
-        <li>Rebuilt QueryPilot as a <strong>Python service</strong>: a <strong>LangGraph state machine</strong> with Claude structured outputs, a <strong>SQLGlot static compiler</strong> that binds every column to the live schema, read-only SQLAlchemy execution, and <strong>Qdrant schema RAG</strong> with foreign-key join-path expansion.</li>
+        <li>Rebuilt QueryPilot as a <strong>Python service</strong>: a <strong>LangGraph state machine</strong> with LLM structured outputs, a <strong>SQLGlot static compiler</strong> that binds every column to the live schema, read-only SQLAlchemy execution, and <strong>Qdrant schema RAG</strong> with foreign-key join-path expansion.</li>
         <li>Dense three-pane <strong>Next.js</strong> workbench with a live step tracker, SQL override and full execution trace; <strong>OpenTelemetry</strong> tracing, auth and rate limiting, <strong>100+ backend tests</strong> plus Playwright end-to-end and accessibility suites.</li>
       </ul>
       <div class="chips"><span>Python</span><span>FastAPI</span><span>LangGraph</span><span>SQLGlot</span><span>Qdrant</span><span>Next.js</span><span>OpenTelemetry</span></div>
@@ -255,7 +255,7 @@
   <div class="skills-grid">
     <div class="module hud reveal">
       <h3>AI Engineering</h3><div class="meter"><i></i></div>
-      <ul><li>Agentic AI</li><li>LLM tool calling (Claude &amp; OpenAI APIs)</li><li>Text-to-SQL</li><li>Guardrails</li><li>Prompt-injection defence</li><li>Prompt engineering</li><li>Microsoft 365 Copilot</li></ul>
+      <ul><li>Agentic AI</li><li>LLM tool calling (Anthropic &amp; OpenAI APIs)</li><li>Text-to-SQL</li><li>Guardrails</li><li>Prompt-injection defence</li><li>Prompt engineering</li><li>Microsoft 365 Copilot</li></ul>
     </div>
     <div class="module hud reveal">
       <h3>Languages &amp; Tools</h3><div class="meter"><i></i></div>

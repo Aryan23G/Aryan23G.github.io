@@ -1,12 +1,12 @@
 /**
  * PII shield: customer names and emails never reach the model.
  *
- *  - Outbound (to Claude): every string cell in a query result that equals a
+ *  - Outbound (to the model): every string cell in a query result that equals a
  *    known PII value is replaced by a stable placeholder (CUSTOMER_NAME_12),
  *    and email addresses embedded in longer strings are masked too. Masking is
  *    value-based, so it holds no matter how the model aliases or joins columns.
  *  - The user's question is tokenized the same way before it is sent.
- *  - Inbound (from Claude): placeholders in SQL are swapped back to real values
+ *  - Inbound (from the model): placeholders in SQL are swapped back to real values
  *    just before execution, and in the answer text just before display.
  *
  * The user sees real data in charts and tables; the model only sees tokens.

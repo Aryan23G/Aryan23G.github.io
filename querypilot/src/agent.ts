@@ -1,5 +1,5 @@
 /**
- * The Text-to-SQL agent: a Claude tool-use loop that explores the data,
+ * The Text-to-SQL agent: an LLM tool-use loop that explores the data,
  * writes SQL, observes results/errors, self-corrects, and finally submits an
  * answer with a chart spec.
  *
@@ -59,9 +59,9 @@ export interface UsageTotals {
 
 export const DEFAULT_MODEL = "claude-opus-5-5";
 export const MODELS = [
-  { id: "claude-opus-5-5", label: "Claude Opus 5.5" },
-  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5" },
-  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5" },
+  { id: "claude-opus-5-5", label: "Opus 5.5" },
+  { id: "claude-sonnet-5-5", label: "Sonnet 5.5" },
+  { id: "claude-haiku-5-5", label: "Haiku 5.5" },
 ] as const;
 
 const PREVIEW_ROWS = 25;

@@ -1,6 +1,6 @@
 /**
  * Live evaluation: runs every question in questions.json through the real
- * agent (real Claude API, real guarded SQLite engine) and scores execution
+ * agent (real Anthropic API, real guarded SQLite engine) and scores execution
  * accuracy against the gold SQL.
  *
  *   ANTHROPIC_API_KEY=... npm run eval                 # all questions, default model

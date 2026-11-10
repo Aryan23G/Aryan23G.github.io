@@ -8,11 +8,11 @@
 
 **Ask a business question in plain English and get back validated, read-only SQL, the result set, and a full audit trail of how the agent got there.**
 
-A deterministic Text-to-SQL agent: a **LangGraph** state machine drives **Claude** structured generation, a **SQLGlot** static compiler checks every query against the real schema before it runs, **SQLAlchemy** executes on a connection that cannot write, and **Qdrant** retrieves only the tables a question needs. A dense three-pane **Next.js** workbench shows every step live.
+A deterministic Text-to-SQL agent: a **LangGraph** state machine drives **LLM** structured generation, a **SQLGlot** static compiler checks every query against the real schema before it runs, **SQLAlchemy** executes on a connection that cannot write, and **Qdrant** retrieves only the tables a question needs. A dense three-pane **Next.js** workbench shows every step live.
 
 ![QueryPilot Workbench: a request that fails static compilation, self-corrects and returns results](docs/demo.gif)
 
-<sub>Captured from the real UI and API with the scripted test generator standing in for Claude (`tests/e2e_server.py`). Its first draft deliberately references a non-existent column so the self-correction loop is visible.</sub>
+<sub>Captured from the real UI and API with the scripted test generator standing in for the model (`tests/e2e_server.py`). Its first draft deliberately references a non-existent column so the self-correction loop is visible.</sub>
 
 ## Features
 
@@ -58,7 +58,7 @@ workbench/
 │   │   │   ├── state.py             AgentState (TypedDict + reducers), SqlDraft, telemetry models
 │   │   │   ├── graph.py             StateGraph wiring + pure routing functions
 │   │   │   ├── nodes.py             States 1-5 + fail node (spans, live step events)
-│   │   │   ├── llm.py               SqlGenerator protocol + ClaudeSqlGenerator (structured outputs)
+│   │   │   ├── llm.py               SqlGenerator protocol + AnthropicSqlGenerator (structured outputs)
 │   │   │   ├── prompts.py           cached system prompt, bounded per-attempt user prompt
 │   │   │   ├── runner.py            runs the graph in a task, streams events, builds RunTrace
 │   │   │   └── history.py           bounded in-memory store of recent RunTraces
@@ -78,7 +78,7 @@ workbench/
 │   │   ├── questions.json           20 questions (easy/medium/hard) with gold SQL
 │   │   ├── compare.py               execution-accuracy comparator
 │   │   └── run.py                   `python -m eval.run`: live evaluation (needs ANTHROPIC_API_KEY)
-│   └── tests/                       103 tests (pytest) + e2e_server.py (real API, scripted generator)
+│   └── tests/                       pytest suite + e2e_server.py (real API, scripted generator)
 └── frontend/                        Next.js 14 (App Router) · Tailwind · shadcn/ui · Tremor · CodeMirror 6
     ├── app/                         layout.tsx, page.tsx, globals.css (dark IDE tokens)
     ├── components/
@@ -123,7 +123,7 @@ Control flow is decided only by pure routing functions over typed state (`agent/
 | State | Node | What happens |
 |---|---|---|
 | 1 | `retrieve_context` | Vector search over table **and** column documents in Qdrant → per-table score aggregation → lexical pinning of tables named in the question → relative cutoff → FK-neighbour relaxation → **FK join-path closure** (adds bridge tables such as `order_items` between `returns` and `products`). Only these tables' DDL goes into the prompt. |
-| 2 | `generate_sql` | Claude returns a schema-validated `SqlDraft` (`reasoning_chain`, `sql_query`, `tables_used`, `answerable`, `clarification`) through structured outputs. System prompt is static per dialect and prompt-cached; every retry is a fresh, bounded prompt that carries all failed attempts with their logs. |
+| 2 | `generate_sql` | The model returns a schema-validated `SqlDraft` (`reasoning_chain`, `sql_query`, `tables_used`, `answerable`, `clarification`) through structured outputs. System prompt is static per dialect and prompt-cached; every retry is a fresh, bounded prompt that carries all failed attempts with their logs. |
 | 3 | `validate_sql` | SQLGlot parses in the target dialect, requires one read-only statement, walks the AST for write/DDL/session nodes (including data-modifying CTEs) and denylisted functions, checks tables against the catalogue, **qualifies every column against the real schema** (hallucinated columns fail here, before the DB), and injects an outer `LIMIT`. Failures produce a compiler-style log. |
 | 4 | `execute_sql` | SQLAlchemy engine whose connections cannot write: SQLite opened `mode=ro` + `PRAGMA query_only`; Postgres `SET TRANSACTION READ ONLY` + `statement_timeout`; transaction always rolled back. Statement deadline (SQLite progress handler), `fetchmany` row cap, structured error + trimmed stack trace for self-correction. |
 | 5 | `format_response` | Rows → array of objects + typed column metadata + row count, truncation flag and DB latency. |
@@ -202,15 +202,15 @@ ANTHROPIC_API_KEY=sk-ant-... docker compose up --build
 ## Tests and quality gates
 
 ```bash
-cd backend  && ruff check app tests eval && mypy app eval && pytest -q    # 103 tests, mypy --strict
+cd backend  && ruff check app tests eval && mypy app eval && pytest -q    # mypy --strict
 cd frontend && npm run typecheck && npm run lint && npm test && npm run build
 cd frontend && npm run e2e    # Playwright: starts the API (scripted generator, auth on) + a production build
 ```
 
 Set `E2E_PYTHON` to the backend's Python interpreter if it isn't on `PATH` as `python`.
 
-The test suite needs no network. A scripted `SqlGenerator` replaces Claude, so every routing path is exercised deterministically: happy path, static retry (with the compiler log in the next prompt), static budget exhaustion, runtime retry (with the stack trace), runtime budget, write attempts that never reach the DB, unanswerable questions, and refusals. Separate tests cover:
-- the exact Claude request (structured-output schema, effort, cache control, refusal-fallback beta) against a mocked HTTP transport,
+The test suite needs no network. A scripted `SqlGenerator` replaces the model, so every routing path is exercised deterministically: happy path, static retry (with the compiler log in the next prompt), static budget exhaustion, runtime retry (with the stack trace), runtime budget, write attempts that never reach the DB, unanswerable questions, and refusals. Separate tests cover:
+- the exact Anthropic API request (structured-output schema, effort, cache control, refusal-fallback beta) against a mocked HTTP transport,
 - the read-only connection with the guard bypassed,
 - the statement timeout,
 - retrieval quality and FK join-path closure,
@@ -227,7 +227,7 @@ CI: `.github/workflows/workbench.yml`.
 
 ## Design notes and limits
 
-- **Model.** Claude Opus 5.5 by default (`QP_ANTHROPIC_MODEL`), `effort=medium`, adaptive thinking (always on for this model), structured outputs, and server-side refusal fallback (`fallbacks: "default"`, not used on Haiku).
+- **Model.** Opus 5.5 by default (`QP_ANTHROPIC_MODEL`), `effort=medium`, adaptive thinking (always on for this model), structured outputs, and server-side refusal fallback (`fallbacks: "default"`, not used on Haiku).
 - **Embeddings.** Production uses FastEmbed `BAAI/bge-small-en-v1.5` (local ONNX, no API). If the model can't be loaded, for example because there's no network on first start, the service logs a warning and falls back to the built-in IDF-weighted hashing embedder. `/api/health` reports which one is active. The retrieval tests run on the hashing embedder; bge-small retrieval quality has not been benchmarked in this repo.
 - **Retries** are bounded separately for static (`QP_MAX_STATIC_RETRIES`, default 2) and runtime (`QP_MAX_RUNTIME_RETRIES`, default 2) failures.
 - **Embedded Qdrant** is single-process. Run Qdrant as a server (`QP_QDRANT_URL`) for multiple API workers.
@@ -236,7 +236,7 @@ CI: `.github/workflows/workbench.yml`.
 
 ## Roadmap
 
-- **Accuracy report.** Run `python -m eval.run` against Claude and publish execution accuracy by difficulty, plus a model comparison (Opus / Sonnet / Haiku).
+- **Accuracy report.** Run `python -m eval.run` against the live model and publish execution accuracy by difficulty, plus a model comparison (Opus / Sonnet / Haiku).
 - **Grid virtualization.** Replace the Radix tabs in the results pane with plain controls, then window the rows. Virtualizing inside Radix Tabs re-rendered endlessly under the React 19 runtime that Next 14 bundles.
 - **Accessibility.** A custom CodeMirror `HighlightStyle` with AA contrast for every SQL token, and editor-owned scrolling. Then enable the all-states axe test (currently `test.fixme` in `frontend/e2e/a11y.spec.ts`).
 - **Conversation.** Follow-up questions that carry the previous question and SQL into the next run, and clarifying questions for ambiguous metrics.

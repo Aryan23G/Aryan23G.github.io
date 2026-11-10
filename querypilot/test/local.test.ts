@@ -174,7 +174,7 @@ describe("parsing details", () => {
   });
 });
 
-describe("20-question eval set (written for the Claude agent)", () => {
+describe("20-question eval set (written for the AI agent)", () => {
   // Including the multi-step ones (growth, retention, top-per-group, share of a subset): 20/20, no wrong answers.
   it("answers all 20 correctly, including the multi-step questions", () => {
     const qs = JSON.parse(readFileSync(new URL("../eval/questions.json", import.meta.url), "utf8")) as { id: string; question: string; gold: string; ordered?: boolean }[];
