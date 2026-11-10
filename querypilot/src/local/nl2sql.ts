@@ -51,7 +51,7 @@ export interface Plan {
   topPerGroup?: { outer: DimId; entity: DimId; n: number };
   /** Share kind: the subset (numerator) conditions; plan.filters stay the base population. */
   subset?: Filter[];
-  retention?: { mode: "cohort"; from: string; to: string } | { mode: "repeat" };
+  retention?: { mode: "cohort"; from: string; to: string; churn?: boolean } | { mode: "repeat" };
   notes: string[];
 }
 
@@ -220,7 +220,16 @@ const MULTI_STEP: [RegExp, string][] = [
 // ------------------------------------------------------------------ parsing
 export function parse(question: string, vocab: Vocabulary): Plan {
   const notes: string[] = [];
-  const q = ` ${question.toLowerCase().replace(/[?!,;:()"]/g, " ").replace(/\s+/g, " ").trim()} `;
+  if (/;\s*(drop|delete|insert|update|alter|create|attach|pragma)\b|^\s*(select|with|drop|delete|insert|update)\b[\s\S]*\b(from|table|into|set)\b|--|\/\*/i.test(question)) {
+    throw new NotUnderstood(
+      "That looks like SQL rather than a question. Paste it into the SQL console instead: it runs through the same read-only guard.",
+      SUGGESTIONS,
+    );
+  }
+  const q = ` ${question.toLowerCase().replace(/[?!,;:()"]/g, " ").replace(/\s+/g, " ").trim()} `
+    // Colloquial customer rankings: "who bought the most", "biggest spenders".
+    .replace(/\bwho (spent|bought|purchased|paid) the most\b/g, "top customers by revenue")
+    .replace(/\b(biggest|top|best|largest|highest) (spenders?|buyers?|shoppers?)\b/g, "top customers by revenue");
   for (const [re, what] of MULTI_STEP) {
     if (re.test(q)) {
       throw new NotUnderstood(
@@ -278,7 +287,7 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   const years = [...new Set([...rest.matchAll(/\b(20\d\d)\b/g)].map((m) => m[1]!))];
   if (/\b(this|current) year\b|\bytd\b|\byear to date\b/.test(rest)) years.push(String(DATA_END_YEAR));
   if (/\b(last|previous|prior) year\b/.test(rest)) years.push(String(DATA_END_YEAR - 1));
-  const quarterMatch = rest.match(/\b(q([1-4])|(first|second|third|fourth|1st|2nd|3rd|4th) quarter)\b/);
+  const quarterMatches = [...rest.matchAll(/\b(q([1-4])|(first|second|third|fourth|1st|2nd|3rd|4th) quarter)\b/g)];
   const monthMatches = MONTHS.filter((m, i) => {
     const short = m.slice(0, 3);
     const re = i === 4 ? /\b(in|during|of) may\b|\bmay (20\d\d)\b/ : new RegExp(`\\b(${m}|${short})\\b`);
@@ -292,10 +301,10 @@ export function parse(question: string, vocab: Vocabulary): Plan {
   // Two or more explicit years with no other grouping → compare years side by side.
   const compareYears = uniqYears.length >= 2;
   if (uniqYears.length) filters.push({ field: "year", values: uniqYears });
-  if (quarterMatch) {
-    const word = quarterMatch[2] ?? quarterMatch[3]!;
-    const n = ({ first: "1", "1st": "1", second: "2", "2nd": "2", third: "3", "3rd": "3", fourth: "4", "4th": "4" } as Record<string, string>)[word] ?? word;
-    filters.push({ field: "quarter", values: [n] });
+  if (quarterMatches.length) {
+    const ord: Record<string, string> = { first: "1", "1st": "1", second: "2", "2nd": "2", third: "3", "3rd": "3", fourth: "4", "4th": "4" };
+    const qs = [...new Set(quarterMatches.map((m) => { const w = m[2] ?? m[3]!; return ord[w] ?? w; }))].sort();
+    filters.push({ field: "quarter", values: qs });
   }
   if (monthMatches.length) {
     filters.push({ field: "month", values: monthMatches.map((m) => String(MONTHS.indexOf(m) + 1).padStart(2, "0")) });
@@ -383,11 +392,11 @@ function detectMultiStep(plan: Plan, q: string, metricWasGuessed: boolean) {
   const years = plan.filters.find((f) => f.field === "year")?.values ?? [];
 
   // Retention: "customers who ordered in 2024 also ordered in 2025", "repeat customers".
-  if (/\b(also|again|came back|come back|returned to|retain|retained|retention|churn|repeat|returning)\b/.test(q)
-      && /\b(customers?|buyers?|clients?|shoppers?)\b/.test(q)) {
+  if (/\b(also|again|came back|come back|returned to|retain|retained|retention|churn|churned|repeat|returning)\b/.test(q)
+      && (/\b(customers?|buyers?|clients?|shoppers?)\b/.test(q) || /\b(retention|churn|churned|repeat (purchase|order|buy|customer)s?( rate)?|repeat rate)\b/.test(q))) {
     if (years.length === 2) {
       plan.kind = "retention";
-      plan.retention = { mode: "cohort", from: years[0]!, to: years[1]! };
+      plan.retention = { mode: "cohort", from: years[0]!, to: years[1]!, churn: /\bchurn(ed)?\b/.test(q) };
       plan.filters = plan.filters.filter((f) => f.field !== "year");
       plan.dims = [];
       plan.notes = [`retention: customers who ordered in ${years[0]} and also ordered in ${years[1]}, as a share of the ${years[0]} customers`];
@@ -420,10 +429,10 @@ function detectMultiStep(plan: Plan, q: string, metricWasGuessed: boolean) {
   }
 
   // Top-N within each group: "top customer for each country", "best 3 products in every category".
-  const each = q.match(/\b(for|in|within|per|across) (each|every) (\w+)|\b(each|every) (\w+)'?s?\b/);
+  const each = q.match(/\b(for|in|within|per|across) (each|every) (\w+)|\b(each|every) (\w+)'?s?\b|\b(per|within) (?!each|every)(\w+)/);
   const ranked = /\b(top|best|biggest|highest|leading|largest|single top|number one|#1)\b/.test(q);
   if (each && ranked) {
-    const word = each[3] ?? each[5]!;
+    const word = each[3] ?? each[5] ?? each[7]!;
     const outer = DIMS.find((d) => d.words.test(` ${word} `))?.id;
     const entityWord = q.match(/\b(?:top|best|biggest|highest|leading|largest)\s+(?:\d+\s+)?(\w+)/)?.[1] ?? "";
     const entity = DIMS.find((d) => d.words.test(` ${entityWord} `))?.id
@@ -574,7 +583,7 @@ function compileAggregate(plan: Plan, opts: AggOptions = {}): Compiled {
   }
   for (const f of plan.filters) applyFilter(f, ctx, plan);
 
-  if (scope === "order" && def.realisedOnly && !plan.filters.some((f) => f.field === "status")) {
+  if (scope === "order" && def.realisedOnly && !plan.filters.some((f) => f.field === "status" && !f.negate)) {
     ctx.where.push("o.status NOT IN ('cancelled', 'returned')");
   }
   if (plan.metric === "return_rate") ctx.where.push("o.status IN ('delivered', 'returned')");
@@ -811,14 +820,17 @@ export function describeResult(c: Compiled, columns: string[], rows: Cell[][]): 
   const def = METRICS.find((m) => m.id === c.plan.metric)!;
   const mi = columns.indexOf(c.metricColumn);
   const fmt = (v: Cell) => formatMetric(v, c.format);
-  const scopeNote = def.realisedOnly && !c.plan.filters.some((f) => f.field === "status") ? " (excluding cancelled and returned orders)" : "";
-  const filt = describeFilters(c.plan.filters, c.plan.dims).replace(/^, /, " for ");
+  const scopeNote = def.realisedOnly && !c.plan.filters.some((f) => f.field === "status" && !f.negate) ? " (excluding cancelled and returned orders)" : "";
+  // The scope note already says cancelled and returned orders are left out; don't repeat a negated status.
+  const shown = scopeNote ? c.plan.filters.filter((f) => !(f.field === "status" && f.negate)) : c.plan.filters;
+  const filt = describeFilters(shown, c.plan.dims).replace(/^, /, " for ");
   if (!rows.length) return `No data matched${filt}.`;
   if (!c.plan.dims.length) return `${capitalize(def.label)}${filt}: ${fmt(rows[0]![mi]!)}${scopeNote}.`;
   if (c.plan.dims.length === 2) return `${capitalize(def.label)} by ${c.plan.dims.join(" and ")}${filt}: ${rows.length} rows${scopeNote}.`;
 
   const label = (r: Cell[]) => String(r[0]);
-  const additive = c.format === "money" || c.format === "int";
+  // Only sums are additive across groups: a total of averages, rates or distinct customer counts means nothing.
+  const additive = ["revenue", "margin", "shipping", "units", "orders", "reviews", "new_customers", "products"].includes(c.plan.metric);
   const total = additive ? rows.reduce((s, r) => s + Number(r[mi] ?? 0), 0) : null;
   const sorted = [...rows].sort((a, b) => Number(b[mi]) - Number(a[mi]));
   const hi = sorted[0]!;
@@ -878,6 +890,8 @@ function describeMultiStep(c: Compiled, columns: string[], rows: Cell[][]): stri
       return `${r[0]} had the ${g.pick === "max" ? "largest" : "smallest"} ${def.label} growth: ${signed(r[gi]!)} vs the previous ${g.period} (${formatMetric(r[mi]!, def.format)}).`;
     }
     const valid = rows.filter((r) => r[gi] !== null);
+    if (!valid.length) return `Only one ${g.period} in range, so there is no previous ${g.period} to compare with.`;
+    if (valid.length === 1) return `${capitalize(def.label)} changed ${signed(valid[0]![gi]!)} in ${valid[0]![0]} vs the previous ${g.period} (${formatMetric(valid[0]![mi]!, def.format)}).`;
     const best = valid.reduce((a, r) => (Number(r[gi]) > Number(a[gi]) ? r : a), valid[0]!);
     const worst = valid.reduce((a, r) => (Number(r[gi]) < Number(a[gi]) ? r : a), valid[0]!);
     return `${capitalize(def.label)} growth by ${g.period}: biggest rise in ${best[0]} (${signed(best[gi]!)}), biggest fall in ${worst[0]} (${signed(worst[gi]!)}).`;
@@ -905,7 +919,8 @@ function describeMultiStep(c: Compiled, columns: string[], rows: Cell[][]): stri
     if (r.mode === "repeat") {
       return `${Number(row[1]).toLocaleString("en-US")} of ${Number(row[0]).toLocaleString("en-US")} ordering customers placed 2 or more orders (${pct(row[2]!)} repeat rate).`;
     }
-    return `${Number(row[1]).toLocaleString("en-US")} of the ${Number(row[0]).toLocaleString("en-US")} customers who ordered in ${r.from} also ordered in ${r.to}: ${pct(row[2]!)} retention.`;
+    const base = `${Number(row[1]).toLocaleString("en-US")} of the ${Number(row[0]).toLocaleString("en-US")} customers who ordered in ${r.from} also ordered in ${r.to}: ${pct(row[2]!)} retention`;
+    return r.churn ? `${base}, so ${pct(1 - Number(row[2]))} churned.` : `${base}.`;
   }
   return null;
 }

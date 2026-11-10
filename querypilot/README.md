@@ -88,7 +88,7 @@ The model proposes a chart (line, bar, pie, scatter, KPI or table). The proposal
 
 ```bash
 npm ci
-npm test            # 181 tests: guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set, local engine
+npm test            # 189 tests: guard, bytecode layer, engine, PII shield, agent loop (mocked model), charts, eval set, local engine
 npm run typecheck
 npm run build       # bundles src/ into dist/ (committed, since GitHub Pages serves it directly)
 ```

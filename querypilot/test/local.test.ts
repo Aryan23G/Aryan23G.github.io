@@ -138,8 +138,13 @@ describe("parsing details", () => {
   });
 
   it("generated SQL never contains user text verbatim (values come from the vocabulary)", () => {
-    const { compiled } = ask("revenue for Canada'; DROP TABLE orders; -- by month");
-    expect(compiled.sql).not.toMatch(/DROP|--/);
+    const { compiled } = ask("revenue for Canada' OR 1=1 DROP TABLE orders by month");
+    expect(compiled.sql).not.toMatch(/DROP|1=1/);
+  });
+
+  it("sends SQL typed into the question box to the SQL console", () => {
+    expect(() => parse("revenue for Canada'; DROP TABLE orders; -- by month", vocab)).toThrow(/SQL console/);
+    expect(() => parse("SELECT * FROM orders", vocab)).toThrow(/SQL console/);
   });
 });
 
@@ -204,5 +209,54 @@ describe("multi-step questions, phrased differently from the eval set", () => {
   it("still declines explanation and prediction", () => {
     expect(() => parse("why did revenue drop in March?", vocab)).toThrow(NotUnderstood);
     expect(() => parse("forecast revenue for next quarter", vocab)).toThrow(NotUnderstood);
+  });
+});
+
+describe("fuzz regressions", () => {
+  it("negating one status keeps the other excluded for realised revenue", () => {
+    const { compiled } = ask("revenue excluding returns");
+    expect(compiled.sql).toMatch(/NOT IN \('cancelled', 'returned'\)/);
+    const gold = rows(`SELECT ROUND(${REV}, 2) FROM orders o JOIN order_items oi ON oi.order_id = o.order_id WHERE ${REALISED}`);
+    const r = ask("revenue excluding returns");
+    expect(r.result.rows[0]![0]).toBeCloseTo(gold.rows[0]![0] as number, 2);
+    expect(r.answer).not.toMatch(/excl\. returned/);
+  });
+
+  it("does not call one growth value both the biggest rise and fall", () => {
+    const { answer } = ask("yoy revenue growth");
+    expect(answer).not.toMatch(/biggest rise.*biggest fall/);
+    expect(answer).toMatch(/2025/);
+  });
+
+  it("reads 'best X per Y' as top-per-group", () => {
+    const { compiled, result } = ask("best customer per segment");
+    expect(compiled.plan.kind).toBe("top_per_group");
+    expect(result.rows.length).toBe(vocab.segments.length);
+  });
+
+  it("recognises retention phrasing without a customers word", () => {
+    expect(ask("repeat purchase rate").compiled.plan.kind).toBe("retention");
+    const churn = ask("churn from 2024 to 2025");
+    expect(churn.compiled.plan.kind).toBe("retention");
+    expect(churn.answer).toMatch(/churned/);
+  });
+
+  it("compares two quarters side by side", () => {
+    const { compiled, result } = ask("orders in q1 vs q2 2025");
+    expect(compiled.plan.filters.find((f) => f.field === "quarter")?.values).toEqual(["1", "2"]);
+    expect(result.rows.length).toBe(2);
+  });
+
+  it("does not total averages", () => {
+    expect(ask("average order value per month").answer).not.toMatch(/Total/);
+    expect(ask("revenue by month").answer).toMatch(/Total/);
+  });
+
+  it("maps colloquial spender questions to customers by revenue", () => {
+    for (const q of ["who bought the most", "biggest spenders"]) {
+      const { compiled } = ask(q);
+      expect(compiled.plan.metric).toBe("revenue");
+      expect(compiled.plan.dims).toContain("customer");
+    }
   });
 });
