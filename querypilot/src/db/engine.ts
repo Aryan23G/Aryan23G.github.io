@@ -1,7 +1,7 @@
 /**
- * Query engine shared by the browser Web Worker, the tests and the eval harness.
+ * Query engine shared by the browser Web Worker and the tests.
  *
- * Defence in depth for "the model can only read":
+ * Defence in depth for "a query can only read":
  *   Layer 1  guardSql()          static token-level rules + table allowlist
  *   Layer 2  verifyBytecode()    compiles the query with EXPLAIN and inspects the
  *                                SQLite VDBE program: rejects any write opcode, write
@@ -50,7 +50,7 @@ const WRITE_OPCODES = new Set([
   "VOpen", "Pagecount", "MaxPgcnt", "TableLock",
 ]);
 
-export const DEFAULT_MAX_ROWS = 1000;
+const DEFAULT_MAX_ROWS = 1000;
 
 export class Engine {
   readonly allowedRoots: Map<number, string> = new Map();
@@ -139,21 +139,5 @@ export class Engine {
     } finally {
       stmt?.free();
     }
-  }
-
-  /** Known PII values, used to keep them out of the model's context (see pii.ts). Trusted internal query. */
-  piiValues(): { name: string[]; email: string[] } {
-    const rows = this.db.exec("SELECT name, email FROM customers")[0]?.values ?? [];
-    return { name: rows.map((r) => String(r[0])), email: rows.map((r) => String(r[1])) };
-  }
-
-  /** Distinct values of a column (for value grounding), via the same guarded path. */
-  sampleValues(table: string, column: string, limit = 25): ExecOutcome {
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(table) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(column)) {
-      return { ok: false, stage: "guard", error: "Invalid table or column name.", checks: [] };
-    }
-    return this.execute(
-      `SELECT ${column} AS value, count(*) AS n FROM ${table} GROUP BY ${column} ORDER BY n DESC LIMIT ${Math.min(limit, 50)}`,
-    );
   }
 }

@@ -174,7 +174,7 @@ describe("parsing details", () => {
   });
 });
 
-describe("20-question eval set (written for the AI agent)", () => {
+describe("20-question eval set", () => {
   // Including the multi-step ones (growth, retention, top-per-group, share of a subset): 20/20, no wrong answers.
   it("answers all 20 correctly, including the multi-step questions", () => {
     const qs = JSON.parse(readFileSync(new URL("../eval/questions.json", import.meta.url), "utf8")) as { id: string; question: string; gold: string; ordered?: boolean }[];
@@ -238,6 +238,15 @@ describe("multi-step questions, phrased differently from the eval set", () => {
   });
 });
 
+describe("sample questions shown on the page", () => {
+  it("are all answered", () => {
+    const src = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+    const examples = [...src.slice(src.indexOf("const EXAMPLES")).split("];")[0]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+    expect(examples.length).toBeGreaterThanOrEqual(6);
+    for (const q of examples) expect(ask(q).result.rows.length).toBeGreaterThan(0);
+  });
+});
+
 describe("fuzz regressions", () => {
   it("negating one status keeps the other excluded for realised revenue", () => {
     const { compiled } = ask("revenue excluding returns");
@@ -288,6 +297,16 @@ describe("fuzz regressions", () => {
     for (const q of ["holiday season sales", "revenue in h1 2025", "average rating for tents"]) expect(ask(q).compiled.plan.dims).toEqual([]);
     expect(ask("units sold by category in summer").compiled.plan.dims).toEqual(["category"]);
     expect(ask("winter boots sales").compiled.plan.filters.map((f) => f.field)).toEqual(["product"]);
+  });
+
+  it("declines several measures at once and two measures against each other", () => {
+    expect(() => parse("What were total revenue, order count and average order value in 2025?", vocab)).toThrow(/several measures at once \(revenue, orders, average order value\)/);
+    expect(() => parse("revenue and margin by category", vocab)).toThrow(/several measures/);
+    expect(() => parse("Do more expensive products get better ratings?", vocab)).toThrow(/relationship between two measures/);
+    expect(() => parse("does discount affect return rate", vocab)).toThrow(/relationship/);
+    // A definition in parentheses or "excluding cancelled and returned" is not a second measure.
+    expect(() => parse("average order value (revenue per order) by segment", vocab)).not.toThrow();
+    expect(() => parse("revenue per customer excluding cancelled and returned orders", vocab)).not.toThrow();
   });
 
   it("maps colloquial spender questions to customers by revenue", () => {

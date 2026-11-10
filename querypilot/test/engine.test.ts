@@ -89,7 +89,7 @@ describe("execute()", () => {
     expect(r.ok && r.result.truncated).toBe(true);
   });
 
-  it("surfaces SQLite errors so the agent can self-correct", () => {
+  it("surfaces SQLite errors with their message", () => {
     const r = engine.execute("SELECT chanel FROM orders");
     expect(r.ok).toBe(false);
     if (!r.ok) {
@@ -98,13 +98,7 @@ describe("execute()", () => {
     }
   });
 
-  it("validates identifiers in sampleValues", () => {
-    expect(engine.sampleValues("orders; DROP TABLE x", "status").ok).toBe(false);
-    const r = engine.sampleValues("orders", "status");
-    expect(r.ok && r.result.rows.map((x) => x[0]).sort()).toEqual(["cancelled", "delivered", "processing", "returned", "shipped"]);
-  });
-
-  it.each(DEMOS.map((d) => [d.question, d] as const))("demo query runs and answers: %s", (_q, demo) => {
+  it.each(DEMOS.map((d) => [d.question, d] as const))("curated example runs and answers: %s", (_q, demo) => {
     const r = engine.execute(demo.sql);
     expect(r.ok).toBe(true);
     if (r.ok) expect(demo.answer(r.result.columns, r.result.rows)).not.toMatch(/NaN|undefined/);

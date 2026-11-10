@@ -1,9 +1,6 @@
 /**
- * Schema + semantic layer for the demo warehouse.
- *
- * The descriptions here are the "data dictionary" the agent is grounded on:
- * they go into the system prompt, so the model knows what each column means
- * (units, allowed values, how revenue is defined) instead of guessing.
+ * Schema + data dictionary for the demo warehouse. The table list is the guard's
+ * allowlist, and the descriptions are shown in the schema browser.
  */
 
 export interface ColumnDef {
@@ -84,8 +81,6 @@ export const TABLES: TableDef[] = [
 
 export const TABLE_NAMES = TABLES.map((t) => t.name);
 
-export const DATA_START = "2024-01-01";
-export const DATA_END = "2025-12-31";
 
 export function ddl(): string {
   return TABLES.map((t) => {
@@ -99,18 +94,5 @@ export function ddl(): string {
       return s;
     });
     return `CREATE TABLE ${t.name} (\n${cols.join(",\n")}\n);`;
-  }).join("\n\n");
-}
-
-/** Compact, model-friendly schema description used in the system prompt. */
-export function schemaForPrompt(rowCounts?: Record<string, number>): string {
-  return TABLES.map((t) => {
-    const count = rowCounts?.[t.name];
-    const head = `TABLE ${t.name}${count !== undefined ? ` (${count} rows)` : ""}: ${t.description}`;
-    const cols = t.columns.map((c) => {
-      const tags = [c.type, c.pk ? "PK" : "", c.references ? `FK -> ${c.references}` : ""].filter(Boolean).join(", ");
-      return `  - ${c.name} [${tags}]: ${c.description}`;
-    });
-    return [head, ...cols].join("\n");
   }).join("\n\n");
 }
