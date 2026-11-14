@@ -12,6 +12,7 @@ Static site, no build step needed to deploy:
 - `querypilot/`: QueryPilot, browser-only text-to-SQL analytics (live demo + source, tests and eval; see its README)
 - `sentineldesk/`: SentinelDesk live demo, a self-contained page running the service desk's rules engine in the browser
 - `workbench/`: QueryPilot Workbench, the self-hosted Python + Next.js version (not deployed to Pages; see its README)
+- `learn-python/`: 8 Python projects (calculator to Notion sync), each with tests and a LESSON.md on the engineering fundamentals behind it
 
 To rebuild the vendor bundle after changing `vendor/libs.src.js`:
 

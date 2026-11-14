@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<header>
+  <h1>Tasks</h1>
+  <a class="btn primary" href="{{ url_for('new') }}">+ New task</a>
+</header>
+
+<form class="filters" method="get">
+  {% for value, label in [("all", "All"), ("open", "Open"), ("done", "Done")] %}
+    <a class="btn{{ ' primary' if status == value }}" href="{{ url_for('index', status=value, q=q) }}">{{ label }}</a>
+  {% endfor %}
+  <input type="hidden" name="status" value="{{ status }}">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search…" style="flex:1; min-width:140px">
+</form>
+
+{% for task in tasks %}
+  <div class="card{{ ' done' if task.done }}">
+    <form class="inline" method="post" action="{{ url_for('toggle', task_id=task.id) }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button title="Toggle done" aria-label="Toggle done">{{ '✓' if task.done else '○' }}</button>
+    </form>
+    <div class="grow">
+      <div class="title">{{ task.title }} <span class="tag {{ task.priority }}">{{ task.priority }}</span></div>
+      {% if task.notes %}<div class="notes">{{ task.notes }}</div>{% endif %}
+    </div>
+    <a class="btn" href="{{ url_for('edit', task_id=task.id) }}">Edit</a>
+    <form class="inline" method="post" action="{{ url_for('delete', task_id=task.id) }}"
+          onsubmit="return confirm('Delete this task?')">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="danger">Delete</button>
+    </form>
+  </div>
+{% else %}
+  <p>No tasks{{ ' match' if q else ' yet' }}.</p>
+{% endfor %}
+{% endblock %}

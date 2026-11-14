@@ -1,0 +1,16 @@
+{
+  "priya.txt": {
+    "name": "Priya Sharma",
+    "email": "priya.sharma@example.com",
+    "skills": ["AWS", "C", "CI/CD", "Docker", "Flask", "Git", "Java", "JavaScript", "Linux", "Node.js",
+               "NumPy", "Pandas", "PostgreSQL", "Python", "React", "REST APIs", "scikit-learn", "SQL", "Streamlit"],
+    "experience_years": 2.8
+  },
+  "sam.txt": {
+    "name": "SAM O'CONNOR",
+    "email": "sam.oconnor@mail.example.org",
+    "skills": ["Docker", "Excel", "GCP", "Git", "Kubernetes", "Machine Learning", "NLP", "Power BI",
+               "Python", "PyTorch", "SQL", "Tableau", "TensorFlow"],
+    "experience_years": 7.9
+  }
+}

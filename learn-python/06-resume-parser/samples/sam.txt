@@ -1,0 +1,20 @@
+SAM O'CONNOR
+sam.oconnor@mail.example.org
+(555) 201-7788
+
+Professional Experience
+
+Data Analyst — Northwind Retail (2019 to 2022)
+Built Tableau and Power BI dashboards; automated Excel reports with python.
+Grade C certification in first aid. Go-to person for ad-hoc SQL questions.
+
+Machine Learning Engineer — Corvid AI
+March 2022 – present
+Trained PyTorch models for natural language processing; deployed on Kubernetes in GCP.
+
+Education
+M.Sc Statistics, State University, GPA 3.8/4.0
+Bachelor of Science in Mathematics
+
+Technical Skills
+Python • SQL • PyTorch • TensorFlow • Docker • Kubernetes • GCP • Git • ML

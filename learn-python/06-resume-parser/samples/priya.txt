@@ -1,0 +1,28 @@
+Priya Sharma
+Pune, India | priya.sharma@example.com | +91 98765 43210
+linkedin.com/in/priya-sharma-dev | github.com/priyasharma
+
+SUMMARY
+Backend developer who likes clean APIs and boring, reliable systems.
+
+EXPERIENCE
+Software Engineer Intern, Finly Labs        Jun 2024 - Dec 2024
+• Built REST APIs in Flask and PostgreSQL serving 20k requests/day
+• Added GitHub Actions pipeline with Docker image builds
+
+Teaching Assistant, Data Structures          Jan 2024 - Aug 2024
+• Ran weekly labs on Python and recursion for 60 students
+
+Freelance Web Developer                      Mar 2025 - Present
+• Small business sites with React and Node.js
+
+EDUCATION
+B.Tech in Computer Science, Pune Institute of Technology, 2021 - 2025, CGPA: 8.7/10
+
+SKILLS
+Languages: Python, Java, C, SQL, JavaScript
+Tools: Git, Docker, Linux, AWS
+Libraries: Pandas, NumPy, scikit-learn
+
+PROJECTS
+Expense tracker with Streamlit - charts spending by category.
