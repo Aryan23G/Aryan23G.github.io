@@ -9,6 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2307080D'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='%23FFB547'/%3E%3C/svg%3E">
 <style>
 :root{
@@ -89,6 +91,7 @@ main{margin-left:var(--side);min-height:100vh;padding:0 0 calc(40px + var(--play
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--cw,210px),1fr));gap:20px 16px}
 .grid.sq{--cw:165px}
 .card{scroll-snap-align:start;display:flex;flex-direction:column;gap:8px;min-width:0;text-align:left;cursor:pointer}
+.thumb,.thumb .ph,.thumb .bar,.thumb .bar i{display:block}
 .thumb{position:relative;aspect-ratio:16/10;border-radius:12px;overflow:hidden;background:var(--panel) center/cover no-repeat}
 .sq .thumb{aspect-ratio:1}
 .thumb img{width:100%;height:100%;object-fit:cover;transition:transform .35s}
@@ -168,6 +171,12 @@ input[type=range]:disabled{opacity:.4;cursor:default}
 .vwrap header b{display:block;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vwrap header span{display:block;font-size:13px;color:#aab}
 .vwrap video{flex:1;width:100%;height:100%;background:#000;outline:0}
+.vmsg{position:absolute;inset:0;z-index:1;display:grid;place-items:center;background:rgba(0,0,0,.88);padding:24px;text-align:center}
+.vmsg[hidden]{display:none}
+.vmsg>div{max-width:460px}
+.vmsg h2{font-size:20px;margin-bottom:8px}
+.vmsg p{color:#B8BDCC;font-size:15px}
+.vmsg .actions{justify-content:center}
 .ibtn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1)}
 .ibtn:hover{background:rgba(255,255,255,.2)}
 .ibtn:disabled{opacity:.3;cursor:default}
@@ -242,6 +251,7 @@ input[type=range]:disabled{opacity:.4;cursor:default}
 <aside class="side" aria-label="Main">
   <a class="brand" href="#/home"><b><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></b>Marquee</a>
   <nav class="nav" id="nav"></nav>
+  <button class="btn small" id="installBtn" hidden style="margin:12px 12px 0">Install app</button>
   <div class="foot">Every stream here is public domain, Creative Commons, or published free by its owner. <a href="#/setup">How it works</a></div>
 </aside>
 
@@ -286,6 +296,8 @@ input[type=range]:disabled{opacity:.4;cursor:default}
     <button class="ibtn" id="vNext" aria-label="Next episode"><svg class="i"><use href="#i-next"/></svg></button>
   </header>
   <video id="video" controls playsinline preload="metadata"></video>
+  <div class="vmsg" id="vmsg" hidden><div><h2>This video can’t play in your browser</h2><p>The file uses a format your browser doesn’t support. You can still watch it on the Internet Archive, or download it there and open it in VLC.</p>
+    <div class="actions"><a class="btn primary" target="_blank" rel="noopener">Watch on Internet Archive</a><button class="btn" id="vmsgNext">Next part</button></div></div></div>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -299,34 +311,44 @@ input[type=range]:disabled{opacity:.4;cursor:default}
    ===================================================================== */
 const IA = 'https://archive.org';
 const ITUNES = 'https://itunes.apple.com';
-const RADIO_HOSTS = ['https://de1.api.radio-browser.info','https://fi1.api.radio-browser.info','https://de2.api.radio-browser.info'];
+const RADIO_FALLBACK = ['https://de1.api.radio-browser.info','https://de2.api.radio-browser.info','https://all.api.radio-browser.info'];
 
-// Internet Archive collections that are public domain / openly licensed.
-const COLL = {
-  movies:  { q:'collection:feature_films AND mediatype:movies', label:'Feature films' },
-  noir:    { q:'collection:film_noir AND mediatype:movies', label:'Film noir' },
-  scifi:   { q:'collection:SciFi_Horror AND mediatype:movies', label:'Sci-fi & horror' },
-  silent:  { q:'collection:silent_films AND mediatype:movies', label:'Silent era' },
-  tv:      { q:'collection:classic_tv AND mediatype:movies', label:'Classic TV' },
-  cartoons:{ q:'collection:classic_cartoons AND mediatype:movies', label:'Classic cartoons' },
-  docs:    { q:'mediatype:movies AND subject:documentary AND (collection:feature_films OR collection:prelinger OR collection:opensource_movies OR collection:documentaries)', label:'Documentaries' },
-  prelinger:{ q:'collection:prelinger AND mediatype:movies', label:'Prelinger Archives' },
-  nasa:    { q:'collection:nasa AND mediatype:movies', label:'NASA' },
-  chron:   { q:'collection:computerchronicles AND mediatype:movies', label:'The Computer Chronicles' },
-  shorts:  { q:'collection:opensource_movies AND mediatype:movies AND licenseurl:*creativecommons*', label:'Creative Commons shorts' },
-  concerts:{ q:'collection:etree AND mediatype:etree', label:'Live concerts (Live Music Archive)' },
-  netlabels:{ q:'collection:netlabels AND mediatype:audio', label:'Netlabel releases (CC)' },
-  oldradio:{ q:'collection:oldtimeradio AND mediatype:audio', label:'Old-time radio' },
+/* Internet Archive queries. Legality rule: an item must carry an explicit public-domain /
+   Creative Commons licence, OR come from a collection that is public domain by policy
+   (Prelinger: dedicated to the PD; NASA & Universal Newsreels: US-government / PD works;
+   Live Music Archive: artist-approved taping; Computer Chronicles: hosted with permission).
+   Lending-only items and items without a browser-playable file are excluded. */
+const LIC = '(licenseurl:*publicdomain* OR licenseurl:*creativecommons*)';
+const PLAYABLE = {
+  video: '-access-restricted-item:true AND format:(h.264 OR MPEG4 OR "512Kb MPEG4" OR "h.264 IA")',
+  audio: '-access-restricted-item:true AND format:("VBR MP3" OR "128Kbps MP3" OR "64Kbps MP3")',
 };
-const SEARCH_SCOPE = Object.values(COLL).map(c => '(' + c.q + ')').join(' OR ');
+const COLL = {
+  movies:   { kind:'video', q:`collection:feature_films AND mediatype:movies AND ${LIC}`, label:'Feature films' },
+  noir:     { kind:'video', q:`collection:Film_Noir AND mediatype:movies AND ${LIC}`, label:'Film noir' },
+  scifi:    { kind:'video', q:`collection:SciFi_Horror AND mediatype:movies AND ${LIC}`, label:'Sci-fi & horror' },
+  silent:   { kind:'video', q:`collection:silent_films AND mediatype:movies AND ${LIC}`, label:'Silent era' },
+  tv:       { kind:'video', q:`collection:classic_tv AND mediatype:movies AND ${LIC}`, label:'Classic TV' },
+  cartoons: { kind:'video', q:`collection:classic_cartoons AND mediatype:movies AND ${LIC}`, label:'Classic cartoons' },
+  chron:    { kind:'video', q:'collection:computerchronicles AND mediatype:movies', label:'The Computer Chronicles' },
+  docs:     { kind:'video', q:`mediatype:movies AND subject:documentary AND ((${LIC} AND collection:(feature_films OR classic_tv OR silent_films)) OR collection:prelinger OR collection:nasa)`, label:'Documentaries' },
+  newsreels:{ kind:'video', q:'collection:universal_newsreels AND mediatype:movies', label:'Universal Newsreels' },
+  prelinger:{ kind:'video', q:'collection:prelinger AND mediatype:movies', label:'Prelinger Archives' },
+  nasa:     { kind:'video', q:'collection:nasa AND mediatype:movies', label:'NASA' },
+  concerts: { kind:'audio', q:'collection:etree AND mediatype:etree', label:'Live concerts (Live Music Archive)' },
+  netlabels:{ kind:'audio', q:'collection:netlabels AND mediatype:audio', label:'Netlabel releases (CC)' },
+  oldradio: { kind:'audio', q:`collection:oldtimeradio AND ${LIC}`, label:'Old-time radio' },
+};
+const fullQ = c => `(${c.q}) AND ${PLAYABLE[c.kind]}`;
+const scope = kind => Object.values(COLL).filter(c => c.kind === kind).map(c => `(${c.q})`).join(' OR ');
 
 const PAGES = [
   { id:'home', label:'Home', icon:'home' },
   { sep:'Watch' },
   { id:'movies', label:'Movies', icon:'film', kind:'video', title:'Movies', blurb:'Public-domain features from the Internet Archive — noir, sci-fi, comedies, westerns and silent classics.', shelves:['movies','noir','scifi','silent'] },
   { id:'tv', label:'TV Shows', icon:'tv', kind:'video', title:'TV Shows', blurb:'Classic television episodes and cartoons whose copyrights have lapsed.', shelves:['tv','cartoons','chron'] },
-  { id:'docs', label:'Documentaries', icon:'doc', kind:'video', title:'Documentaries', blurb:'Factual films, newsreels and science footage.', shelves:['docs','nasa','prelinger'] },
-  { id:'videos', label:'Videos', icon:'video', kind:'video', title:'Videos', blurb:'Short films and clips released under Creative Commons.', shelves:['shorts','prelinger','nasa'] },
+  { id:'docs', label:'Documentaries', icon:'doc', kind:'video', title:'Documentaries', blurb:'Factual films, newsreels and science footage — all public domain or openly licensed.', shelves:['docs','nasa','newsreels'] },
+  { id:'videos', label:'Videos', icon:'video', kind:'video', title:'Videos', blurb:'Educational and industrial films, vintage tech TV and cartoons.', shelves:['prelinger','chron','cartoons'] },
   { sep:'Listen' },
   { id:'music', label:'Music', icon:'music', kind:'audio', title:'Music', blurb:'Thousands of live concerts from taper-friendly bands, plus Creative Commons netlabel albums.', shelves:['concerts','netlabels','oldradio'] },
   { id:'radio', label:'Radio', icon:'radio', title:'Live Radio', blurb:'Over 40,000 internet radio stations, via the community-run Radio Browser directory.' },
@@ -345,7 +367,7 @@ const $ = s => document.querySelector(s);
 const view = $('#view');
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const first = v => Array.isArray(v) ? v[0] : v;
-const strip = html => { const d = document.createElement('div'); d.innerHTML = String(html ?? '').replace(/<(script|style)[\s\S]*?<\/\1>/gi,''); return (d.textContent || '').replace(/\s+/g,' ').trim(); };
+const strip = html => { const d = new DOMParser().parseFromString('<body>' + String(html ?? '').replace(/<br\s*\/?>|<\/p>/gi, ' '), 'text/html'); d.querySelectorAll('script,style').forEach(n => n.remove()); return (d.body.textContent || '').replace(/\s+/g, ' ').trim(); };
 const icon = (n, cls='i') => `<svg class="${cls}"><use href="#i-${n}"/></svg>`;
 const fmt = s => { if (!isFinite(s) || s <= 0) return '0:00'; s = Math.floor(s); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = String(s%60).padStart(2,'0'); return h ? `${h}:${String(m).padStart(2,'0')}:${x}` : `${m}:${x}`; };
 const parseLen = v => { if (v == null) return 0; v = String(v); if (v.includes(':')) return v.split(':').reduce((a,b) => a*60 + (+b||0), 0); return +v || 0; };
@@ -379,45 +401,69 @@ async function getJSON(url, { timeout = 15000 } = {}) {
    ===================================================================== */
 const Archive = {
   async search(q, { rows = 24, page = 1, sort = 'downloads desc' } = {}) {
-    const fl = ['identifier','title','year','creator','mediatype','downloads','description'];
+    const fl = ['identifier','title','year','creator','mediatype'];
     const u = `${IA}/advancedsearch.php?q=${encodeURIComponent(q)}&${fl.map(f => 'fl[]=' + f).join('&')}&sort[]=${encodeURIComponent(sort)}&rows=${rows}&page=${page}&output=json`;
     const j = await getJSON(u);
-    return { total: j.response?.numFound || 0, items: (j.response?.docs || []).map(Archive.card) };
+    if (!j.response) throw new Error('Bad response');
+    return { total: j.response.numFound || 0, items: (j.response.docs || []).map(Archive.card) };
   },
+  coll(key, opts) { return Archive.search(fullQ(COLL[key]), opts); },
   card(d) {
     const audio = d.mediatype === 'audio' || d.mediatype === 'etree';
-    return { src:'ia', id:d.identifier, title:first(d.title) || d.identifier, sub:[first(d.creator), d.year].filter(Boolean).join(' · '), thumb:iaThumb(d.identifier), kind: audio ? 'audio' : 'video' };
+    return { src:'ia', id:d.identifier, title:first(d.title) || d.identifier, sub:[first(d.creator), first(d.year)].filter(Boolean).join(' · '), thumb:iaThumb(d.identifier), kind: audio ? 'audio' : 'video' };
   },
+  // "Movie_512kb.mp4", "Movie.ia.mp4", "Movie.asr.vtt" -> "movie"
+  base: name => name.replace(/\.[^.\/]+$/, '').replace(/([._](ia|\d+kb|vbr|asr|autogenerated|edit|hires|hq|en|eng))+$/i, '').toLowerCase(),
   async item(id) {
     const j = await getJSON(`${IA}/metadata/${encodeURIComponent(id)}`);
     if (!j || !j.metadata) throw new Error('Not found');
     const m = j.metadata, files = j.files || [];
     const isAudio = m.mediatype === 'audio' || m.mediatype === 'etree';
-    const pick = isAudio
-      ? [['VBR MP3'],['MP3','128Kbps MP3','64Kbps MP3'],['Ogg Vorbis']]
-      : [['h.264 IA','h.264'],['MPEG4','h.264 HD'],['512Kb MPEG4'],['Ogg Video']];
-    const ext = isAudio ? /\.(mp3|ogg)$/i : /\.(mp4|m4v|ogv|webm)$/i;
-    const byBase = new Map();
+    const probe = document.createElement(isAudio ? 'audio' : 'video');
+    const rank = isAudio
+      ? [['VBR MP3'],['128Kbps MP3','MP3'],['64Kbps MP3'],['Ogg Vorbis']]
+      : [['h.264 IA','h.264'],['MPEG4'],['HiRes MPEG4','h.264 HD'],['512Kb MPEG4'],['256Kb MPEG4'],['64Kb MPEG4'],['Ogg Video']];
+    const mime = { mp3:'audio/mpeg', ogg:'audio/ogg', mp4:'video/mp4', m4v:'video/mp4', ogv:'video/ogg; codecs="theora"', webm:'video/webm' };
+    const groups = new Map();
     for (const f of files) {
-      if (!ext.test(f.name) || /(^|\/)__ia_thumb|sample/i.test(f.name)) continue;
-      const rank = pick.findIndex(g => g.includes(f.format));
-      const r = rank < 0 ? pick.length : rank;
-      const base = f.name.replace(/\.[^.\/]+$/, '').replace(/([._](ia|512kb|64kb|vbr))+$/i, '');
-      const cur = byBase.get(base);
-      if (!cur || r < cur.r) byBase.set(base, { f, r, base });
+      const ext = (f.name.match(/\.([a-z0-9]+)$/i) || [])[1]?.toLowerCase();
+      if (!mime[ext] || (isAudio ? /^(mp4|m4v|ogv|webm)$/ : /^(mp3|ogg)$/).test(ext)) continue;
+      if (/(^|\/)(__ia_thumb|.*sample)/i.test(f.name) || !probe.canPlayType(mime[ext])) continue;
+      const r = rank.findIndex(g => g.includes(f.format));
+      // derivatives name their source file in `original`; group every encoding of one source together
+      const b = Archive.base(f.source === 'derivative' && f.original ? f.original : f.name);
+      if (!groups.has(b)) groups.set(b, []);
+      groups.get(b).push({ f, r: r < 0 ? rank.length : r });
     }
-    let parts = [...byBase.values()].map(({ f, base }) => ({
-      name: f.name, url: iaFile(id, f.name), title: f.title || base.split('/').pop().replace(/_+/g,' '),
-      track: parseInt(f.track, 10) || 0, len: parseLen(f.length), sub: f.creator || f.artist || '',
-    }));
-    parts.sort((a,b) => (a.track && b.track) ? a.track - b.track : a.name.localeCompare(b.name, undefined, { numeric:true }));
+    // subtitles: prefer human-made .vtt, then .srt, then auto-generated
+    const subs = new Map();
+    if (!isAudio) for (const f of files) {
+      const ext = (f.name.match(/\.(vtt|srt)$/i) || [])[1]?.toLowerCase(); if (!ext) continue;
+      const auto = /\.(asr|autogenerated)\./i.test(f.name);
+      const score = (auto ? 2 : 0) + (ext === 'srt' ? 1 : 0);
+      const b = Archive.base(f.name);
+      if (!subs.has(b) || subs.get(b).score > score) subs.set(b, { name: f.name, srt: ext === 'srt', auto, score });
+    }
+    const host = j.server && j.dir ? `https://${j.server}${j.dir}` : '';
+    let parts = [...groups.entries()].map(([b, list]) => {
+      list.sort((x, y) => x.r - y.r);
+      const f = list[0].f, sub = subs.get(b);
+      return {
+        key: b, name: f.name,
+        alts: list.map(x => iaFile(id, x.f.name)),
+        title: f.title || f.name.replace(/\.[^.]+$/, '').split('/').pop().replace(/_+/g, ' '),
+        track: parseInt(f.track, 10) || 0, len: parseLen(f.length), sub: isAudio ? (f.creator || f.artist || '') : '',
+        subs: sub ? { urls: [iaFile(id, sub.name), host && host + '/' + sub.name.split('/').map(encodeURIComponent).join('/')].filter(Boolean), srt: sub.srt, label: sub.auto ? 'English (auto)' : 'Subtitles' } : null,
+      };
+    });
+    parts.sort((a, b) => (a.track && b.track) ? a.track - b.track : a.name.localeCompare(b.name, undefined, { numeric:true }));
     if (parts.length === 1 && !isAudio) parts[0].title = first(m.title) || id;
     return {
       src:'ia', id, kind: isAudio ? 'audio' : 'video', title: first(m.title) || id,
-      sub: [first(m.creator), m.year || first(m.date)?.slice(0,4)].filter(Boolean).join(' · '),
+      sub: [first(m.creator), first(m.year) || String(first(m.date) || '').slice(0, 4)].filter(Boolean).join(' · '),
       desc: strip(first(m.description)), thumb: iaThumb(id), parts,
-      license: m.licenseurl, link: `${IA}/details/${encodeURIComponent(id)}`,
-      runtime: parseLen(m.runtime),
+      license: first(m.licenseurl), link: `${IA}/details/${encodeURIComponent(id)}`,
+      runtime: parseLen(first(m.runtime)), restricted: String(m['access-restricted-item']) === 'true',
     };
   },
 };
@@ -425,23 +471,23 @@ const Archive = {
 const Podcasts = {
   async search(term, limit = 24) {
     const j = await getJSON(`${ITUNES}/search?media=podcast&entity=podcast&limit=${limit}&term=${encodeURIComponent(term)}`);
-    return (j.results || []).map(Podcasts.card);
+    return (j.results || []).filter(r => r.collectionId).map(Podcasts.card);
   },
   card(r) { return { src:'pod', id:String(r.collectionId), title:r.collectionName, sub:r.artistName, thumb:https(r.artworkUrl600 || r.artworkUrl100), kind:'audio' }; },
   async item(id) {
-    const j = await getJSON(`${ITUNES}/lookup?id=${encodeURIComponent(id)}&media=podcast&entity=podcastEpisode&limit=60`);
+    const j = await getJSON(`${ITUNES}/lookup?id=${encodeURIComponent(id)}&media=podcast&entity=podcastEpisode&limit=100`);
     const res = j.results || [];
-    const show = res.find(r => r.wrapperType === 'track' && r.kind === 'podcast') || res[0];
+    const show = res.find(r => r.kind === 'podcast') || res.find(r => r.wrapperType === 'track');
     if (!show) throw new Error('Not found');
     const eps = res.filter(r => r.wrapperType === 'podcastEpisode' && r.episodeUrl)
-      .sort((a,b) => new Date(b.releaseDate) - new Date(a.releaseDate));
+      .sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate));
     return {
       src:'pod', id, kind:'audio', title: show.collectionName, sub: show.artistName,
       desc: [show.primaryGenreName, show.trackCount ? `${show.trackCount} episodes` : ''].filter(Boolean).join(' · '),
       thumb: https(show.artworkUrl600 || show.artworkUrl100), link: show.collectionViewUrl,
       parts: eps.map(e => ({
-        url: https(e.episodeUrl), title: e.trackName, len: (e.trackTimeMillis || 0) / 1000,
-        sub: new Date(e.releaseDate).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }),
+        key: e.episodeGuid || e.episodeUrl, alts: [https(e.episodeUrl)], title: e.trackName, len: (e.trackTimeMillis || 0) / 1000,
+        sub: e.releaseDate ? new Date(e.releaseDate).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) : '',
         desc: strip(e.shortDescription || e.description).slice(0, 220),
       })),
       newestFirst: true,
@@ -450,51 +496,71 @@ const Podcasts = {
 };
 
 const Radio = {
-  host: 0,
+  hosts: null,
+  async servers() {
+    if (this.hosts) return this.hosts;
+    try {
+      const list = await getJSON('https://all.api.radio-browser.info/json/servers', { timeout: 5000 });
+      const names = [...new Set(list.map(s => s.name))].map(n => 'https://' + n);
+      this.hosts = names.length ? names.sort(() => Math.random() - .5).concat(RADIO_FALLBACK.filter(h => !names.includes(h))) : RADIO_FALLBACK;
+    } catch { this.hosts = RADIO_FALLBACK; }
+    return this.hosts;
+  },
   async call(path) {
-    let err;
-    for (let i = 0; i < RADIO_HOSTS.length; i++) {
-      const h = RADIO_HOSTS[(this.host + i) % RADIO_HOSTS.length];
-      try { const j = await getJSON(h + path, { timeout: 9000 }); this.host = (this.host + i) % RADIO_HOSTS.length; return j; }
+    const hosts = await this.servers(); let err;
+    for (let i = 0; i < hosts.length; i++) {
+      try { const j = await getJSON(hosts[i] + path, { timeout: 9000 }); if (i) hosts.unshift(...hosts.splice(i, 1)); return j; }
       catch (e) { err = e; }
     }
     throw err;
   },
+  hlsOK: () => !!document.createElement('audio').canPlayType('application/vnd.apple.mpegurl'),
   async search(params) {
-    const qs = new URLSearchParams({ hidebroken:'true', order:'clickcount', reverse:'true', limit:'60', ...params });
+    const secure = location.protocol === 'https:';
+    const qs = new URLSearchParams({ hidebroken:'true', order:'clickcount', reverse:'true', limit:'100', ...(secure ? { is_https:'true' } : {}), ...params });
     const j = await this.call('/json/stations/search?' + qs);
-    const seen = new Set();
-    return j.filter(s => s.url_resolved && !seen.has(s.name.trim().toLowerCase()) && seen.add(s.name.trim().toLowerCase()))
-      .slice(0, 40).map(Radio.card);
+    const seen = new Set(), hls = this.hlsOK();
+    return j.filter(s => {
+      const k = s.name.trim().toLowerCase();
+      if (!s.url_resolved || seen.has(k)) return false;
+      if (secure && !/^https:/i.test(s.url_resolved)) return false; // http streams are blocked on https pages
+      if ((s.hls == 1 || /\.m3u8(\?|$)/i.test(s.url_resolved)) && !hls) return false;
+      seen.add(k); return true;
+    }).slice(0, 48).map(Radio.card);
   },
   card(s) {
-    return { src:'radio', id:s.stationuuid, title:s.name.trim(), sub:[s.country, (s.tags||'').split(',').slice(0,2).join(', ')].filter(Boolean).join(' · '),
-      thumb: s.favicon ? https(s.favicon) : '', kind:'audio', live:true, url: https(s.url_resolved), hls: !!s.hls };
+    return { src:'radio', id:s.stationuuid, title:s.name.trim(), sub:[s.countrycode || s.country, (s.tags || '').split(',').filter(Boolean).slice(0, 2).join(', ')].filter(Boolean).join(' · '),
+      thumb: /^https:/i.test(s.favicon || '') ? s.favicon : '', kind:'audio', live:true, url: s.url_resolved };
   },
-  click(uuid) { fetch(`${RADIO_HOSTS[this.host]}/json/url/${encodeURIComponent(uuid)}`).catch(() => {}); },
+  click(uuid) { this.servers().then(h => fetch(`${h[0]}/json/url/${encodeURIComponent(uuid)}`).catch(() => {})); },
 };
 
 /* =====================================================================
    Persistence: progress, saved, local files
    ===================================================================== */
 const Progress = {
-  all: store.get('progress', {}),
-  key: (src, id, i) => `${src}:${id}:${i}`,
-  get(src, id, i) { return this.all[this.key(src, id, i)]; },
-  put(src, id, i, t, d, meta) {
+  all: store.get('progress2', {}),
+  key: (src, id, pk) => `${src}|${id}|${pk}`,
+  get(src, id, pk) { return this.all[this.key(src, id, pk)]; },
+  put(src, id, pk, t, d, meta) {
     if (!isFinite(d) || d < 60) return;
     const done = t > d - 30;
-    this.all[this.key(src, id, i)] = { t: done ? 0 : t, d, done, at: Date.now(), ...meta };
-    clearTimeout(this._s); this._s = setTimeout(() => store.set('progress', this.all), 600);
+    this.all[this.key(src, id, pk)] = { t: done ? 0 : t, d, done, at: Date.now(), src, id, pk, ...meta };
+    clearTimeout(this._s); this._s = setTimeout(() => this.flush(), 600);
+  },
+  flush() {
+    const entries = Object.entries(this.all);
+    if (entries.length > 800) this.all = Object.fromEntries(entries.sort((a, b) => b[1].at - a[1].at).slice(0, 600));
+    store.set('progress2', this.all);
   },
   recent() {
     const best = new Map();
-    for (const [k, v] of Object.entries(this.all)) {
+    for (const v of Object.values(this.all)) {
       if (v.done || v.t < 20 || v.src === 'local') continue;
-      const item = k.split(':').slice(0, 2).join(':');
-      if (!best.has(item) || best.get(item).at < v.at) best.set(item, { ...v, part: +k.split(':').pop() });
+      const k = v.src + '|' + v.id;
+      if (!best.has(k) || best.get(k).at < v.at) best.set(k, v);
     }
-    return [...best.values()].sort((a,b) => b.at - a.at).slice(0, 16);
+    return [...best.values()].sort((a, b) => b.at - a.at).slice(0, 16);
   },
 };
 
@@ -516,12 +582,12 @@ const Local = { files: [] }; // session only; object URLs are created on play
    ===================================================================== */
 const PH = { video:'film', audio:'music', radio:'radio' };
 function cardHTML(c, i) {
-  const ph = `<div class="ph">${icon(c.src === 'radio' ? 'radio' : c.src === 'local' ? 'folder' : PH[c.kind] || 'film')}</div>`;
+  const ph = `<span class="ph">${icon(c.src === 'radio' ? 'radio' : c.src === 'local' ? 'folder' : PH[c.kind] || 'film')}</span>`;
   const img = c.thumb ? `<img loading="lazy" decoding="async" src="${esc(c.thumb)}" alt="" onerror="this.remove()">` : '';
-  const bar = c.pct ? `<div class="bar"><i style="width:${Math.min(100, c.pct*100).toFixed(1)}%"></i></div>` : '';
+  const bar = c.pct ? `<span class="bar"><i style="width:${Math.min(100, c.pct*100).toFixed(1)}%"></i></span>` : '';
   const badge = c.live ? '<span class="badge live">Live</span>' : c.badge ? `<span class="badge">${esc(c.badge)}</span>` : '';
   return `<button class="card" data-i="${i}" aria-label="${esc(c.title)}">
-    <div class="thumb">${ph}${img}${badge}${bar}<span class="play">${icon('play')}</span></div>
+    <span class="thumb">${ph}${img}${badge}${bar}<span class="play">${icon('play')}</span></span>
     <span class="t">${esc(c.title)}</span>${c.sub ? `<span class="s">${esc(c.sub)}</span>` : ''}</button>`;
 }
 function skeleton(n = 6) { return Array.from({ length: n }, () => '<div class="card skel"><div class="thumb"></div><div class="t"></div></div>').join(''); }
@@ -567,7 +633,7 @@ const Views = {
     hero.innerHTML = `<div class="copy"><div class="eyebrow">Free &amp; legal, always</div><h1>Your laptop is now a home theater.</h1><p>Classic films, TV, documentaries, live concerts, 40,000 radio stations, every public podcast, and your own files — one place, no accounts, no ads.</p><div class="actions"><a class="btn primary" href="#/movies">${icon('play')}Browse movies</a><a class="btn" href="#/library">${icon('folder')}Open my files</a></div></div>`;
     view.append(hero);
     // feature a random popular film in the hero
-    Archive.search(COLL.movies.q, { rows: 30 }).then(({ items }) => {
+    Archive.coll('movies', { rows: 30 }).then(({ items }) => {
       if (!items.length || !hero.isConnected) return;
       const f = items[Math.floor(Math.random() * items.length)];
       Archive.item(f.id).then(it => {
@@ -580,29 +646,29 @@ const Views = {
     }).catch(() => {});
 
     const recent = Progress.recent();
-    if (recent.length) shelf(view, { title:'Continue', load: async () => recent.map(r => ({ src:r.src, id:r.id, title:r.title, sub:r.partTitle && r.partTitle !== r.title ? r.partTitle : r.sub, thumb:r.thumb, kind:r.kind, pct:r.t / r.d, resume:r.part })) });
-    shelf(view, { title:'Popular films', more:'#/browse/movies', load: async () => (await Archive.search(COLL.movies.q, { rows: 20 })).items });
-    shelf(view, { title:'Classic TV', more:'#/browse/tv', load: async () => (await Archive.search(COLL.tv.q, { rows: 20 })).items });
+    if (recent.length) shelf(view, { title:'Continue', load: async () => recent.map(r => ({ src:r.src, id:r.id, title:r.title, sub:r.partTitle && r.partTitle !== r.title ? r.partTitle : r.sub, thumb:r.thumb, kind:r.kind, pct:r.t / r.d, resume:r.pk })) });
+    shelf(view, { title:'Popular films', more:'#/browse/movies', load: async () => (await Archive.coll('movies', { rows: 20 })).items });
+    shelf(view, { title:'Classic TV', more:'#/browse/tv', load: async () => (await Archive.coll('tv', { rows: 20 })).items });
     shelf(view, { title:'Trending podcasts', note:'science', square:true, more:'#/podcasts', load: () => Podcasts.search('science', 20) });
-    shelf(view, { title:'Documentaries', more:'#/browse/docs', load: async () => (await Archive.search(COLL.docs.q, { rows: 20 })).items });
+    shelf(view, { title:'Documentaries', more:'#/browse/docs', load: async () => (await Archive.coll('docs', { rows: 20 })).items });
     shelf(view, { title:'Top radio stations', square:true, more:'#/radio', load: () => Radio.search({ limit:'40' }) });
-    shelf(view, { title:'Live concerts', square:true, more:'#/browse/concerts', load: async () => (await Archive.search(COLL.concerts.q, { rows: 20 })).items });
+    shelf(view, { title:'Live concerts', square:true, more:'#/browse/concerts', load: async () => (await Archive.coll('concerts', { rows: 20 })).items });
   },
 
   section(page) {
     head(page);
     for (const key of page.shelves) {
       const c = COLL[key];
-      shelf(view, { title: c.label, square: page.kind === 'audio', more: '#/browse/' + key, load: async () => (await Archive.search(c.q, { rows: 20 })).items });
+      shelf(view, { title: c.label, square: page.kind === 'audio', more: '#/browse/' + key, load: async () => (await Archive.coll(key, { rows: 20 })).items });
     }
     if (page.id === 'movies') {
-      shelf(view, { title:'Recently added', load: async () => (await Archive.search(COLL.movies.q, { rows: 20, sort:'addeddate desc' })).items });
+      shelf(view, { title:'Recently added', load: async () => (await Archive.coll('movies', { rows: 20, sort:'addeddate desc' })).items });
     }
   },
 
   browse(key) {
     const c = COLL[key]; if (!c) return Views.notFound();
-    const audio = /etree|audio/.test(c.q);
+    const audio = c.kind === 'audio';
     const sorts = [['downloads desc','Most popular'],['addeddate desc','Newest'],['titleSorter asc','A–Z'],['year asc','Oldest']];
     let sort = sorts[0][0], page = 1;
     head({ title: c.label, blurb: 'From the Internet Archive.' }, `<div class="chips" id="sorts">${sorts.map(([v,l],i) => `<button class="chip" aria-pressed="${!i}" data-v="${v}">${l}</button>`).join('')}</div>`);
@@ -610,13 +676,13 @@ const Views = {
     const render = () => {
       holder.innerHTML = ''; page = 1;
       let total = 0;
-      const s = shelf(holder, { title:' ', grid:true, square:audio, load: async () => { const r = await Archive.search(c.q, { rows: 36, sort }); total = r.total; return r.items; } });
+      const s = shelf(holder, { title:' ', grid:true, square:audio, load: async () => { const r = await Archive.search(fullQ(c), { rows: 36, sort }); total = r.total; return r.items; } });
       s.sec.querySelector('.shelf-h').remove();
       const mb = document.createElement('div'); mb.className = 'more';
       mb.innerHTML = '<button class="btn">Load more</button>'; holder.append(mb);
       mb.firstChild.onclick = async e => {
         e.target.disabled = true; e.target.textContent = 'Loading…';
-        try { const r = await Archive.search(c.q, { rows: 36, sort, page: ++page }); s.append(r.items); if (page * 36 >= r.total) mb.remove(); }
+        try { const r = await Archive.search(fullQ(c), { rows: 36, sort, page: ++page }); s.append(r.items); if (page * 36 >= r.total) mb.remove(); }
         catch { toast('Couldn’t load more'); page--; }
         e.target.disabled = false; e.target.textContent = 'Load more';
       };
@@ -640,7 +706,7 @@ const Views = {
       if (tag === 'Near me') {
         const cc = (navigator.language.split('-')[1] || 'US').toUpperCase();
         params = { countrycode: cc };
-      } else if (tag !== 'Top') params = { tag: tag.toLowerCase() };
+      } else if (tag !== 'Top') params = { tag: tag.toLowerCase(), tagExact: 'true' };
       const s = shelf(holder, { title:' ', grid:true, square:true, load: () => Radio.search(params) });
       s.sec.querySelector('.shelf-h').remove();
     };
@@ -732,11 +798,13 @@ const Views = {
     view.append(g);
     const how = document.createElement('section'); how.className = 'tracks';
     how.innerHTML = `<h2>Where everything here comes from</h2><div class="desc">
-      <p><b>Movies, TV, documentaries, videos, concerts</b> — the <a href="https://archive.org" target="_blank" rel="noopener">Internet Archive</a>’s public-domain and Creative Commons collections, streamed directly from archive.org. Concerts are from the Live Music Archive, where bands explicitly allow free distribution.</p><br>
+      <p><b>Movies, TV, documentaries, videos</b> — the <a href="https://archive.org" target="_blank" rel="noopener">Internet Archive</a>, streamed directly from archive.org. Only titles that carry an explicit public-domain or Creative Commons licence are shown, plus collections that are public domain by nature: Prelinger Archives, NASA and Universal Newsreels (US-government / dedicated works) and The Computer Chronicles (hosted with permission). Lending-only titles are filtered out.</p><br>
+      <p><b>Concerts</b> — the Live Music Archive, where only bands that allow free, non-commercial sharing of their live shows are hosted. <b>Albums</b> come from Creative Commons netlabels.</p><br>
       <p><b>Radio</b> — the community <a href="https://www.radio-browser.info" target="_blank" rel="noopener">Radio Browser</a> directory; audio streams straight from each broadcaster.</p><br>
       <p><b>Podcasts</b> — discovered through the public Apple Podcasts search API; episodes play from the publisher’s own servers, exactly like any podcast app.</p><br>
       <p><b>My Files</b> — read locally with the browser’s File API. Nothing is uploaded.</p><br>
-      <p>No account, tracking or backend: watch progress and saved items live in this browser’s local storage. Install it as an app from your browser’s menu (“Install” / “Add to dock”) for a full-window experience.</p></div>`;
+      <p>No account, tracking or backend: watch progress and saved items live in this browser’s local storage. Use <b>Install app</b> in the sidebar (or your browser’s “Install” / “Add to dock”) to run Marquee in its own window; the app itself then opens even offline, and your own files always play offline.</p><br>
+      <p>Keyboard: <b>/</b> search · <b>Space</b> play/pause · <b>← →</b> seek 10s · <b>F</b> fullscreen · <b>Shift+N</b> next part · <b>Esc</b> close video. Many videos include captions — when they do, use the CC button in the player.</p></div>`;
     view.append(how);
   },
 
@@ -753,7 +821,8 @@ const Views = {
     }
     if (seq !== routeSeq) return; // user navigated away while loading
     const card = { src, id, title: it.title, sub: it.sub, thumb: it.thumb, kind: it.kind };
-    const resumeAt = it.parts.findIndex((_, i) => { const p = Progress.get(src, id, i); return p && !p.done && p.t > 20; });
+    let resumeAt = -1, last = 0;
+    it.parts.forEach((p, i) => { const pr = Progress.get(src, id, p.key); if (pr && !pr.done && pr.t > 20 && pr.at > last) { last = pr.at; resumeAt = i; } });
     const startI = resumeAt >= 0 ? resumeAt : 0;
     const playLbl = resumeAt >= 0 ? (it.parts.length > 1 ? `Resume part ${resumeAt + 1}` : 'Resume') : (it.newestFirst ? 'Play latest' : 'Play');
     const lic = it.license ? `<a href="${esc(it.license)}" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:underline">License</a>` : '';
@@ -782,13 +851,17 @@ const Views = {
 
   async search(q) {
     view.innerHTML = `<div class="page-head"><h1>Results for “${esc(q)}”</h1></div>`;
-    const safe = q.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+    const safe = q.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
     if (!safe) return;
-    const terms = safe.split(/\s+/).map(w => `${w}*`).join(' AND ');
-    shelf(view, { title:'Films & video', load: async () => (await Archive.search(`(title:(${terms}) OR subject:(${safe})) AND mediatype:movies AND (${SEARCH_SCOPE})`, { rows: 24 })).items });
-    shelf(view, { title:'Podcasts', square:true, load: () => Podcasts.search(safe, 20) });
-    shelf(view, { title:'Radio stations', square:true, load: () => Radio.search({ name: safe, limit:'40' }) });
-    shelf(view, { title:'Music & audio', square:true, load: async () => (await Archive.search(`(title:(${terms}) OR creator:(${safe})) AND (mediatype:audio OR mediatype:etree) AND (${SEARCH_SCOPE})`, { rows: 24 })).items });
+    // wildcard terms are not analysed by the Archive's search, so they must be lower-case
+    const terms = safe.split(' ').map(w => `${w}*`).join(' AND ');
+    const words = safe.split(' ').join(' AND ');
+    const vid = `(title:(${terms}) OR subject:(${words}) OR creator:(${words})) AND (${scope('video')}) AND ${PLAYABLE.video}`;
+    const aud = `(title:(${terms}) OR subject:(${words}) OR creator:(${words})) AND (${scope('audio')}) AND ${PLAYABLE.audio}`;
+    shelf(view, { title:'Films & video', load: async () => (await Archive.search(vid, { rows: 24 })).items });
+    shelf(view, { title:'Podcasts', square:true, load: () => Podcasts.search(q, 20) });
+    shelf(view, { title:'Radio stations', square:true, load: () => Radio.search({ name: q, limit:'60' }) });
+    shelf(view, { title:'Music & audio', square:true, load: async () => (await Archive.search(aud, { rows: 24 })).items });
   },
 
   notFound() { view.innerHTML = ''; view.append(errorNote('That page doesn’t exist.')); },
@@ -799,7 +872,7 @@ function trackList(it) {
   const draw = () => {
     const cur = Player.current;
     box.innerHTML = it.parts.map((p, i) => {
-      const pr = Progress.get(it.src, it.id, i);
+      const pr = p.key != null ? Progress.get(it.src, it.id, p.key) : null;
       const on = cur && cur.it.src === it.src && cur.it.id === it.id && cur.i === i;
       const pct = pr && pr.d ? (pr.done ? 1 : pr.t / pr.d) : 0;
       return `<button class="trk${on ? ' on' : ''}" data-i="${i}"><span class="n">${on ? '▶' : i + 1}</span><span class="nm"><b>${esc(p.title)}</b>${p.sub || p.desc ? `<span>${esc([p.sub, p.desc].filter(Boolean).join(' — '))}</span>` : ''}</span><span class="d">${pr?.done ? '✓' : p.len ? fmt(p.len) : ''}</span>${pct > 0.01 && !pr.done ? `<span class="bar"><i style="width:${(pct*100).toFixed(1)}%"></i></span>` : ''}</button>`;
@@ -824,7 +897,7 @@ async function openCard(c) {
   if (!c) return;
   if (c.src === 'radio') return playItem({ src:'radio', id:c.id, kind:'audio', title:c.title, sub:c.sub, thumb:c.thumb, live:true, parts:[{ url:c.url, title:c.title, sub:c.sub, hls:c.hls }] }, 0);
   if (c.resume != null) {
-    try { const it = c.src === 'ia' ? await Archive.item(c.id) : await Podcasts.item(c.id); return playItem(it, Math.min(c.resume, it.parts.length - 1)); }
+    try { const it = c.src === 'ia' ? await Archive.item(c.id) : await Podcasts.item(c.id); const i = it.parts.findIndex(p => p.key === c.resume); return playItem(it, Math.max(0, i)); }
     catch { toast('Couldn’t resume that title'); return; }
   }
   location.hash = `#/item/${c.src}/${encodeURIComponent(c.id)}`;
@@ -838,68 +911,121 @@ const Player = {
 };
 
 function playItem(it, i) {
-  if (!it.parts[i]) return;
+  const p = it.parts[i]; if (!p) return;
   const isVideo = it.kind === 'video';
   const el = isVideo ? video : audio;
-  // stop the other element
   const other = isVideo ? audio : video;
   if (!other.paused) other.pause();
-  const p = it.parts[i];
   if (Player.objURL) { URL.revokeObjectURL(Player.objURL); Player.objURL = null; }
-  let url = p.url;
-  if (p.file) { url = Player.objURL = URL.createObjectURL(p.file); }
-  Player.current = { it, i, el };
-  el.src = url;
-  const pr = Progress.get(it.src, it.id, i);
-  const startAt = pr && !pr.done && pr.t > 5 ? pr.t - 3 : 0;
-  if (startAt) el.addEventListener('loadedmetadata', () => { try { el.currentTime = startAt; } catch {} }, { once: true });
-  el.play().catch(err => { if (err.name !== 'AbortError') onMediaError(); });
+  const url = p.file ? (Player.objURL = URL.createObjectURL(p.file)) : (p.alts ? p.alts[0] : p.url);
+  Player.current = { it, i, el, alt: 0, token: 0 };
+  hideVideoMsg();
+  const pr = p.key != null ? Progress.get(it.src, it.id, p.key) : null;
+  loadSource(el, url, pr && !pr.done && pr.t > 5 ? pr.t - 3 : 0);
+  if (isVideo) setSubtitles(p);
   if (it.src === 'radio') Radio.click(it.id);
 
   if (isVideo) {
-    $('#vTitle').textContent = p.title === it.title || it.parts.length === 1 ? it.title : p.title;
+    $('#vTitle').textContent = it.parts.length === 1 ? it.title : p.title;
     $('#vSub').textContent = it.parts.length > 1 ? `${it.title} · Part ${i + 1} of ${it.parts.length}` : (it.sub || '');
     $('#vPrev').disabled = i === 0; $('#vNext').disabled = i >= it.parts.length - 1;
     $('#vPrev').hidden = $('#vNext').hidden = it.parts.length < 2;
     if (!vwrap.classList.contains('on')) { vwrap.classList.add('on'); document.body.style.overflow = 'hidden'; history.pushState({ video: true }, ''); }
     video.focus(); poke();
   } else {
-    pbar.classList.add('on'); document.documentElement.style.setProperty('--player-h', window.innerWidth <= 900 ? '72px' : '84px');
-    const art = $('#pArt'); art.src = it.thumb || p.thumb || ''; art.style.visibility = it.thumb ? 'visible' : 'hidden';
-    $('#pTitle').textContent = p.title; $('#pSub').textContent = it.live ? 'Live radio · ' + (it.sub || '') : (it.parts.length > 1 ? it.title : it.sub || '');
-    $('#pPrev').disabled = i === 0; $('#pNext').disabled = i >= it.parts.length - 1;
+    pbar.classList.add('on'); setPlayerH();
+    const art = $('#pArt'); art.style.visibility = it.thumb ? 'visible' : 'hidden'; if (it.thumb) art.src = it.thumb; else art.removeAttribute('src');
+    $('#pTitle').textContent = p.title; $('#pSub').textContent = it.live ? 'Live radio' + (it.sub ? ' · ' + it.sub : '') : (it.parts.length > 1 ? it.title : it.sub || '');
+    $('#pPrev').disabled = i === 0 && !!it.live; $('#pNext').disabled = i >= it.parts.length - 1;
     $('#pSeek').disabled = !!it.live;
+    syncBar();
   }
   if ('mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({ title: p.title, artist: it.sub || it.title, album: it.title, artwork: it.thumb ? [{ src: it.thumb, sizes: '512x512' }] : [] });
-    navigator.mediaSession.setActionHandler('previoustrack', i > 0 ? () => step(-1) : null);
-    navigator.mediaSession.setActionHandler('nexttrack', i < it.parts.length - 1 ? () => step(1) : null);
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: p.title, artist: it.sub || it.title, album: it.title, artwork: it.thumb ? [{ src: it.thumb, sizes: '512x512' }] : [] });
+      navigator.mediaSession.setActionHandler('previoustrack', i > 0 ? () => step(-1) : null);
+      navigator.mediaSession.setActionHandler('nexttrack', i < it.parts.length - 1 ? () => step(1) : null);
+    } catch {}
   }
   document.querySelectorAll('.tracklist').forEach(b => b._redraw?.());
 }
-function step(d) { const c = Player.current; if (c && c.it.parts[c.i + d]) playItem(c.it, c.i + d); }
-function onMediaError() {
-  const c = Player.current; if (!c) return;
+
+/** Point a media element at a URL; on failure fall through the part's alternative files. */
+function loadSource(el, url, startAt) {
+  const c = Player.current, token = ++c.token;
+  el.src = url;
+  el.addEventListener('loadedmetadata', () => {
+    if (token !== c.token || Player.current !== c) return;
+    // An MP4 whose video codec the browser can't decode loads as sound-only: treat it as a failure.
+    if (el === video && !video.videoWidth) return failSource(token);
+    if (startAt) { try { el.currentTime = startAt; } catch {} }
+  }, { once: true });
+  el.play().catch(err => { if (err.name === 'NotSupportedError') failSource(token); });
+}
+function failSource(token) {
+  const c = Player.current; if (!c || token !== c.token) return;
+  const p = c.it.parts[c.i];
+  if (p.alts && c.alt < p.alts.length - 1) {
+    const t = c.el.currentTime;
+    c.alt++; loadSource(c.el, p.alts[c.alt], t > 1 ? t : (Progress.get(c.it.src, c.it.id, p.key)?.t || 0));
+    return;
+  }
+  c.token++; // ignore any further error events for this source
   if (c.it.src === 'local') toast('Your browser can’t decode this file — try VLC');
   else if (c.it.live) toast('This station is offline — try another');
+  else if (c.el === video) showVideoMsg(c.it);
   else toast('This stream couldn’t be played');
 }
+
+/* Subtitles: fetched as text and attached as a same-origin blob so no CORS is needed on the <video>. */
+let subURLs = [];
+function setSubtitles(p) {
+  video.querySelectorAll('track').forEach(t => t.remove());
+  subURLs.forEach(URL.revokeObjectURL); subURLs = [];
+  if (!p.subs) return;
+  const c = Player.current;
+  (async () => {
+    for (const u of p.subs.urls) {
+      try {
+        const r = await fetch(u); if (!r.ok) continue;
+        let txt = await r.text();
+        if (p.subs.srt) txt = 'WEBVTT\n\n' + txt.replace(/\r/g, '').replace(/(\d\d:\d\d:\d\d),(\d\d\d)/g, '$1.$2');
+        if (!/^\uFEFF?WEBVTT/.test(txt)) continue;
+        if (Player.current !== c) return;
+        const url = URL.createObjectURL(new Blob([txt], { type: 'text/vtt' })); subURLs.push(url);
+        const t = document.createElement('track');
+        Object.assign(t, { kind: 'subtitles', label: p.subs.label, srclang: 'en', src: url });
+        video.append(t);
+        return;
+      } catch {}
+    }
+  })();
+}
+function showVideoMsg(it) {
+  const m = $('#vmsg');
+  m.querySelector('a').href = it.link || '#';
+  m.querySelector('a').hidden = !it.link;
+  m.hidden = false;
+}
+function hideVideoMsg() { $('#vmsg').hidden = true; }
+function step(d) { const c = Player.current; if (c && c.it.parts[c.i + d]) playItem(c.it, c.i + d); }
 
 function saveProgress(el, force) {
   const c = Player.current; if (!c || c.el !== el || c.it.live || c.it.src === 'local') return;
   const now = Date.now(); if (!force && now - Player.lastSave < 4000) return;
   Player.lastSave = now;
   const p = c.it.parts[c.i];
-  Progress.put(c.it.src, c.it.id, c.i, el.currentTime, el.duration, { src:c.it.src, id:c.it.id, title:c.it.title, sub:c.it.sub, thumb:c.it.thumb, kind:c.it.kind, partTitle:p.title });
+  if (p.key == null) return;
+  Progress.put(c.it.src, c.it.id, p.key, el.currentTime, el.duration, { title:c.it.title, sub:c.it.sub, thumb:c.it.thumb, kind:c.it.kind, partTitle:p.title });
 }
 for (const el of [audio, video]) {
   el.addEventListener('timeupdate', () => { saveProgress(el); if (el === audio) syncBar(); });
   el.addEventListener('pause', () => { saveProgress(el, true); if (el === audio) syncBar(); });
   el.addEventListener('play', () => { if (el === audio) syncBar(); });
   el.addEventListener('ended', () => { saveProgress(el, true); const c = Player.current; if (c && c.el === el && c.i < c.it.parts.length - 1) step(1); else if (el === video) closeVideo(); });
-  el.addEventListener('error', () => { if (el.getAttribute('src')) onMediaError(); });
+  el.addEventListener('error', () => { if (el.getAttribute('src') && Player.current?.el === el) failSource(Player.current.token); });
 }
-addEventListener('pagehide', () => { const c = Player.current; if (c) saveProgress(c.el, true); store.set('progress', Progress.all); });
+addEventListener('pagehide', () => { const c = Player.current; if (c) saveProgress(c.el, true); Progress.flush(); });
 
 /* audio bar */
 const seek = $('#pSeek'), vol = $('#pVol');
@@ -918,10 +1044,10 @@ const setVol = v => { audio.volume = video.volume = v / 100; vol.style.setProper
 vol.value = store.get('vol', 80); setVol(vol.value);
 vol.addEventListener('input', () => setVol(vol.value));
 video.addEventListener('volumechange', () => { if (Math.abs(video.volume * 100 - vol.value) > 1) { vol.value = Math.round(video.volume * 100); setVol(vol.value); } });
-$('#pPlay').onclick = () => audio.paused ? audio.play().catch(onMediaError) : audio.pause();
+$('#pPlay').onclick = () => { if (!audio.paused) return audio.pause(); if (Player.current?.it.live) { const c = Player.current; return playItem(c.it, c.i); } audio.play().catch(() => {}); };
 $('#pPrev').onclick = () => { if (audio.currentTime > 5 && !Player.current?.it.live) audio.currentTime = 0; else step(-1); };
 $('#pNext').onclick = () => step(1);
-$('#pClose').onclick = () => { saveProgress(audio, true); audio.pause(); audio.removeAttribute('src'); audio.load(); pbar.classList.remove('on'); document.documentElement.style.setProperty('--player-h', '0px'); if (Player.current?.el === audio) Player.current = null; document.querySelectorAll('.tracklist').forEach(b => b._redraw?.()); };
+$('#pClose').onclick = () => { saveProgress(audio, true); audio.pause(); audio.removeAttribute('src'); audio.load(); pbar.classList.remove('on'); setPlayerH(); if (Player.current?.el === audio) Player.current = null; document.querySelectorAll('.tracklist').forEach(b => b._redraw?.()); };
 
 /* video overlay */
 let idleT;
@@ -941,6 +1067,7 @@ function closeVideo(fromPop) {
   if (/^#\/(home)?$/.test(location.hash || '#/')) route();
 }
 $('#vClose').onclick = () => closeVideo();
+$('#vmsgNext').onclick = () => { const c = Player.current; if (c && c.it.parts[c.i + 1]) step(1); else closeVideo(); };
 $('#vPrev').onclick = () => step(-1);
 $('#vNext').onclick = () => step(1);
 addEventListener('popstate', () => { if (vwrap.classList.contains('on')) closeVideo(true); });
@@ -977,6 +1104,7 @@ function route() {
   const [name, ...rest] = h.split('/');
   scrollTo(0, 0);
   let active = name || 'home';
+  if (name !== 'search') $('#q').value = '';
   if (name === 'item') { active = ''; Views.item(rest[0], rest.slice(1).join('/')); }
   else if (name === 'browse') { active = ''; Views.browse(rest[0]); }
   else if (name === 'search') { active = ''; const q = rest.join('/'); $('#q').value = q; Views.search(q); }
@@ -994,8 +1122,16 @@ function route() {
 $('#searchForm').onsubmit = e => { e.preventDefault(); const q = $('#q').value.trim(); if (q) { location.hash = '#/search/' + encodeURIComponent(q); $('#q').blur(); } };
 addEventListener('scroll', () => $('#top').classList.toggle('scrolled', scrollY > 8), { passive: true });
 addEventListener('hashchange', route);
-addEventListener('resize', () => { if (pbar.classList.contains('on')) document.documentElement.style.setProperty('--player-h', innerWidth <= 900 ? '72px' : '84px'); });
+function setPlayerH() { document.documentElement.style.setProperty('--player-h', pbar.classList.contains('on') ? (innerWidth <= 900 ? '72px' : '84px') : '0px'); }
+addEventListener('resize', setPlayerH);
 buildNav(); route();
+
+/* Installable app: offline shell via service worker (only on http(s), not file://) */
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#installBtn').hidden = false; });
+$('#installBtn').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice.catch(() => {}); installEvt = null; $('#installBtn').hidden = true; };
+addEventListener('appinstalled', () => { $('#installBtn').hidden = true; toast('Marquee installed'); });
 })();
 </script>
 </body>
