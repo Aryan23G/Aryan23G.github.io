@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Marquee — Free Media Center</title>
+<meta name="description" content="A free, legal, browser-based media center: public-domain movies, classic TV, documentaries, live concerts, internet radio, podcasts and your own local files in one place.">
+<meta name="theme-color" content="#07080D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2307080D'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='%23FFB547'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#07080D; --bg-2:#0E1018; --panel:#141722; --panel-2:#1B1F2D; --line:rgba(255,255,255,.08);
+  --text:#ECEEF5; --muted:#8C93A8; --dim:#5E6478;
+  --accent:#FFB547; --accent-2:#FF6B5B; --ok:#5BE7A9;
+  --radius:14px; --side:232px; --player-h:0px;
+  --display:'Unbounded',system-ui,sans-serif; --body:'Outfit',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{color-scheme:dark;background:var(--bg)}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-weight:400;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+img{display:block;max-width:100%}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+svg.i{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- layout ---------- */
+.side{position:fixed;inset:0 auto 0 0;width:var(--side);background:var(--bg-2);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:22px 14px calc(18px + var(--player-h));z-index:20;overflow-y:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:0 10px 22px;font-family:var(--display);font-size:17px;letter-spacing:.02em}
+.brand b{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center}
+.brand b svg{width:14px;height:14px;fill:#111;stroke:none}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav .lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding:16px 12px 6px}
+.nav a{display:flex;align-items:center;gap:12px;padding:9px 12px;border-radius:10px;color:var(--muted);font-weight:500;font-size:15px;transition:background .15s,color .15s}
+.nav a:hover{background:var(--panel);color:var(--text)}
+.nav a[aria-current="page"]{background:var(--panel-2);color:var(--text)}
+.nav a[aria-current="page"] svg{color:var(--accent)}
+.side .foot{margin-top:auto;padding:16px 12px 0;font-size:12px;color:var(--dim)}
+.side .foot a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+
+main{margin-left:var(--side);min-height:100vh;padding:0 0 calc(40px + var(--player-h))}
+.top{position:sticky;top:0;z-index:15;display:flex;align-items:center;gap:12px;padding:14px 32px;background:rgba(7,8,13,.86);border-bottom:1px solid transparent}
+.top.scrolled{border-bottom-color:var(--line)}
+.search{flex:1;max-width:560px;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:0 16px;height:42px}
+.search:focus-within{border-color:rgba(255,181,71,.6)}
+.search input{flex:1;background:none;border:0;outline:0;color:var(--text);font:inherit;font-size:15px;min-width:0}
+.search input::placeholder{color:var(--dim)}
+.search kbd{font-family:var(--body);font-size:12px;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+.view{padding:8px 32px 0}
+
+/* ---------- hero ---------- */
+.hero{position:relative;border-radius:22px;overflow:hidden;min-height:340px;display:flex;align-items:flex-end;margin:16px 0 8px;background:var(--panel)}
+.hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:saturate(.9)}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(7,8,13,.95) 0%,rgba(7,8,13,.7) 45%,rgba(7,8,13,.15) 100%),linear-gradient(0deg,rgba(7,8,13,.85),transparent 55%)}
+.hero .copy{position:relative;z-index:1;padding:36px;max-width:620px}
+.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.hero h1{font-family:var(--display);font-weight:700;font-size:clamp(26px,3.4vw,42px);line-height:1.1;margin:10px 0 12px}
+.hero p{color:#C4C9D8;font-size:15px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.btn{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 20px;border-radius:999px;font-weight:600;font-size:15px;background:var(--panel-2);border:1px solid var(--line);transition:transform .12s,background .15s}
+.btn:hover{background:#252a3b}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);color:#16110A;border-color:transparent}
+.btn.primary:hover{background:#FFC46B}
+.btn.small{height:34px;padding:0 14px;font-size:14px}
+.btn[aria-pressed="true"] svg{fill:var(--accent-2);stroke:var(--accent-2)}
+
+.page-head{padding:22px 0 4px}
+.page-head h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,2.6vw,30px)}
+.page-head p{color:var(--muted);margin-top:6px;max-width:720px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 4px}
+.chip{padding:7px 14px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:14px;color:var(--muted);font-weight:500}
+.chip:hover{color:var(--text)}
+.chip[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+
+/* ---------- shelves & cards ---------- */
+.shelf{margin:26px 0 6px}
+.shelf-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.shelf-h h2{font-size:19px;font-weight:600}
+.shelf-h h2 small{font-weight:400;color:var(--dim);font-size:13px;margin-left:8px}
+.shelf-h a{font-size:14px;color:var(--muted)}
+.shelf-h a:hover{color:var(--accent)}
+.row{display:grid;grid-auto-flow:column;grid-auto-columns:var(--cw,220px);gap:16px;overflow-x:auto;scroll-snap-type:x proximity;padding-bottom:10px;scrollbar-width:thin;scrollbar-color:#2a2f40 transparent}
+.row.sq{--cw:170px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--cw,210px),1fr));gap:20px 16px}
+.grid.sq{--cw:165px}
+.card{scroll-snap-align:start;display:flex;flex-direction:column;gap:8px;min-width:0;text-align:left;cursor:pointer}
+.thumb{position:relative;aspect-ratio:16/10;border-radius:12px;overflow:hidden;background:var(--panel) center/cover no-repeat}
+.sq .thumb{aspect-ratio:1}
+.thumb img{width:100%;height:100%;object-fit:cover;transition:transform .35s}
+.card:hover .thumb img{transform:scale(1.05)}
+.thumb .ph{position:absolute;inset:0;display:grid;place-items:center;color:var(--dim);background:linear-gradient(135deg,#171b27,#10131c)}
+.thumb .ph svg{width:34px;height:34px}
+.thumb .play{position:absolute;right:10px;bottom:10px;width:40px;height:40px;border-radius:50%;background:var(--accent);display:grid;place-items:center;opacity:0;transform:translateY(6px);transition:.2s}
+.thumb .play svg{width:16px;height:16px;fill:#16110A;stroke:none;margin-left:2px}
+.card:hover .play,.card:focus-visible .play{opacity:1;transform:none}
+.thumb .bar{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.18)}
+.thumb .bar i{display:block;height:100%;background:var(--accent)}
+.thumb .badge{position:absolute;left:8px;top:8px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:rgba(7,8,13,.78);padding:3px 8px;border-radius:6px}
+.badge.live{color:#fff;background:#E5484D}
+.card .t{font-weight:500;font-size:15px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .s{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-4px}
+.skel .thumb{background:linear-gradient(90deg,var(--panel) 0%,var(--panel-2) 50%,var(--panel) 100%);background-size:200% 100%;animation:sh 1.3s infinite linear}
+.skel .t{height:14px;width:80%;background:var(--panel);border-radius:6px}
+@keyframes sh{to{background-position:-200% 0}}
+.note{color:var(--muted);font-size:14px;padding:18px;border:1px dashed var(--line);border-radius:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.more{display:flex;justify-content:center;margin:26px 0}
+
+/* ---------- detail ---------- */
+.detail{display:grid;grid-template-columns:minmax(220px,340px) 1fr;gap:32px;margin-top:22px}
+.detail .art{border-radius:16px;overflow:hidden;background:var(--panel);aspect-ratio:1;align-self:start}
+.detail .art img{width:100%;height:100%;object-fit:cover}
+.detail h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,2.8vw,34px);line-height:1.15}
+.meta{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:14px;margin:10px 0 0}
+.desc{color:#C4C9D8;margin-top:16px;max-width:760px;font-size:15px;overflow-wrap:anywhere}
+.desc.clamp{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
+.desc a{color:var(--accent)}
+.tracks{margin-top:28px;border-top:1px solid var(--line)}
+.tracks h2{font-size:17px;font-weight:600;margin:20px 0 10px}
+.trk{display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:12px;width:100%;padding:10px 10px;border-radius:10px;text-align:left}
+.trk:hover{background:var(--panel)}
+.trk .n{color:var(--dim);font-size:14px;text-align:center;font-variant-numeric:tabular-nums}
+.trk .nm{min-width:0}
+.trk .nm b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trk .nm span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trk .d{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.trk.on{background:var(--panel-2)}
+.trk.on .n,.trk.on b{color:var(--accent)}
+.trk .bar{grid-column:2/4;height:3px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.trk .bar i{display:block;height:100%;background:var(--accent)}
+
+/* ---------- audio player bar ---------- */
+.pbar{position:fixed;left:0;right:0;bottom:0;z-index:30;height:84px;background:#0B0D14;border-top:1px solid var(--line);display:none;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:16px;padding:0 20px}
+.pbar.on{display:grid}
+.pbar .now{display:flex;align-items:center;gap:12px;min-width:0}
+.pbar .now img,.pbar .now .ph{width:52px;height:52px;border-radius:8px;object-fit:cover;background:var(--panel);flex:none}
+.pbar .now div{min-width:0}
+.pbar .now b{display:block;font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbar .now span{display:block;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbar .mid{display:flex;flex-direction:column;align-items:center;gap:6px;width:min(520px,42vw)}
+.pbar .ctl{display:flex;align-items:center;gap:14px}
+.pbar .ctl button{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;color:var(--muted)}
+.pbar .ctl button:hover{color:var(--text)}
+.pbar .ctl .pp{width:42px;height:42px;background:var(--text);color:var(--bg)}
+.pbar .ctl .pp:hover{color:var(--bg);transform:scale(1.05)}
+.pbar .ctl .pp svg{fill:currentColor;stroke:none}
+.pbar .seek{display:flex;align-items:center;gap:10px;width:100%;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pbar .seek span{width:42px;text-align:center}
+.pbar .right{display:flex;justify-content:flex-end;align-items:center;gap:10px;color:var(--muted)}
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;flex:1;height:16px;cursor:pointer;--p:0%}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--accent) var(--p),#2A2F40 var(--p))}
+input[type=range]::-moz-range-track{height:4px;border-radius:2px;background:linear-gradient(90deg,var(--accent) var(--p),#2A2F40 var(--p))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;margin-top:-4px}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;border:0;border-radius:50%;background:#fff}
+input[type=range]:disabled{opacity:.4;cursor:default}
+.pbar .vol{width:110px;flex:none}
+
+/* ---------- video overlay ---------- */
+.vwrap{position:fixed;inset:0;z-index:50;background:#000;display:none;flex-direction:column}
+.vwrap.on{display:flex}
+.vwrap header{position:absolute;inset:0 0 auto;z-index:2;display:flex;align-items:center;gap:14px;padding:16px 20px;background:linear-gradient(180deg,rgba(0,0,0,.8),transparent);transition:opacity .3s}
+.vwrap.idle header{opacity:0;pointer-events:none}
+.vwrap header .ti{flex:1;min-width:0}
+.vwrap header b{display:block;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vwrap header span{display:block;font-size:13px;color:#aab}
+.vwrap video{flex:1;width:100%;height:100%;background:#000;outline:0}
+.ibtn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1)}
+.ibtn:hover{background:rgba(255,255,255,.2)}
+.ibtn:disabled{opacity:.3;cursor:default}
+
+/* ---------- misc ---------- */
+.drop{border:2px dashed #2A2F40;border-radius:18px;padding:40px 24px;text-align:center;color:var(--muted);transition:border-color .2s,background .2s}
+.drop.over{border-color:var(--accent);background:rgba(255,181,71,.05)}
+.drop h2{color:var(--text);font-size:18px;font-weight:600;margin-bottom:6px}
+.drop .actions{justify-content:center}
+.guide{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:16px}
+.guide article{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.guide h3{font-size:16px;font-weight:600;display:flex;justify-content:space-between;gap:10px}
+.guide h3 small{font-size:11px;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;font-weight:600;white-space:nowrap}
+.guide p{font-size:14px;color:var(--muted);margin-top:6px}
+.guide a{color:var(--accent);font-size:14px;display:inline-block;margin-top:8px}
+.toast{position:fixed;left:50%;bottom:calc(24px + var(--player-h));transform:translate(-50%,20px);background:var(--text);color:var(--bg);padding:10px 18px;border-radius:999px;font-weight:500;font-size:14px;opacity:0;transition:.25s;z-index:60;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.mob-nav{display:none}
+
+@media (max-width:900px){
+  :root{--side:0px}
+  .side{display:none}
+  .top{padding:12px 16px}
+  .view{padding:4px 16px 0}
+  main{padding-bottom:calc(84px + var(--player-h))}
+  .mob-nav{display:flex;position:fixed;left:0;right:0;bottom:var(--player-h);z-index:31;background:#0B0D14;border-top:1px solid var(--line);justify-content:space-around;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .mob-nav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);padding:4px 6px;border-radius:8px;min-width:54px}
+  .mob-nav a[aria-current="page"]{color:var(--accent)}
+  .toast{bottom:calc(90px + var(--player-h))}
+  .hero{min-height:300px}
+  .hero .copy{padding:22px}
+  .row{--cw:170px;gap:12px}
+  .row.sq{--cw:140px}
+  .grid{--cw:150px;gap:16px 12px}
+  .grid.sq{--cw:140px}
+  .detail{grid-template-columns:1fr;gap:20px}
+  .detail .art{max-width:280px}
+  .pbar{grid-template-columns:minmax(0,1fr) auto;height:72px;padding:0 12px}
+  .pbar .right,.pbar .seek{display:none}
+  .pbar .mid{width:auto}
+  .pbar .ctl{gap:6px}
+  .search kbd{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 12h18M3 16h4M17 8h4M17 16h4"/></symbol>
+  <symbol id="i-tv" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="m8 2 4 4 4-4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="i-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8a6 6 0 0 1 0 8.4M7.8 16.2a6 6 0 0 1 0-8.4M19.1 4.9a10 10 0 0 1 0 14.2M4.9 19.1a10 10 0 0 1 0-14.2"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="m16 10 6-4v12l-6-4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-9.2-9A5 5 0 0 1 12 6a5 5 0 0 1 9.2 5c-2.2 4.6-9.2 9-9.2 9z"/></symbol>
+  <symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M19 20 9 12l10-8zM5 19V5"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8zM19 5v14"/></symbol>
+  <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+</svg>
+
+<aside class="side" aria-label="Main">
+  <a class="brand" href="#/home"><b><svg viewBox="0 0 24 24"><use href="#i-play"/></svg></b>Marquee</a>
+  <nav class="nav" id="nav"></nav>
+  <div class="foot">Every stream here is public domain, Creative Commons, or published free by its owner. <a href="#/setup">How it works</a></div>
+</aside>
+
+<main id="main">
+  <div class="top" id="top">
+    <form class="search" id="searchForm" role="search">
+      <svg class="i"><use href="#i-search"/></svg>
+      <label class="sr" for="q">Search everything</label>
+      <input id="q" type="search" placeholder="Search movies, shows, concerts, stations, podcasts…" autocomplete="off">
+      <kbd>/</kbd>
+    </form>
+  </div>
+  <div class="view" id="view" tabindex="-1"></div>
+</main>
+
+<nav class="mob-nav" id="mobNav" aria-label="Main"></nav>
+
+<!-- audio player -->
+<div class="pbar" id="pbar" role="region" aria-label="Audio player">
+  <div class="now"><img id="pArt" alt=""><div><b id="pTitle"></b><span id="pSub"></span></div></div>
+  <div class="mid">
+    <div class="ctl">
+      <button id="pPrev" aria-label="Previous"><svg class="i"><use href="#i-prev"/></svg></button>
+      <button id="pPlay" class="pp" aria-label="Play"><svg class="i"><use href="#i-play"/></svg></button>
+      <button id="pNext" aria-label="Next"><svg class="i"><use href="#i-next"/></svg></button>
+    </div>
+    <div class="seek"><span id="pCur">0:00</span><input id="pSeek" type="range" min="0" max="1000" value="0" aria-label="Seek"><span id="pDur">0:00</span></div>
+  </div>
+  <div class="right">
+    <svg class="i"><use href="#i-vol"/></svg><input id="pVol" class="vol" type="range" min="0" max="100" value="80" aria-label="Volume">
+    <button class="ibtn" id="pClose" aria-label="Close player" style="background:none"><svg class="i"><use href="#i-x"/></svg></button>
+  </div>
+  <audio id="audio" preload="none"></audio>
+</div>
+
+<!-- video player -->
+<div class="vwrap" id="vwrap" role="dialog" aria-modal="true" aria-label="Video player">
+  <header>
+    <button class="ibtn" id="vClose" aria-label="Close video"><svg class="i"><use href="#i-back"/></svg></button>
+    <div class="ti"><b id="vTitle"></b><span id="vSub"></span></div>
+    <button class="ibtn" id="vPrev" aria-label="Previous episode"><svg class="i"><use href="#i-prev"/></svg></button>
+    <button class="ibtn" id="vNext" aria-label="Next episode"><svg class="i"><use href="#i-next"/></svg></button>
+  </header>
+  <video id="video" controls playsinline preload="metadata"></video>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   Config: every source is free, legal, and CORS-enabled for browsers.
+   ===================================================================== */
+const IA = 'https://archive.org';
+const ITUNES = 'https://itunes.apple.com';
+const RADIO_HOSTS = ['https://de1.api.radio-browser.info','https://fi1.api.radio-browser.info','https://de2.api.radio-browser.info'];
+
+// Internet Archive collections that are public domain / openly licensed.
+const COLL = {
+  movies:  { q:'collection:feature_films AND mediatype:movies', label:'Feature films' },
+  noir:    { q:'collection:film_noir AND mediatype:movies', label:'Film noir' },
+  scifi:   { q:'collection:SciFi_Horror AND mediatype:movies', label:'Sci-fi & horror' },
+  silent:  { q:'collection:silent_films AND mediatype:movies', label:'Silent era' },
+  tv:      { q:'collection:classic_tv AND mediatype:movies', label:'Classic TV' },
+  cartoons:{ q:'collection:classic_cartoons AND mediatype:movies', label:'Classic cartoons' },
+  docs:    { q:'mediatype:movies AND subject:documentary AND (collection:feature_films OR collection:prelinger OR collection:opensource_movies OR collection:documentaries)', label:'Documentaries' },
+  prelinger:{ q:'collection:prelinger AND mediatype:movies', label:'Prelinger Archives' },
+  nasa:    { q:'collection:nasa AND mediatype:movies', label:'NASA' },
+  chron:   { q:'collection:computerchronicles AND mediatype:movies', label:'The Computer Chronicles' },
+  shorts:  { q:'collection:opensource_movies AND mediatype:movies AND licenseurl:*creativecommons*', label:'Creative Commons shorts' },
+  concerts:{ q:'collection:etree AND mediatype:etree', label:'Live concerts (Live Music Archive)' },
+  netlabels:{ q:'collection:netlabels AND mediatype:audio', label:'Netlabel releases (CC)' },
+  oldradio:{ q:'collection:oldtimeradio AND mediatype:audio', label:'Old-time radio' },
+};
+const SEARCH_SCOPE = Object.values(COLL).map(c => '(' + c.q + ')').join(' OR ');
+
+const PAGES = [
+  { id:'home', label:'Home', icon:'home' },
+  { sep:'Watch' },
+  { id:'movies', label:'Movies', icon:'film', kind:'video', title:'Movies', blurb:'Public-domain features from the Internet Archive — noir, sci-fi, comedies, westerns and silent classics.', shelves:['movies','noir','scifi','silent'] },
+  { id:'tv', label:'TV Shows', icon:'tv', kind:'video', title:'TV Shows', blurb:'Classic television episodes and cartoons whose copyrights have lapsed.', shelves:['tv','cartoons','chron'] },
+  { id:'docs', label:'Documentaries', icon:'doc', kind:'video', title:'Documentaries', blurb:'Factual films, newsreels and science footage.', shelves:['docs','nasa','prelinger'] },
+  { id:'videos', label:'Videos', icon:'video', kind:'video', title:'Videos', blurb:'Short films and clips released under Creative Commons.', shelves:['shorts','prelinger','nasa'] },
+  { sep:'Listen' },
+  { id:'music', label:'Music', icon:'music', kind:'audio', title:'Music', blurb:'Thousands of live concerts from taper-friendly bands, plus Creative Commons netlabel albums.', shelves:['concerts','netlabels','oldradio'] },
+  { id:'radio', label:'Radio', icon:'radio', title:'Live Radio', blurb:'Over 40,000 internet radio stations, via the community-run Radio Browser directory.' },
+  { id:'podcasts', label:'Podcasts', icon:'mic', title:'Podcasts', blurb:'Any public podcast, streamed straight from the publisher’s own feed.' },
+  { sep:'Yours' },
+  { id:'library', label:'My Files', icon:'folder', title:'My Files', blurb:'Play videos and music from this computer. Files never leave your device.' },
+  { id:'saved', label:'Saved', icon:'heart', title:'Saved', blurb:'Your watchlist and favourite stations, kept in this browser.' },
+  { id:'setup', label:'Go further', icon:'tools', title:'Go further', blurb:'Open-source tools to grow this into a full home media setup.' },
+];
+const MOB = ['home','movies','music','podcasts','library'];
+
+/* =====================================================================
+   Tiny helpers
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const view = $('#view');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const first = v => Array.isArray(v) ? v[0] : v;
+const strip = html => { const d = document.createElement('div'); d.innerHTML = String(html ?? '').replace(/<(script|style)[\s\S]*?<\/\1>/gi,''); return (d.textContent || '').replace(/\s+/g,' ').trim(); };
+const icon = (n, cls='i') => `<svg class="${cls}"><use href="#i-${n}"/></svg>`;
+const fmt = s => { if (!isFinite(s) || s <= 0) return '0:00'; s = Math.floor(s); const h = Math.floor(s/3600), m = Math.floor(s%3600/60), x = String(s%60).padStart(2,'0'); return h ? `${h}:${String(m).padStart(2,'0')}:${x}` : `${m}:${x}`; };
+const parseLen = v => { if (v == null) return 0; v = String(v); if (v.includes(':')) return v.split(':').reduce((a,b) => a*60 + (+b||0), 0); return +v || 0; };
+const https = u => String(u || '').replace(/^http:\/\//i, 'https://');
+const iaThumb = id => `${IA}/services/img/${encodeURIComponent(id)}`;
+const iaFile = (id, name) => `${IA}/download/${encodeURIComponent(id)}/${name.split('/').map(encodeURIComponent).join('/')}`;
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('marquee:' + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('marquee:' + k, JSON.stringify(v)); } catch {} },
+};
+
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400); }
+
+const cache = new Map();
+async function getJSON(url, { timeout = 15000 } = {}) {
+  if (cache.has(url)) return cache.get(url);
+  const p = (async () => {
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), timeout);
+    try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
+    finally { clearTimeout(tm); }
+  })();
+  cache.set(url, p);
+  p.catch(() => cache.delete(url));
+  return p;
+}
+
+/* =====================================================================
+   Data sources
+   ===================================================================== */
+const Archive = {
+  async search(q, { rows = 24, page = 1, sort = 'downloads desc' } = {}) {
+    const fl = ['identifier','title','year','creator','mediatype','downloads','description'];
+    const u = `${IA}/advancedsearch.php?q=${encodeURIComponent(q)}&${fl.map(f => 'fl[]=' + f).join('&')}&sort[]=${encodeURIComponent(sort)}&rows=${rows}&page=${page}&output=json`;
+    const j = await getJSON(u);
+    return { total: j.response?.numFound || 0, items: (j.response?.docs || []).map(Archive.card) };
+  },
+  card(d) {
+    const audio = d.mediatype === 'audio' || d.mediatype === 'etree';
+    return { src:'ia', id:d.identifier, title:first(d.title) || d.identifier, sub:[first(d.creator), d.year].filter(Boolean).join(' · '), thumb:iaThumb(d.identifier), kind: audio ? 'audio' : 'video' };
+  },
+  async item(id) {
+    const j = await getJSON(`${IA}/metadata/${encodeURIComponent(id)}`);
+    if (!j || !j.metadata) throw new Error('Not found');
+    const m = j.metadata, files = j.files || [];
+    const isAudio = m.mediatype === 'audio' || m.mediatype === 'etree';
+    const pick = isAudio
+      ? [['VBR MP3'],['MP3','128Kbps MP3','64Kbps MP3'],['Ogg Vorbis']]
+      : [['h.264 IA','h.264'],['MPEG4','h.264 HD'],['512Kb MPEG4'],['Ogg Video']];
+    const ext = isAudio ? /\.(mp3|ogg)$/i : /\.(mp4|m4v|ogv|webm)$/i;
+    const byBase = new Map();
+    for (const f of files) {
+      if (!ext.test(f.name) || /(^|\/)__ia_thumb|sample/i.test(f.name)) continue;
+      const rank = pick.findIndex(g => g.includes(f.format));
+      const r = rank < 0 ? pick.length : rank;
+      const base = f.name.replace(/\.[^.\/]+$/, '').replace(/([._](ia|512kb|64kb|vbr))+$/i, '');
+      const cur = byBase.get(base);
+      if (!cur || r < cur.r) byBase.set(base, { f, r, base });
+    }
+    let parts = [...byBase.values()].map(({ f, base }) => ({
+      name: f.name, url: iaFile(id, f.name), title: f.title || base.split('/').pop().replace(/_+/g,' '),
+      track: parseInt(f.track, 10) || 0, len: parseLen(f.length), sub: f.creator || f.artist || '',
+    }));
+    parts.sort((a,b) => (a.track && b.track) ? a.track - b.track : a.name.localeCompare(b.name, undefined, { numeric:true }));
+    if (parts.length === 1 && !isAudio) parts[0].title = first(m.title) || id;
+    return {
+      src:'ia', id, kind: isAudio ? 'audio' : 'video', title: first(m.title) || id,
+      sub: [first(m.creator), m.year || first(m.date)?.slice(0,4)].filter(Boolean).join(' · '),
+      desc: strip(first(m.description)), thumb: iaThumb(id), parts,
+      license: m.licenseurl, link: `${IA}/details/${encodeURIComponent(id)}`,
+      runtime: parseLen(m.runtime),
+    };
+  },
+};
+
+const Podcasts = {
+  async search(term, limit = 24) {
+    const j = await getJSON(`${ITUNES}/search?media=podcast&entity=podcast&limit=${limit}&term=${encodeURIComponent(term)}`);
+    return (j.results || []).map(Podcasts.card);
+  },
+  card(r) { return { src:'pod', id:String(r.collectionId), title:r.collectionName, sub:r.artistName, thumb:https(r.artworkUrl600 || r.artworkUrl100), kind:'audio' }; },
+  async item(id) {
+    const j = await getJSON(`${ITUNES}/lookup?id=${encodeURIComponent(id)}&media=podcast&entity=podcastEpisode&limit=60`);
+    const res = j.results || [];
+    const show = res.find(r => r.wrapperType === 'track' && r.kind === 'podcast') || res[0];
+    if (!show) throw new Error('Not found');
+    const eps = res.filter(r => r.wrapperType === 'podcastEpisode' && r.episodeUrl)
+      .sort((a,b) => new Date(b.releaseDate) - new Date(a.releaseDate));
+    return {
+      src:'pod', id, kind:'audio', title: show.collectionName, sub: show.artistName,
+      desc: [show.primaryGenreName, show.trackCount ? `${show.trackCount} episodes` : ''].filter(Boolean).join(' · '),
+      thumb: https(show.artworkUrl600 || show.artworkUrl100), link: show.collectionViewUrl,
+      parts: eps.map(e => ({
+        url: https(e.episodeUrl), title: e.trackName, len: (e.trackTimeMillis || 0) / 1000,
+        sub: new Date(e.releaseDate).toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }),
+        desc: strip(e.shortDescription || e.description).slice(0, 220),
+      })),
+      newestFirst: true,
+    };
+  },
+};
+
+const Radio = {
+  host: 0,
+  async call(path) {
+    let err;
+    for (let i = 0; i < RADIO_HOSTS.length; i++) {
+      const h = RADIO_HOSTS[(this.host + i) % RADIO_HOSTS.length];
+      try { const j = await getJSON(h + path, { timeout: 9000 }); this.host = (this.host + i) % RADIO_HOSTS.length; return j; }
+      catch (e) { err = e; }
+    }
+    throw err;
+  },
+  async search(params) {
+    const qs = new URLSearchParams({ hidebroken:'true', order:'clickcount', reverse:'true', limit:'60', ...params });
+    const j = await this.call('/json/stations/search?' + qs);
+    const seen = new Set();
+    return j.filter(s => s.url_resolved && !seen.has(s.name.trim().toLowerCase()) && seen.add(s.name.trim().toLowerCase()))
+      .slice(0, 40).map(Radio.card);
+  },
+  card(s) {
+    return { src:'radio', id:s.stationuuid, title:s.name.trim(), sub:[s.country, (s.tags||'').split(',').slice(0,2).join(', ')].filter(Boolean).join(' · '),
+      thumb: s.favicon ? https(s.favicon) : '', kind:'audio', live:true, url: https(s.url_resolved), hls: !!s.hls };
+  },
+  click(uuid) { fetch(`${RADIO_HOSTS[this.host]}/json/url/${encodeURIComponent(uuid)}`).catch(() => {}); },
+};
+
+/* =====================================================================
+   Persistence: progress, saved, local files
+   ===================================================================== */
+const Progress = {
+  all: store.get('progress', {}),
+  key: (src, id, i) => `${src}:${id}:${i}`,
+  get(src, id, i) { return this.all[this.key(src, id, i)]; },
+  put(src, id, i, t, d, meta) {
+    if (!isFinite(d) || d < 60) return;
+    const done = t > d - 30;
+    this.all[this.key(src, id, i)] = { t: done ? 0 : t, d, done, at: Date.now(), ...meta };
+    clearTimeout(this._s); this._s = setTimeout(() => store.set('progress', this.all), 600);
+  },
+  recent() {
+    const best = new Map();
+    for (const [k, v] of Object.entries(this.all)) {
+      if (v.done || v.t < 20 || v.src === 'local') continue;
+      const item = k.split(':').slice(0, 2).join(':');
+      if (!best.has(item) || best.get(item).at < v.at) best.set(item, { ...v, part: +k.split(':').pop() });
+    }
+    return [...best.values()].sort((a,b) => b.at - a.at).slice(0, 16);
+  },
+};
+
+const Saved = {
+  list: store.get('saved', []),
+  has(c) { return this.list.some(x => x.src === c.src && x.id === c.id); },
+  toggle(c) {
+    if (this.has(c)) this.list = this.list.filter(x => !(x.src === c.src && x.id === c.id));
+    else this.list.unshift({ src:c.src, id:c.id, title:c.title, sub:c.sub, thumb:c.thumb, kind:c.kind, live:c.live, url:c.url, hls:c.hls });
+    store.set('saved', this.list);
+    return this.has(c);
+  },
+};
+
+const Local = { files: [] }; // session only; object URLs are created on play
+
+/* =====================================================================
+   Rendering
+   ===================================================================== */
+const PH = { video:'film', audio:'music', radio:'radio' };
+function cardHTML(c, i) {
+  const ph = `<div class="ph">${icon(c.src === 'radio' ? 'radio' : c.src === 'local' ? 'folder' : PH[c.kind] || 'film')}</div>`;
+  const img = c.thumb ? `<img loading="lazy" decoding="async" src="${esc(c.thumb)}" alt="" onerror="this.remove()">` : '';
+  const bar = c.pct ? `<div class="bar"><i style="width:${Math.min(100, c.pct*100).toFixed(1)}%"></i></div>` : '';
+  const badge = c.live ? '<span class="badge live">Live</span>' : c.badge ? `<span class="badge">${esc(c.badge)}</span>` : '';
+  return `<button class="card" data-i="${i}" aria-label="${esc(c.title)}">
+    <div class="thumb">${ph}${img}${badge}${bar}<span class="play">${icon('play')}</span></div>
+    <span class="t">${esc(c.title)}</span>${c.sub ? `<span class="s">${esc(c.sub)}</span>` : ''}</button>`;
+}
+function skeleton(n = 6) { return Array.from({ length: n }, () => '<div class="card skel"><div class="thumb"></div><div class="t"></div></div>').join(''); }
+function errorNote(msg, retry) {
+  const d = document.createElement('div'); d.className = 'note';
+  d.innerHTML = `<span>${esc(msg)}</span>`;
+  if (retry) { const b = document.createElement('button'); b.className = 'btn small'; b.textContent = 'Try again'; b.onclick = retry; d.append(b); }
+  return d;
+}
+
+/** A labelled horizontal row (or grid) filled by an async loader. */
+function shelf(parent, { title, note, more, square, grid, load }) {
+  const sec = document.createElement('section'); sec.className = 'shelf';
+  sec.innerHTML = `<div class="shelf-h"><h2>${esc(title)}${note ? `<small>${esc(note)}</small>` : ''}</h2>${more ? `<a href="${more}">See all</a>` : ''}</div>
+    <div class="${grid ? 'grid' : 'row'}${square ? ' sq' : ''}">${skeleton(grid ? 12 : 7)}</div>`;
+  parent.append(sec);
+  const box = sec.lastElementChild; let cards = [];
+  box.onclick = e => { const b = e.target.closest('.card'); if (b) openCard(cards[+b.dataset.i]); };
+  const run = async () => {
+    box.innerHTML = skeleton(grid ? 12 : 7);
+    try {
+      cards = await load();
+      if (!cards.length) { box.replaceWith(errorNote('Nothing here yet.')); return; }
+      box.innerHTML = cards.map(cardHTML).join('');
+    } catch (e) {
+      const n = errorNote('Couldn’t reach this source right now. Check your connection, or the service may be busy.', () => { n.replaceWith(box); run(); });
+      box.replaceWith(n);
+    }
+  };
+  run();
+  return { sec, box, append(more) { const s = cards.length; cards = cards.concat(more); box.insertAdjacentHTML('beforeend', more.map((c, j) => cardHTML(c, s + j)).join('')); } };
+}
+
+function head(page, extra = '') {
+  view.innerHTML = `<div class="page-head"><h1>${esc(page.title)}</h1>${page.blurb ? `<p>${esc(page.blurb)}</p>` : ''}${extra}</div>`;
+}
+
+/* ---------- pages ---------- */
+const Views = {
+  async home() {
+    view.innerHTML = '';
+    const hero = document.createElement('section'); hero.className = 'hero';
+    hero.innerHTML = `<div class="copy"><div class="eyebrow">Free &amp; legal, always</div><h1>Your laptop is now a home theater.</h1><p>Classic films, TV, documentaries, live concerts, 40,000 radio stations, every public podcast, and your own files — one place, no accounts, no ads.</p><div class="actions"><a class="btn primary" href="#/movies">${icon('play')}Browse movies</a><a class="btn" href="#/library">${icon('folder')}Open my files</a></div></div>`;
+    view.append(hero);
+    // feature a random popular film in the hero
+    Archive.search(COLL.movies.q, { rows: 30 }).then(({ items }) => {
+      if (!items.length || !hero.isConnected) return;
+      const f = items[Math.floor(Math.random() * items.length)];
+      Archive.item(f.id).then(it => {
+        if (!hero.isConnected || !it.parts.length) return;
+        hero.insertAdjacentHTML('afterbegin', `<img src="${esc(f.thumb)}" alt="">`);
+        hero.querySelector('.copy').innerHTML = `<div class="eyebrow">Featured film</div><h1>${esc(it.title)}</h1><p>${esc(it.desc || it.sub)}</p>
+          <div class="actions"><button class="btn primary" data-a="play">${icon('play')}Play</button><a class="btn" href="#/item/ia/${encodeURIComponent(it.id)}">More info</a></div>`;
+        hero.querySelector('[data-a=play]').onclick = () => playItem(it, 0);
+      }).catch(() => {});
+    }).catch(() => {});
+
+    const recent = Progress.recent();
+    if (recent.length) shelf(view, { title:'Continue', load: async () => recent.map(r => ({ src:r.src, id:r.id, title:r.title, sub:r.partTitle && r.partTitle !== r.title ? r.partTitle : r.sub, thumb:r.thumb, kind:r.kind, pct:r.t / r.d, resume:r.part })) });
+    shelf(view, { title:'Popular films', more:'#/browse/movies', load: async () => (await Archive.search(COLL.movies.q, { rows: 20 })).items });
+    shelf(view, { title:'Classic TV', more:'#/browse/tv', load: async () => (await Archive.search(COLL.tv.q, { rows: 20 })).items });
+    shelf(view, { title:'Trending podcasts', note:'science', square:true, more:'#/podcasts', load: () => Podcasts.search('science', 20) });
+    shelf(view, { title:'Documentaries', more:'#/browse/docs', load: async () => (await Archive.search(COLL.docs.q, { rows: 20 })).items });
+    shelf(view, { title:'Top radio stations', square:true, more:'#/radio', load: () => Radio.search({ limit:'40' }) });
+    shelf(view, { title:'Live concerts', square:true, more:'#/browse/concerts', load: async () => (await Archive.search(COLL.concerts.q, { rows: 20 })).items });
+  },
+
+  section(page) {
+    head(page);
+    for (const key of page.shelves) {
+      const c = COLL[key];
+      shelf(view, { title: c.label, square: page.kind === 'audio', more: '#/browse/' + key, load: async () => (await Archive.search(c.q, { rows: 20 })).items });
+    }
+    if (page.id === 'movies') {
+      shelf(view, { title:'Recently added', load: async () => (await Archive.search(COLL.movies.q, { rows: 20, sort:'addeddate desc' })).items });
+    }
+  },
+
+  browse(key) {
+    const c = COLL[key]; if (!c) return Views.notFound();
+    const audio = /etree|audio/.test(c.q);
+    const sorts = [['downloads desc','Most popular'],['addeddate desc','Newest'],['titleSorter asc','A–Z'],['year asc','Oldest']];
+    let sort = sorts[0][0], page = 1;
+    head({ title: c.label, blurb: 'From the Internet Archive.' }, `<div class="chips" id="sorts">${sorts.map(([v,l],i) => `<button class="chip" aria-pressed="${!i}" data-v="${v}">${l}</button>`).join('')}</div>`);
+    const holder = document.createElement('div'); view.append(holder);
+    const render = () => {
+      holder.innerHTML = ''; page = 1;
+      let total = 0;
+      const s = shelf(holder, { title:' ', grid:true, square:audio, load: async () => { const r = await Archive.search(c.q, { rows: 36, sort }); total = r.total; return r.items; } });
+      s.sec.querySelector('.shelf-h').remove();
+      const mb = document.createElement('div'); mb.className = 'more';
+      mb.innerHTML = '<button class="btn">Load more</button>'; holder.append(mb);
+      mb.firstChild.onclick = async e => {
+        e.target.disabled = true; e.target.textContent = 'Loading…';
+        try { const r = await Archive.search(c.q, { rows: 36, sort, page: ++page }); s.append(r.items); if (page * 36 >= r.total) mb.remove(); }
+        catch { toast('Couldn’t load more'); page--; }
+        e.target.disabled = false; e.target.textContent = 'Load more';
+      };
+    };
+    view.querySelector('#sorts').onclick = e => {
+      const b = e.target.closest('.chip'); if (!b) return;
+      view.querySelectorAll('#sorts .chip').forEach(x => x.setAttribute('aria-pressed', x === b));
+      sort = b.dataset.v; render();
+    };
+    render();
+  },
+
+  radio(page) {
+    const genres = ['Top','Jazz','Classical','Lofi','News','Rock','Electronic','Hip hop','Ambient','Talk','Indie','Country'];
+    const saved = store.get('radioTag', 'Top');
+    head(page, `<div class="chips" id="tags">${genres.map(g => `<button class="chip" aria-pressed="${g === saved}">${g}</button>`).join('')}<button class="chip" aria-pressed="${saved === 'Near me'}">Near me</button></div>`);
+    const holder = document.createElement('div'); view.append(holder);
+    const load = tag => {
+      store.set('radioTag', tag); holder.innerHTML = '';
+      let params = {};
+      if (tag === 'Near me') {
+        const cc = (navigator.language.split('-')[1] || 'US').toUpperCase();
+        params = { countrycode: cc };
+      } else if (tag !== 'Top') params = { tag: tag.toLowerCase() };
+      const s = shelf(holder, { title:' ', grid:true, square:true, load: () => Radio.search(params) });
+      s.sec.querySelector('.shelf-h').remove();
+    };
+    view.querySelector('#tags').onclick = e => {
+      const b = e.target.closest('.chip'); if (!b) return;
+      view.querySelectorAll('#tags .chip').forEach(x => x.setAttribute('aria-pressed', x === b));
+      load(b.textContent);
+    };
+    load(saved);
+  },
+
+  podcasts(page) {
+    const topics = ['Science','History','Technology','Comedy','True crime','Business','Health','Philosophy','Space','Design'];
+    head(page, `<div class="chips" id="topics">${topics.map((g,i) => `<button class="chip" aria-pressed="${!i}">${g}</button>`).join('')}</div>`);
+    const holder = document.createElement('div'); view.append(holder);
+    const load = t => { holder.innerHTML = ''; const s = shelf(holder, { title:' ', grid:true, square:true, load: () => Podcasts.search(t, 36) }); s.sec.querySelector('.shelf-h').remove(); };
+    view.querySelector('#topics').onclick = e => {
+      const b = e.target.closest('.chip'); if (!b) return;
+      view.querySelectorAll('#topics .chip').forEach(x => x.setAttribute('aria-pressed', x === b));
+      load(b.textContent);
+    };
+    load(topics[0]);
+  },
+
+  library(page) {
+    head(page);
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div class="drop" id="drop"><h2>Drop videos or music here</h2><p>MP4, WebM, MKV (H.264), MP3, M4A, FLAC, OGG, WAV — anything your browser can decode.</p>
+      <div class="actions"><label class="btn primary">${icon('folder')}Choose a folder<input type="file" id="fdir" webkitdirectory multiple hidden></label>
+      <label class="btn">Choose files<input type="file" id="ffiles" multiple accept="video/*,audio/*,.mkv,.flac" hidden></label></div></div><div id="libList"></div>`;
+    view.append(wrap);
+    const drop = wrap.querySelector('#drop');
+    const add = list => {
+      const ok = [...list].filter(f => /^(video|audio)\//.test(f.type) || /\.(mkv|flac|m4a|mp3|mp4|webm|ogg|ogv|wav|mov|m4v|opus|aac)$/i.test(f.name));
+      const known = new Set(Local.files.map(x => x.file.name + x.file.size));
+      for (const f of ok) if (!known.has(f.name + f.size)) Local.files.push({ file: f, path: f.webkitRelativePath || f.name });
+      Local.files.sort((a,b) => a.path.localeCompare(b.path, undefined, { numeric:true }));
+      if (!ok.length) toast('No playable media found there'); else toast(`Added ${ok.length} file${ok.length > 1 ? 's' : ''}`);
+      renderList();
+    };
+    wrap.querySelector('#fdir').onchange = e => add(e.target.files);
+    wrap.querySelector('#ffiles').onchange = e => add(e.target.files);
+    drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+    drop.ondragleave = () => drop.classList.remove('over');
+    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); add(e.dataTransfer.files); };
+    const renderList = () => {
+      const box = wrap.querySelector('#libList'); box.innerHTML = '';
+      if (!Local.files.length) return;
+      const groups = { video: [], audio: [] };
+      Local.files.forEach((f, i) => (isVideoFile(f.file) ? groups.video : groups.audio).push(i));
+      for (const [kind, idx] of Object.entries(groups)) {
+        if (!idx.length) continue;
+        const item = localItem(kind, idx);
+        const sec = document.createElement('section'); sec.className = 'tracks';
+        sec.innerHTML = `<h2>${kind === 'video' ? 'Videos' : 'Music'} <small style="color:var(--dim);font-weight:400">${idx.length}</small></h2>`;
+        sec.append(trackList(item));
+        box.append(sec);
+      }
+      box.insertAdjacentHTML('beforeend', '<p class="note" style="margin-top:20px">Files stay on your computer and are only kept for this session. Some formats (e.g. MKV with HEVC/AC3 audio) need VLC — see <a href="#/setup" style="color:var(--accent)">Go further</a>.</p>');
+    };
+    renderList();
+  },
+
+  saved(page) {
+    head(page);
+    if (!Saved.list.length) { view.append(errorNote('Nothing saved yet. Hit “Save” on any film, show, podcast or station.')); return; }
+    const groups = [['Watchlist', c => c.kind === 'video'], ['Podcasts & albums', c => c.kind === 'audio' && !c.live], ['Stations', c => c.live]];
+    for (const [t, f] of groups) {
+      const list = Saved.list.filter(f); if (!list.length) continue;
+      shelf(view, { title:t, grid:true, square: t !== 'Watchlist', load: async () => list });
+    }
+  },
+
+  setup(page) {
+    head(page);
+    const tools = [
+      ['VLC', 'Player', 'Plays virtually every codec (MKV, HEVC, DTS…) and can stream network shares. Install it as the fallback for anything the browser can’t decode.', 'https://www.videolan.org/vlc/'],
+      ['Jellyfin', 'Server', 'Free, open-source media server. Point it at your movie/music folders and it fetches artwork, tracks progress, transcodes and streams to every device — including your phone and TV.', 'https://jellyfin.org/'],
+      ['Kodi', 'Couch UI', 'Ten-foot interface for running the laptop on a TV with a remote or game controller. Pair it with Jellyfin via the Jellyfin for Kodi add-on.', 'https://kodi.tv/'],
+      ['Navidrome', 'Music', 'Lightweight self-hosted music streamer with Subsonic-compatible apps for phones.', 'https://www.navidrome.org/'],
+      ['AntennaPod', 'Podcasts', 'Open-source podcast app for Android; uses the same public RSS feeds this site does, with downloads for offline listening.', 'https://antennapod.org/'],
+      ['Shortwave / Radio Browser', 'Radio', 'The station directory behind the Radio tab. Shortwave is a native Linux client for it.', 'https://www.radio-browser.info/'],
+      ['Kanopy & Hoopla', 'Library', 'Free with most public-library cards: thousands of modern films, Criterion titles, documentaries and audiobooks.', 'https://www.kanopy.com/'],
+      ['Tubi, Pluto TV, Plex free', 'Ad-supported', 'Legal free-with-ads streaming for newer movies and live channels that can’t be in a public-domain catalogue.', 'https://tubitv.com/'],
+      ['HandBrake', 'Convert', 'Re-encode old rips to H.264/AAC MP4 so they play in the browser and on every device.', 'https://handbrake.fr/'],
+    ];
+    const g = document.createElement('div'); g.className = 'guide';
+    g.innerHTML = tools.map(([n, k, d, u]) => `<article><h3>${n}<small>${k}</small></h3><p>${d}</p><a href="${u}" target="_blank" rel="noopener">${new URL(u).hostname.replace('www.','')} ↗</a></article>`).join('');
+    view.append(g);
+    const how = document.createElement('section'); how.className = 'tracks';
+    how.innerHTML = `<h2>Where everything here comes from</h2><div class="desc">
+      <p><b>Movies, TV, documentaries, videos, concerts</b> — the <a href="https://archive.org" target="_blank" rel="noopener">Internet Archive</a>’s public-domain and Creative Commons collections, streamed directly from archive.org. Concerts are from the Live Music Archive, where bands explicitly allow free distribution.</p><br>
+      <p><b>Radio</b> — the community <a href="https://www.radio-browser.info" target="_blank" rel="noopener">Radio Browser</a> directory; audio streams straight from each broadcaster.</p><br>
+      <p><b>Podcasts</b> — discovered through the public Apple Podcasts search API; episodes play from the publisher’s own servers, exactly like any podcast app.</p><br>
+      <p><b>My Files</b> — read locally with the browser’s File API. Nothing is uploaded.</p><br>
+      <p>No account, tracking or backend: watch progress and saved items live in this browser’s local storage. Install it as an app from your browser’s menu (“Install” / “Add to dock”) for a full-window experience.</p></div>`;
+    view.append(how);
+  },
+
+  async item(src, id) {
+    const seq = routeSeq;
+    view.innerHTML = `<div class="detail"><div class="art skel"><div class="thumb" style="aspect-ratio:1"></div></div><div><div class="note">Loading…</div></div></div>`;
+    let it;
+    try {
+      if (src === 'ia') it = await Archive.item(id);
+      else if (src === 'pod') it = await Podcasts.item(id);
+      else return Views.notFound();
+    } catch (e) {
+      view.innerHTML = ''; view.append(errorNote('Couldn’t load this title.', () => Views.item(src, id))); return;
+    }
+    if (seq !== routeSeq) return; // user navigated away while loading
+    const card = { src, id, title: it.title, sub: it.sub, thumb: it.thumb, kind: it.kind };
+    const resumeAt = it.parts.findIndex((_, i) => { const p = Progress.get(src, id, i); return p && !p.done && p.t > 20; });
+    const startI = resumeAt >= 0 ? resumeAt : 0;
+    const playLbl = resumeAt >= 0 ? (it.parts.length > 1 ? `Resume part ${resumeAt + 1}` : 'Resume') : (it.newestFirst ? 'Play latest' : 'Play');
+    const lic = it.license ? `<a href="${esc(it.license)}" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:underline">License</a>` : '';
+    view.innerHTML = `<div class="detail">
+      <div class="art"><img src="${esc(it.thumb)}" alt="" onerror="this.remove()"></div>
+      <div>
+        <div class="eyebrow">${src === 'pod' ? 'Podcast' : it.kind === 'audio' ? 'Audio' : 'Video'}</div>
+        <h1 style="margin-top:8px">${esc(it.title)}</h1>
+        <div class="meta">${it.sub ? `<span>${esc(it.sub)}</span>` : ''}${it.runtime ? `<span>${fmt(it.runtime)}</span>` : ''}${it.parts.length > 1 ? `<span>${it.parts.length} ${it.kind === 'video' ? 'parts' : src === 'pod' ? 'episodes' : 'tracks'}</span>` : ''}${lic}
+          <a href="${esc(it.link)}" target="_blank" rel="noopener" style="color:var(--muted);display:inline-flex;gap:4px;align-items:center">Source ${icon('ext').replace('class="i"','class="i" style="width:14px;height:14px"')}</a></div>
+        <div class="actions">${it.parts.length ? `<button class="btn primary" id="playBtn">${icon('play')}${playLbl}</button>` : ''}
+          <button class="btn" id="saveBtn" aria-pressed="${Saved.has(card)}">${icon('heart')}<span>${Saved.has(card) ? 'Saved' : 'Save'}</span></button></div>
+        ${it.desc ? `<p class="desc clamp" id="desc">${esc(it.desc)}</p>` : ''}
+      </div></div>`;
+    if (!it.parts.length) view.append(errorNote('No streamable files were found for this title.'));
+    const d = view.querySelector('#desc');
+    if (d && d.scrollHeight > d.clientHeight + 4) { const b = document.createElement('button'); b.className = 'chip'; b.style.marginTop = '10px'; b.textContent = 'More'; b.onclick = () => { d.classList.toggle('clamp'); b.textContent = d.classList.contains('clamp') ? 'More' : 'Less'; }; d.after(b); }
+    view.querySelector('#playBtn')?.addEventListener('click', () => playItem(it, startI));
+    view.querySelector('#saveBtn').onclick = e => { const on = Saved.toggle(card); e.currentTarget.setAttribute('aria-pressed', on); e.currentTarget.querySelector('span').textContent = on ? 'Saved' : 'Save'; toast(on ? 'Saved' : 'Removed from Saved'); };
+    if (it.parts.length > 1 || src === 'pod') {
+      const sec = document.createElement('section'); sec.className = 'tracks';
+      sec.innerHTML = `<h2>${it.kind === 'video' ? 'Parts' : src === 'pod' ? 'Episodes' : 'Tracks'}</h2>`;
+      sec.append(trackList(it)); view.append(sec);
+    }
+  },
+
+  async search(q) {
+    view.innerHTML = `<div class="page-head"><h1>Results for “${esc(q)}”</h1></div>`;
+    const safe = q.replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
+    if (!safe) return;
+    const terms = safe.split(/\s+/).map(w => `${w}*`).join(' AND ');
+    shelf(view, { title:'Films & video', load: async () => (await Archive.search(`(title:(${terms}) OR subject:(${safe})) AND mediatype:movies AND (${SEARCH_SCOPE})`, { rows: 24 })).items });
+    shelf(view, { title:'Podcasts', square:true, load: () => Podcasts.search(safe, 20) });
+    shelf(view, { title:'Radio stations', square:true, load: () => Radio.search({ name: safe, limit:'40' }) });
+    shelf(view, { title:'Music & audio', square:true, load: async () => (await Archive.search(`(title:(${terms}) OR creator:(${safe})) AND (mediatype:audio OR mediatype:etree) AND (${SEARCH_SCOPE})`, { rows: 24 })).items });
+  },
+
+  notFound() { view.innerHTML = ''; view.append(errorNote('That page doesn’t exist.')); },
+};
+
+function trackList(it) {
+  const box = document.createElement('div');
+  const draw = () => {
+    const cur = Player.current;
+    box.innerHTML = it.parts.map((p, i) => {
+      const pr = Progress.get(it.src, it.id, i);
+      const on = cur && cur.it.src === it.src && cur.it.id === it.id && cur.i === i;
+      const pct = pr && pr.d ? (pr.done ? 1 : pr.t / pr.d) : 0;
+      return `<button class="trk${on ? ' on' : ''}" data-i="${i}"><span class="n">${on ? '▶' : i + 1}</span><span class="nm"><b>${esc(p.title)}</b>${p.sub || p.desc ? `<span>${esc([p.sub, p.desc].filter(Boolean).join(' — '))}</span>` : ''}</span><span class="d">${pr?.done ? '✓' : p.len ? fmt(p.len) : ''}</span>${pct > 0.01 && !pr.done ? `<span class="bar"><i style="width:${(pct*100).toFixed(1)}%"></i></span>` : ''}</button>`;
+    }).join('');
+  };
+  draw();
+  box.onclick = e => { const b = e.target.closest('.trk'); if (b) playItem(it, +b.dataset.i); };
+  box._redraw = draw; box.classList.add('tracklist');
+  return box;
+}
+
+/* =====================================================================
+   Playback
+   ===================================================================== */
+function isVideoFile(f) { return /^video\//.test(f.type) || /\.(mkv|mp4|webm|ogv|mov|m4v)$/i.test(f.name); }
+function localItem(kind, idx) {
+  return { src:'local', id:kind, kind, title: kind === 'video' ? 'My videos' : 'My music', sub:'On this computer', thumb:'',
+    parts: idx.map(i => { const f = Local.files[i]; return { file: f.file, title: f.file.name.replace(/\.[^.]+$/, ''), sub: f.path.includes('/') ? f.path.split('/').slice(0, -1).join(' / ') : '' }; }) };
+}
+
+async function openCard(c) {
+  if (!c) return;
+  if (c.src === 'radio') return playItem({ src:'radio', id:c.id, kind:'audio', title:c.title, sub:c.sub, thumb:c.thumb, live:true, parts:[{ url:c.url, title:c.title, sub:c.sub, hls:c.hls }] }, 0);
+  if (c.resume != null) {
+    try { const it = c.src === 'ia' ? await Archive.item(c.id) : await Podcasts.item(c.id); return playItem(it, Math.min(c.resume, it.parts.length - 1)); }
+    catch { toast('Couldn’t resume that title'); return; }
+  }
+  location.hash = `#/item/${c.src}/${encodeURIComponent(c.id)}`;
+}
+
+const audio = $('#audio'), video = $('#video'), pbar = $('#pbar'), vwrap = $('#vwrap');
+const Player = {
+  current: null, // { it, i, el }
+  lastSave: 0,
+  objURL: null,
+};
+
+function playItem(it, i) {
+  if (!it.parts[i]) return;
+  const isVideo = it.kind === 'video';
+  const el = isVideo ? video : audio;
+  // stop the other element
+  const other = isVideo ? audio : video;
+  if (!other.paused) other.pause();
+  const p = it.parts[i];
+  if (Player.objURL) { URL.revokeObjectURL(Player.objURL); Player.objURL = null; }
+  let url = p.url;
+  if (p.file) { url = Player.objURL = URL.createObjectURL(p.file); }
+  Player.current = { it, i, el };
+  el.src = url;
+  const pr = Progress.get(it.src, it.id, i);
+  const startAt = pr && !pr.done && pr.t > 5 ? pr.t - 3 : 0;
+  if (startAt) el.addEventListener('loadedmetadata', () => { try { el.currentTime = startAt; } catch {} }, { once: true });
+  el.play().catch(err => { if (err.name !== 'AbortError') onMediaError(); });
+  if (it.src === 'radio') Radio.click(it.id);
+
+  if (isVideo) {
+    $('#vTitle').textContent = p.title === it.title || it.parts.length === 1 ? it.title : p.title;
+    $('#vSub').textContent = it.parts.length > 1 ? `${it.title} · Part ${i + 1} of ${it.parts.length}` : (it.sub || '');
+    $('#vPrev').disabled = i === 0; $('#vNext').disabled = i >= it.parts.length - 1;
+    $('#vPrev').hidden = $('#vNext').hidden = it.parts.length < 2;
+    if (!vwrap.classList.contains('on')) { vwrap.classList.add('on'); document.body.style.overflow = 'hidden'; history.pushState({ video: true }, ''); }
+    video.focus(); poke();
+  } else {
+    pbar.classList.add('on'); document.documentElement.style.setProperty('--player-h', window.innerWidth <= 900 ? '72px' : '84px');
+    const art = $('#pArt'); art.src = it.thumb || p.thumb || ''; art.style.visibility = it.thumb ? 'visible' : 'hidden';
+    $('#pTitle').textContent = p.title; $('#pSub').textContent = it.live ? 'Live radio · ' + (it.sub || '') : (it.parts.length > 1 ? it.title : it.sub || '');
+    $('#pPrev').disabled = i === 0; $('#pNext').disabled = i >= it.parts.length - 1;
+    $('#pSeek').disabled = !!it.live;
+  }
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = new MediaMetadata({ title: p.title, artist: it.sub || it.title, album: it.title, artwork: it.thumb ? [{ src: it.thumb, sizes: '512x512' }] : [] });
+    navigator.mediaSession.setActionHandler('previoustrack', i > 0 ? () => step(-1) : null);
+    navigator.mediaSession.setActionHandler('nexttrack', i < it.parts.length - 1 ? () => step(1) : null);
+  }
+  document.querySelectorAll('.tracklist').forEach(b => b._redraw?.());
+}
+function step(d) { const c = Player.current; if (c && c.it.parts[c.i + d]) playItem(c.it, c.i + d); }
+function onMediaError() {
+  const c = Player.current; if (!c) return;
+  if (c.it.src === 'local') toast('Your browser can’t decode this file — try VLC');
+  else if (c.it.live) toast('This station is offline — try another');
+  else toast('This stream couldn’t be played');
+}
+
+function saveProgress(el, force) {
+  const c = Player.current; if (!c || c.el !== el || c.it.live || c.it.src === 'local') return;
+  const now = Date.now(); if (!force && now - Player.lastSave < 4000) return;
+  Player.lastSave = now;
+  const p = c.it.parts[c.i];
+  Progress.put(c.it.src, c.it.id, c.i, el.currentTime, el.duration, { src:c.it.src, id:c.it.id, title:c.it.title, sub:c.it.sub, thumb:c.it.thumb, kind:c.it.kind, partTitle:p.title });
+}
+for (const el of [audio, video]) {
+  el.addEventListener('timeupdate', () => { saveProgress(el); if (el === audio) syncBar(); });
+  el.addEventListener('pause', () => { saveProgress(el, true); if (el === audio) syncBar(); });
+  el.addEventListener('play', () => { if (el === audio) syncBar(); });
+  el.addEventListener('ended', () => { saveProgress(el, true); const c = Player.current; if (c && c.el === el && c.i < c.it.parts.length - 1) step(1); else if (el === video) closeVideo(); });
+  el.addEventListener('error', () => { if (el.getAttribute('src')) onMediaError(); });
+}
+addEventListener('pagehide', () => { const c = Player.current; if (c) saveProgress(c.el, true); store.set('progress', Progress.all); });
+
+/* audio bar */
+const seek = $('#pSeek'), vol = $('#pVol');
+let dragging = false;
+function syncBar() {
+  const playing = !audio.paused;
+  $('#pPlay').innerHTML = icon(playing ? 'pause' : 'play'); $('#pPlay').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+  const live = Player.current?.it.live;
+  $('#pCur').textContent = live ? 'LIVE' : fmt(audio.currentTime);
+  $('#pDur').textContent = live ? '' : fmt(audio.duration);
+  if (!dragging) { const pct = !live && audio.duration ? audio.currentTime / audio.duration * 1000 : 0; seek.value = pct; seek.style.setProperty('--p', pct / 10 + '%'); }
+}
+seek.addEventListener('input', () => { dragging = true; seek.style.setProperty('--p', seek.value / 10 + '%'); $('#pCur').textContent = fmt(seek.value / 1000 * audio.duration); });
+seek.addEventListener('change', () => { if (audio.duration) audio.currentTime = seek.value / 1000 * audio.duration; dragging = false; });
+const setVol = v => { audio.volume = video.volume = v / 100; vol.style.setProperty('--p', v + '%'); store.set('vol', +v); };
+vol.value = store.get('vol', 80); setVol(vol.value);
+vol.addEventListener('input', () => setVol(vol.value));
+video.addEventListener('volumechange', () => { if (Math.abs(video.volume * 100 - vol.value) > 1) { vol.value = Math.round(video.volume * 100); setVol(vol.value); } });
+$('#pPlay').onclick = () => audio.paused ? audio.play().catch(onMediaError) : audio.pause();
+$('#pPrev').onclick = () => { if (audio.currentTime > 5 && !Player.current?.it.live) audio.currentTime = 0; else step(-1); };
+$('#pNext').onclick = () => step(1);
+$('#pClose').onclick = () => { saveProgress(audio, true); audio.pause(); audio.removeAttribute('src'); audio.load(); pbar.classList.remove('on'); document.documentElement.style.setProperty('--player-h', '0px'); if (Player.current?.el === audio) Player.current = null; document.querySelectorAll('.tracklist').forEach(b => b._redraw?.()); };
+
+/* video overlay */
+let idleT;
+function poke() { vwrap.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => { if (!video.paused) vwrap.classList.add('idle'); }, 2600); }
+vwrap.addEventListener('mousemove', poke); vwrap.addEventListener('touchstart', poke, { passive: true });
+video.addEventListener('pause', poke);
+function closeVideo(fromPop) {
+  if (!vwrap.classList.contains('on')) return;
+  saveProgress(video, true); video.pause();
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  vwrap.classList.remove('on'); document.body.style.overflow = '';
+  if (Player.current?.el === video) Player.current = null;
+  video.removeAttribute('src'); video.load();
+  if (!fromPop && history.state?.video) history.back();
+  document.querySelectorAll('.tracklist').forEach(b => b._redraw?.());
+  // refresh continue-watching / progress bars
+  if (/^#\/(home)?$/.test(location.hash || '#/')) route();
+}
+$('#vClose').onclick = () => closeVideo();
+$('#vPrev').onclick = () => step(-1);
+$('#vNext').onclick = () => step(1);
+addEventListener('popstate', () => { if (vwrap.classList.contains('on')) closeVideo(true); });
+
+/* keyboard */
+addEventListener('keydown', e => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'range';
+  if (e.key === '/' && !typing) { e.preventDefault(); $('#q').focus(); return; }
+  if (vwrap.classList.contains('on')) {
+    if (e.key === 'Escape' && !document.fullscreenElement) { e.preventDefault(); closeVideo(); }
+    else if (e.key.toLowerCase() === 'f' && !typing) { document.fullscreenElement ? document.exitFullscreen() : vwrap.requestFullscreen?.(); }
+    else if (e.key === ' ' && e.target !== video && !typing) { e.preventDefault(); video.paused ? video.play() : video.pause(); }
+    else if (e.key === 'ArrowRight' && e.target !== video) video.currentTime += 10;
+    else if (e.key === 'ArrowLeft' && e.target !== video) video.currentTime -= 10;
+    else if (e.key === 'N' && e.shiftKey) step(1);
+    poke(); return;
+  }
+  if (e.key === ' ' && !typing && pbar.classList.contains('on') && !e.target.closest('button,a')) { e.preventDefault(); $('#pPlay').click(); }
+});
+
+/* =====================================================================
+   Router & chrome
+   ===================================================================== */
+function buildNav() {
+  $('#nav').innerHTML = PAGES.map(p => p.sep ? `<div class="lbl">${p.sep}</div>` : `<a href="#/${p.id}" data-id="${p.id}">${icon(p.icon)}${p.label}</a>`).join('');
+  $('#mobNav').innerHTML = MOB.map(id => { const p = PAGES.find(x => x.id === id); return `<a href="#/${id}" data-id="${id}">${icon(p.icon)}${p.label === 'My Files' ? 'Files' : p.label}</a>`; }).join('');
+}
+function setActive(id) { document.querySelectorAll('[data-id]').forEach(a => a.dataset.id === id ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')); }
+
+let routeSeq = 0;
+function route() {
+  routeSeq++;
+  const h = decodeURIComponent((location.hash || '#/home').slice(2));
+  const [name, ...rest] = h.split('/');
+  scrollTo(0, 0);
+  let active = name || 'home';
+  if (name === 'item') { active = ''; Views.item(rest[0], rest.slice(1).join('/')); }
+  else if (name === 'browse') { active = ''; Views.browse(rest[0]); }
+  else if (name === 'search') { active = ''; const q = rest.join('/'); $('#q').value = q; Views.search(q); }
+  else {
+    const page = PAGES.find(p => p.id === (name || 'home'));
+    if (!page) Views.notFound();
+    else if (page.id === 'home') Views.home();
+    else if (page.shelves) Views.section(page);
+    else Views[page.id](page);
+  }
+  setActive(active);
+  document.title = active && active !== 'home' ? `${PAGES.find(p => p.id === active)?.label} · Marquee` : 'Marquee — Free Media Center';
+}
+
+$('#searchForm').onsubmit = e => { e.preventDefault(); const q = $('#q').value.trim(); if (q) { location.hash = '#/search/' + encodeURIComponent(q); $('#q').blur(); } };
+addEventListener('scroll', () => $('#top').classList.toggle('scrolled', scrollY > 8), { passive: true });
+addEventListener('hashchange', route);
+addEventListener('resize', () => { if (pbar.classList.contains('on')) document.documentElement.style.setProperty('--player-h', innerWidth <= 900 ? '72px' : '84px'); });
+buildNav(); route();
+})();
+</script>
+</body>
+</html>

@@ -11,6 +11,7 @@ Static site, no build step needed to deploy:
 - `resume/Aryan_Gupta_Resume.pdf`, built from `resume/resume.html` with `node resume/build-pdf.cjs`
 - `querypilot/`: QueryPilot, browser-only text-to-SQL analytics (live demo + source, tests and eval; see its README)
 - `sentineldesk/`: SentinelDesk live demo, a self-contained page running the service desk's rules engine in the browser
+- `mediacenter/`: Marquee, a free and legal browser media center (public-domain films and TV, concerts, radio, podcasts, local files; see its README)
 - `workbench/`: QueryPilot Workbench, the self-hosted Python + Next.js version (not deployed to Pages; see its README)
 
 To rebuild the vendor bundle after changing `vendor/libs.src.js`:
