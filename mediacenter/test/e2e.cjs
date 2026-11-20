@@ -204,6 +204,10 @@ async function mockAll(page, { live = false, log }) {
   ok((await page.textContent('#pTitle')) === 'Ep 1: Origins', 'resumes the right episode (keyed by GUID, not position)');
   await page.click('#saveBtn'); await page.click('#pClose');
 
+  await page.route('https://itunes.apple.com/search?*term=ratelimited*', r => r.fulfill({ status: 403, body: '' }));
+  await go('#/search/ratelimited'); await wait(3500);
+  ok((await page.textContent('.view')).includes('rate-limiting'), 'Apple 403 (rate limit) is retried once, then explained');
+
   console.log('Radio');
   await go('#/radio'); await page.click('.chip:has-text("Jazz")'); await page.waitForSelector('.grid .card'); await wait(300);
   const rq = log.filter(u => u.includes('/stations/search')).pop();
@@ -272,7 +276,9 @@ async function mockAll(page, { live = false, log }) {
     ok(sn > 0, `live search finds Chaplin films (${sn})`);
     await lp.goto(BASE + '#/podcasts');
     const pn = await lp.waitForSelector('.grid .card:not(.skel), .note', { timeout: 30000 }).then(() => lp.$$eval('.grid .card:not(.skel)', c => c.length));
-    ok(pn > 5, `live podcast search returns shows (${pn})`);
+    const limited = !pn && (await lp.textContent('.view')).includes('rate-limiting');
+    if (limited) console.log('  - SKIPPED live podcasts: Apple is rate-limiting this IP (app shows the rate-limit message, as designed)');
+    else ok(pn > 5, `live podcast search returns shows (${pn})`);
     if (pn) {
       await lp.click('.grid .card'); await lp.waitForSelector('.trk, .view > .note', { timeout: 30000 });
       const eps = await lp.$$eval('.trk', t => t.length);

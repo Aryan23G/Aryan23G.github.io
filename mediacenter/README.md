@@ -21,7 +21,7 @@ A single-page, no-build media center that runs in any modern browser. It's live 
 
 ## Tests
 
-    node mediacenter/test/e2e.cjs          # 47 checks, every API mocked with real-shaped fixtures
-    LIVE=1 node mediacenter/test/e2e.cjs   # also checks all 14 collections, radio and search against the real APIs
+    node mediacenter/test/e2e.cjs          # 48 checks, every API mocked with real-shaped fixtures
+    LIVE=1 node mediacenter/test/e2e.cjs   # also checks all 14 collections, radio, search and podcasts against the real APIs (67 checks)
 
 The tests need Playwright's Chromium and `ffmpeg`, which generates tiny media fixtures.

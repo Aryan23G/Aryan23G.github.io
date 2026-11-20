@@ -384,17 +384,36 @@ let toastT;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400); }
 
 const cache = new Map();
-async function getJSON(url, { timeout = 15000 } = {}) {
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+/** fetch JSON with in-memory de-duplication; `persist` (minutes) also caches in sessionStorage,
+    `retry` retries once on rate-limit style responses (403/429/503). */
+async function getJSON(url, { timeout = 15000, persist = 0, retry = false } = {}) {
   if (cache.has(url)) return cache.get(url);
-  const p = (async () => {
+  if (persist) {
+    try { const hit = JSON.parse(sessionStorage.getItem('mq:' + url)); if (hit && Date.now() - hit.at < persist * 60000) return hit.data; } catch {}
+  }
+  const once = async () => {
     const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), timeout);
-    try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
-    finally { clearTimeout(tm); }
+    try {
+      const r = await fetch(url, { signal: ctl.signal });
+      if (!r.ok) { const e = new Error('HTTP ' + r.status); e.status = r.status; throw e; }
+      return await r.json();
+    } finally { clearTimeout(tm); }
+  };
+  const p = (async () => {
+    let data;
+    try { data = await once(); }
+    catch (e) { if (!retry || ![403, 429, 503].includes(e.status)) throw e; await sleep(2500); data = await once(); }
+    if (persist) { try { sessionStorage.setItem('mq:' + url, JSON.stringify({ at: Date.now(), data })); } catch {} }
+    return data;
   })();
   cache.set(url, p);
   p.catch(() => cache.delete(url));
   return p;
 }
+const busyMsg = e => e && [403, 429].includes(e.status)
+  ? 'This service is rate-limiting requests right now. Wait a minute, then try again.'
+  : 'Couldn’t reach this source right now. Check your connection, or the service may be busy.';
 
 /* =====================================================================
    Data sources
@@ -470,12 +489,12 @@ const Archive = {
 
 const Podcasts = {
   async search(term, limit = 24) {
-    const j = await getJSON(`${ITUNES}/search?media=podcast&entity=podcast&limit=${limit}&term=${encodeURIComponent(term)}`);
+    const j = await getJSON(`${ITUNES}/search?media=podcast&entity=podcast&limit=${limit}&term=${encodeURIComponent(term)}`, { persist: 30, retry: true });
     return (j.results || []).filter(r => r.collectionId).map(Podcasts.card);
   },
   card(r) { return { src:'pod', id:String(r.collectionId), title:r.collectionName, sub:r.artistName, thumb:https(r.artworkUrl600 || r.artworkUrl100), kind:'audio' }; },
   async item(id) {
-    const j = await getJSON(`${ITUNES}/lookup?id=${encodeURIComponent(id)}&media=podcast&entity=podcastEpisode&limit=100`);
+    const j = await getJSON(`${ITUNES}/lookup?id=${encodeURIComponent(id)}&media=podcast&entity=podcastEpisode&limit=100`, { persist: 10, retry: true });
     const res = j.results || [];
     const show = res.find(r => r.kind === 'podcast') || res.find(r => r.wrapperType === 'track');
     if (!show) throw new Error('Not found');
@@ -613,7 +632,7 @@ function shelf(parent, { title, note, more, square, grid, load }) {
       if (!cards.length) { box.replaceWith(errorNote('Nothing here yet.')); return; }
       box.innerHTML = cards.map(cardHTML).join('');
     } catch (e) {
-      const n = errorNote('Couldn’t reach this source right now. Check your connection, or the service may be busy.', () => { n.replaceWith(box); run(); });
+      const n = errorNote(busyMsg(e), () => { n.replaceWith(box); run(); });
       box.replaceWith(n);
     }
   };
@@ -817,7 +836,7 @@ const Views = {
       else if (src === 'pod') it = await Podcasts.item(id);
       else return Views.notFound();
     } catch (e) {
-      view.innerHTML = ''; view.append(errorNote('Couldn’t load this title.', () => Views.item(src, id))); return;
+      view.innerHTML = ''; view.append(errorNote(e.status ? busyMsg(e) : 'Couldn’t load this title.', () => Views.item(src, id))); return;
     }
     if (seq !== routeSeq) return; // user navigated away while loading
     const card = { src, id, title: it.title, sub: it.sub, thumb: it.thumb, kind: it.kind };
